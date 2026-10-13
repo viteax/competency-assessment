@@ -1,15 +1,15 @@
 """Банк вопросов."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app import models, schemas
-from app.api.deps import SessionDep
+from app.api.deps import SessionDep, require_admin
 from app.errors import DomainError
 from app.services.common import get_or_404
 
-router = APIRouter(tags=["Банк вопросов"])
+router = APIRouter(tags=["Банк вопросов"], dependencies=[Depends(require_admin)])
 
 
 @router.post("/questions", response_model=schemas.QuestionOut, status_code=201)

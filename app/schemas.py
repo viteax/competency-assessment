@@ -2,11 +2,39 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.models import CompetencyKind
+from app.models import CompetencyKind, Role
 
 
 class ORM(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
+
+# --- Пользователи ---------------------------------------------------------
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class UserCreate(BaseModel):
+    username: str = Field(min_length=3, max_length=64)
+    password: str = Field(min_length=6)
+    role: Role
+    student_id: int | None = None
+
+    @model_validator(mode="after")
+    def student_link(self) -> "UserCreate":
+        if (self.role == Role.STUDENT) != (self.student_id is not None):
+            raise ValueError("student_id указывается только и обязательно для роли student")
+        return self
+
+
+class UserOut(ORM):
+    id: int
+    username: str
+    role: Role
+    student_id: int | None
 
 
 # --- Учебная часть ---------------------------------------------------------
@@ -199,7 +227,6 @@ class StudentQuestionOut(ORM):
 
 class AttemptStart(BaseModel):
     assignment_id: int
-    student_id: int
 
 
 class AttemptStarted(BaseModel):

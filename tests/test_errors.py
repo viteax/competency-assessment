@@ -1,15 +1,14 @@
 from fastapi.testclient import TestClient
 
-from tests.helpers import by_code, correct_options
-from tests.test_flow import setup_assignment
+from tests.helpers import assign, by_code, correct_options
 
 
-def test_not_enough_questions(client: TestClient):
-    response = client.post(
+def test_not_enough_questions(admin: TestClient):
+    response = admin.post(
         "/tests",
         json={
             "title": "t",
-            "competency_ids": [by_code(client, "УК-1")["id"]],
+            "competency_ids": [by_code(admin, "УК-1")["id"]],
             "questions_per_competency": 5,
         },
     )
@@ -17,65 +16,81 @@ def test_not_enough_questions(client: TestClient):
     assert "УК-1" in response.json()["detail"]
 
 
-def test_unknown_competency(client: TestClient):
-    response = client.post("/tests", json={"title": "t", "competency_ids": [999]})
+def test_unknown_competency(admin: TestClient):
+    response = admin.post("/tests", json={"title": "t", "competency_ids": [999]})
     assert response.status_code == 404
 
 
-def test_duplicate_assignment(client: TestClient):
-    ctx = setup_assignment(client, ["ПК-1"])
-    again = client.post(
+def test_duplicate_assignment(admin: TestClient):
+    ctx = assign(admin, ["ПК-1"])
+    again = admin.post(
         "/assignments", json={"test_id": ctx["test"]["id"], "group_id": ctx["group"]["id"]}
     )
     assert again.status_code == 409
 
 
-def test_student_from_other_group(client: TestClient):
-    ctx = setup_assignment(client, ["ПК-1"])
-    other_group = client.post(
+def test_student_from_other_group_cannot_start(admin: TestClient, login):
+    ctx = assign(admin, ["ПК-1"])
+    other_group = admin.post(
         "/groups", json={"name": "ПИ-22", "direction_id": ctx["group"]["direction_id"]}
     ).json()
-    stranger = client.post("/students", json={"full_name": "Чужой", "group_id": other_group["id"]})
-    response = client.post(
-        "/attempts",
-        json={"assignment_id": ctx["assignment"]["id"], "student_id": stranger.json()["id"]},
-    )
-    assert response.status_code == 400
-
-
-def test_cannot_submit_twice_or_restart(client: TestClient):
-    ctx = setup_assignment(client, ["ПК-1"])
-    payload = {"assignment_id": ctx["assignment"]["id"], "student_id": ctx["student"]["id"]}
-    attempt_id = client.post("/attempts", json=payload).json()["attempt_id"]
-    # Повторный старт до сдачи возвращает ту же попытку.
-    assert client.post("/attempts", json=payload).json()["attempt_id"] == attempt_id
-
-    assert client.post(f"/attempts/{attempt_id}/submit", json={"answers": []}).status_code == 200
-    assert client.post(f"/attempts/{attempt_id}/submit", json={"answers": []}).status_code == 409
-    assert client.post("/attempts", json=payload).status_code == 409
-
-
-def test_option_from_another_question(client: TestClient):
-    ctx = setup_assignment(client, ["ПК-1"])
-    started = client.post(
-        "/attempts",
-        json={"assignment_id": ctx["assignment"]["id"], "student_id": ctx["student"]["id"]},
-    ).json()
-    q1, q2 = started["questions"][:2]
-    response = client.post(
-        f"/attempts/{started['attempt_id']}/submit",
+    stranger = admin.post("/students", json={"full_name": "Чужой", "group_id": other_group["id"]})
+    admin.post(
+        "/users",
         json={
-            "answers": [{"question_id": q1["id"], "option_id": correct_options(client)[q2["id"]]}]
+            "username": "stranger",
+            "password": "secret1",
+            "role": "student",
+            "student_id": stranger.json()["id"],
+        },
+    )
+    client = login("stranger", "secret1")
+    assert client.get("/me/assignments").json() == []
+    response = client.post("/me/attempts", json={"assignment_id": ctx["assignment"]["id"]})
+    assert response.status_code == 404
+
+
+def test_cannot_submit_twice_or_restart(admin: TestClient, student: TestClient):
+    ctx = assign(admin, ["ПК-1"])
+    payload = {"assignment_id": ctx["assignment"]["id"]}
+    attempt_id = student.post("/me/attempts", json=payload).json()["attempt_id"]
+    # Повторный старт до сдачи возвращает ту же попытку.
+    assert student.post("/me/attempts", json=payload).json()["attempt_id"] == attempt_id
+
+    submit = f"/me/attempts/{attempt_id}/submit"
+    assert student.post(submit, json={"answers": []}).status_code == 200
+    assert student.post(submit, json={"answers": []}).status_code == 409
+    assert student.post("/me/attempts", json=payload).status_code == 409
+
+
+def test_cannot_submit_someone_elses_attempt(admin: TestClient, student: TestClient, login):
+    ctx = assign(admin, ["ПК-1"])
+    attempt_id = student.post(
+        "/me/attempts", json={"assignment_id": ctx["assignment"]["id"]}
+    ).json()["attempt_id"]
+    classmate = login("student2", "student123")
+    response = classmate.post(f"/me/attempts/{attempt_id}/submit", json={"answers": []})
+    assert response.status_code == 404
+
+
+def test_option_from_another_question(admin: TestClient, student: TestClient):
+    ctx = assign(admin, ["ПК-1"])
+    started = student.post("/me/attempts", json={"assignment_id": ctx["assignment"]["id"]}).json()
+    q1, q2 = started["questions"][:2]
+    response = student.post(
+        f"/me/attempts/{started['attempt_id']}/submit",
+        json={
+            "answers": [{"question_id": q1["id"], "option_id": correct_options(admin)[q2["id"]]}]
         },
     )
     assert response.status_code == 400
 
 
-def test_question_needs_exactly_one_correct_option(client: TestClient):
-    response = client.post(
+def test_question_needs_exactly_one_correct_option(admin: TestClient):
+    response = admin.post(
         "/questions",
         json={
-            "competency_id": by_code(client, "ПК-1")["id"],
+            "competency_id": by_code(admin, "ПК-1")["id"],
             "text": "?",
             "options": [{"text": "a", "is_correct": True}, {"text": "b", "is_correct": True}],
         },
@@ -83,9 +98,9 @@ def test_question_needs_exactly_one_correct_option(client: TestClient):
     assert response.status_code == 422
 
 
-def test_indicator_must_belong_to_competency(client: TestClient):
-    pk1, pk2 = by_code(client, "ПК-1"), by_code(client, "ПК-2")
-    response = client.post(
+def test_indicator_must_belong_to_competency(admin: TestClient):
+    pk1, pk2 = by_code(admin, "ПК-1"), by_code(admin, "ПК-2")
+    response = admin.post(
         "/questions",
         json={
             "competency_id": pk1["id"],
@@ -97,8 +112,8 @@ def test_indicator_must_belong_to_competency(client: TestClient):
     assert response.status_code == 400
 
 
-def test_duplicate_competency_code(client: TestClient):
-    response = client.post(
+def test_duplicate_competency_code(admin: TestClient):
+    response = admin.post(
         "/competencies", json={"code": "ПК-1", "kind": "ПК", "description": "дубль"}
     )
     assert response.status_code == 409

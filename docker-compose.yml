@@ -18,6 +18,7 @@ services:
     build: .
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/competency
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
     ports:
       - "8000:8000"
     depends_on:

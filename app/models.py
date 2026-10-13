@@ -1,6 +1,6 @@
 """Модель предметной области.
 
-Учебная часть:      Direction -> Group -> Student
+Учебная часть:      Direction -> Group -> Student (<- User со ролью student)
 Компетенции ФГОС:   Competency (УК/ОПК/ПК) -> Indicator, Discipline <-> Competency
 Профстандарт:       ProfStandard -> GeneralLaborFunction (ОТФ) -> LaborFunction (ТФ) <-> Competency
 Тестирование:       Question -> AnswerOption, Test -> TestQuestion,
@@ -28,6 +28,11 @@ from app.db import Base
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+class Role(enum.StrEnum):
+    ADMIN = "admin"
+    STUDENT = "student"
 
 
 class CompetencyKind(enum.StrEnum):
@@ -87,6 +92,20 @@ class Student(Base):
     group_id: Mapped[int] = mapped_column(ForeignKey("study_group.id"))
 
     group: Mapped[Group] = relationship(back_populates="students")
+
+
+class User(Base):
+    """Учётная запись. Студенческая учётка привязана к записи Student."""
+
+    __tablename__ = "app_user"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[Role] = mapped_column(Enum(Role, values_callable=lambda e: [m.value for m in e]))
+    student_id: Mapped[int | None] = mapped_column(ForeignKey("student.id"), unique=True)
+
+    student: Mapped[Student | None] = relationship()
 
 
 # --- Компетенции -----------------------------------------------------------

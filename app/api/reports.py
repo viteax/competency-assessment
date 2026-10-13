@@ -1,10 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app import schemas
-from app.api.deps import SessionDep
+from app.api.deps import SessionDep, require_admin
 from app.services import reports
 
-router = APIRouter(prefix="/reports", tags=["Отчёты"])
+router = APIRouter(prefix="/reports", tags=["Отчёты"], dependencies=[Depends(require_admin)])
 
 
 @router.get("/students/{student_id}/competencies", response_model=schemas.StudentCompetencyReport)

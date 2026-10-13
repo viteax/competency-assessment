@@ -8,5 +8,9 @@ class Settings(BaseSettings):
     # Доля правильных ответов, начиная с которой компетенция считается сформированной.
     mastery_threshold: float = 0.6
 
+    # Обязательно переопределить в проде через переменную окружения SECRET_KEY.
+    secret_key: str = "dev-secret-change-me"
+    access_token_ttl_minutes: int = 12 * 60
+
 
 settings = Settings()

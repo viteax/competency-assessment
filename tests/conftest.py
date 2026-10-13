@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,7 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.db import Base, get_session
 from app.main import app
-from scripts.seed import seed
+from scripts.seed import ADMIN_LOGIN, STUDENT_PASSWORD, seed
 
 
 @pytest.fixture
@@ -35,4 +35,30 @@ def session() -> Iterator[Session]:
 
 @pytest.fixture
 def client(session: Session) -> TestClient:
+    """Клиент без авторизации."""
     return TestClient(app)
+
+
+@pytest.fixture
+def login(session: Session) -> Callable[[str, str], TestClient]:
+    """Возвращает клиент, авторизованный под указанным пользователем."""
+
+    def _login(username: str, password: str) -> TestClient:
+        c = TestClient(app)
+        response = c.post("/auth/token", data={"username": username, "password": password})
+        assert response.status_code == 200, response.text
+        c.headers["Authorization"] = f"Bearer {response.json()['access_token']}"
+        return c
+
+    return _login
+
+
+@pytest.fixture
+def admin(login) -> TestClient:
+    return login(*ADMIN_LOGIN)
+
+
+@pytest.fixture
+def student(login) -> TestClient:
+    """student1 — Иванов Иван Иванович из группы ПИ-21."""
+    return login("student1", STUDENT_PASSWORD)

@@ -1,14 +1,14 @@
 """Компетенции, индикаторы, дисциплины."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app import models, schemas
-from app.api.deps import SessionDep
+from app.api.deps import SessionDep, require_admin
 from app.services.common import get_many_or_404, get_or_404
 
-router = APIRouter(tags=["Компетенции"])
+router = APIRouter(tags=["Компетенции"], dependencies=[Depends(require_admin)])
 
 
 @router.post("/competencies", response_model=schemas.CompetencyOut, status_code=201)

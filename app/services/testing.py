@@ -84,12 +84,12 @@ def _test_questions(session: Session, test_id: int) -> list[models.Question]:
 
 
 def start_attempt(
-    session: Session, data: schemas.AttemptStart
+    session: Session, assignment_id: int, student: models.Student
 ) -> tuple[models.Attempt, list[models.Question]]:
-    assignment = get_or_404(session, models.Assignment, data.assignment_id)
-    student = get_or_404(session, models.Student, data.student_id)
-    if student.group_id != assignment.group_id:
-        raise DomainError("тест не назначен группе этого студента")
+    assignment = session.get(models.Assignment, assignment_id)
+    # Чужие назначения не отличаем от несуществующих.
+    if assignment is None or assignment.group_id != student.group_id:
+        raise NotFound(f"назначение {assignment_id} не найдено")
 
     attempt = session.scalar(
         select(models.Attempt).where(
@@ -107,9 +107,11 @@ def start_attempt(
 
 
 def submit_attempt(
-    session: Session, attempt_id: int, data: schemas.AttemptSubmit
+    session: Session, attempt_id: int, student: models.Student, data: schemas.AttemptSubmit
 ) -> models.Attempt:
-    attempt = get_or_404(session, models.Attempt, attempt_id)
+    attempt = session.get(models.Attempt, attempt_id)
+    if attempt is None or attempt.student_id != student.id:
+        raise NotFound(f"попытка {attempt_id} не найдена")
     if attempt.finished_at is not None:
         raise Conflict("попытка уже завершена")
 

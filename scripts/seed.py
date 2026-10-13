@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app import models
 from app.db import Base, SessionLocal, engine
 from app.models import CompetencyKind as K
+from app.security import hash_password
 
 COMPETENCIES = [
     (
@@ -278,6 +279,11 @@ QUESTIONS = [
 
 STUDENTS = ["Иванов Иван Иванович", "Петрова Анна Сергеевна", "Сидоров Пётр Алексеевич"]
 
+# Демо-учётки: только для локального запуска. В проде создавайте пользователей
+# через `python -m scripts.create_admin` и POST /users.
+ADMIN_LOGIN = ("admin", "admin123")
+STUDENT_PASSWORD = "student123"  # логины student1, student2, ...
+
 
 def seed(session: Session) -> None:
     if session.scalar(select(models.Direction).limit(1)):
@@ -288,6 +294,23 @@ def seed(session: Session) -> None:
     group = models.Group(name="ПИ-21", direction=direction)
     group.students = [models.Student(full_name=name) for name in STUDENTS]
     session.add(direction)
+    session.add(
+        models.User(
+            username=ADMIN_LOGIN[0],
+            password_hash=hash_password(ADMIN_LOGIN[1]),
+            role=models.Role.ADMIN,
+        )
+    )
+    student_hash = hash_password(STUDENT_PASSWORD)
+    for i, student in enumerate(group.students, start=1):
+        session.add(
+            models.User(
+                username=f"student{i}",
+                password_hash=student_hash,
+                role=models.Role.STUDENT,
+                student=student,
+            )
+        )
 
     competencies: dict[str, models.Competency] = {}
     indicators: dict[str, models.Indicator] = {}
@@ -335,7 +358,9 @@ def seed(session: Session) -> None:
     session.commit()
     print(
         f"добавлено: {len(competencies)} компетенций, {len(QUESTIONS)} вопросов, "
-        f"{len(STUDENTS)} студентов"
+        f"{len(STUDENTS)} студентов\n"
+        f"демо-логины: {ADMIN_LOGIN[0]}/{ADMIN_LOGIN[1]}, "
+        f"student1..{len(STUDENTS)}/{STUDENT_PASSWORD}"
     )
 
 

@@ -1,13 +1,13 @@
 """Направления, группы, студенты."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 
 from app import models, schemas
-from app.api.deps import SessionDep
+from app.api.deps import SessionDep, require_admin
 from app.services.common import get_or_404
 
-router = APIRouter(tags=["Учебная часть"])
+router = APIRouter(tags=["Учебная часть"], dependencies=[Depends(require_admin)])
 
 
 @router.post("/directions", response_model=schemas.DirectionOut, status_code=201)
