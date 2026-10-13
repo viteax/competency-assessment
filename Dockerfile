@@ -17,6 +17,9 @@ COPY app ./app
 COPY scripts ./scripts
 COPY migrations ./migrations
 COPY alembic.ini ./
+# Подстраховка для сборки из копии с концами строк Windows (CRLF): скрипт с «\r» в первой
+# строке не запустится.
+RUN sed -i 's/\r$//' scripts/*.sh && chmod +x scripts/entrypoint.sh
 RUN uv sync --locked --no-dev
 
 # --- итоговый образ: без uv и инструментов сборки, под непривилегированным пользователем
