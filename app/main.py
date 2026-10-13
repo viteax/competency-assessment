@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -18,9 +20,27 @@ from app.api import (
     study,
     testing,
 )
+from app.config import settings
+from app.db import SessionLocal
 from app.errors import DomainError
+from app.services import auth as auth_service
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    if settings.is_prod:
+        with SessionLocal() as session:
+            exposed = auth_service.demo_passwords_in_use(session)
+        if exposed:
+            raise RuntimeError(
+                "в ENVIRONMENT=prod у демо-учёток публичные пароли: "
+                f"{', '.join(exposed)} — удалите их или смените пароли"
+            )
+    yield
+
 
 app = FastAPI(
+    lifespan=lifespan,
     title="Competency Assessment",
     description="Тестирование студентов по компетенциям ФГОС с привязкой к профстандарту",
     version="0.1.0",

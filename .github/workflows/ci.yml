@@ -15,6 +15,15 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run pytest -q
 
+  audit:
+    # Известные уязвимости в зависимостях (база OSV/PyPI), по точным версиям из uv.lock.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv export --frozen --no-dev --no-emit-project -o requirements.txt
+      - run: uvx pip-audit -r requirements.txt --disable-pip --require-hashes
+
   migrations:
     runs-on: ubuntu-latest
     services:
@@ -29,6 +38,7 @@ jobs:
           --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 15
     env:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/competency
+      ENVIRONMENT: dev
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6

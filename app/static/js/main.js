@@ -42,9 +42,10 @@ function clearHeader() {
   fill(who);
 }
 
-function showLogin() {
+function showLogin(message) {
   clearHeader();
   const err = errorBox();
+  if (message) err.show(new Error(message));
   const username = h("input", { type: "text", autocomplete: "username", required: true });
   const password = h("input", { type: "password", autocomplete: "current-password", required: true });
   render(
@@ -168,5 +169,5 @@ window.addEventListener("unhandledrejection", (event) => {
   document.getElementById("app").prepend(box.el);
 });
 
-setUnauthorizedHandler(showLogin);
+setUnauthorizedHandler(() => showLogin("Сессия завершилась — войдите снова."));
 start();

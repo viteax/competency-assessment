@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app import models
 from app.config import settings
 from app.db import SessionLocal
+from app.demo import DEMO_ADMIN, DEMO_STUDENT_COUNT, DEMO_STUDENT_PASSWORD
 from app.models import CompetencyKind as K
 from app.security import hash_password
 from scripts.init_db import migrate
@@ -281,10 +282,11 @@ QUESTIONS = [
 
 STUDENTS = ["Иванов Иван Иванович", "Петрова Анна Сергеевна", "Сидоров Пётр Алексеевич"]
 
-# Демо-учётки: только для локального запуска. В проде создавайте пользователей
-# через `python -m scripts.create_admin` и POST /users.
-ADMIN_LOGIN = ("admin", "admin123")
-STUDENT_PASSWORD = "student123"  # логины student1, student2, ...
+# Демо-учётки (app/demo.py) — только для локального запуска. В проде администратор
+# создаётся через `python -m scripts.create_admin`, остальные — в интерфейсе.
+ADMIN_LOGIN = DEMO_ADMIN
+STUDENT_PASSWORD = DEMO_STUDENT_PASSWORD
+assert len(STUDENTS) == DEMO_STUDENT_COUNT
 
 
 def seed(session: Session) -> None:

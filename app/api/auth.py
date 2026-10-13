@@ -5,17 +5,26 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 
 from app import models, schemas
+from app.api.cookies import (
+    DEVICE_COOKIE,
+    clear_session_cookie,
+    set_device_cookie,
+    set_session_cookie,
+)
 from app.api.deps import (
-    SESSION_COOKIE,
     AdminUser,
     CurrentUser,
     SessionDep,
     client_ip,
     get_current_user,
 )
-from app.config import settings
 from app.errors import Conflict, Unauthorized
-from app.security import create_access_token, hash_password
+from app.security import (
+    create_access_token,
+    create_device_token,
+    device_token_username,
+    hash_password,
+)
 from app.services import auth
 from app.services.common import delete_or_conflict, get_or_404, save
 
@@ -31,24 +40,17 @@ def login(
 ):
     """Вход. Токен возвращается в ответе (для API и Swagger) и ставится в httpOnly-cookie
     (для веб-интерфейса — JavaScript его не видит)."""
-    user = auth.authenticate(session, form.username, form.password, client_ip(request))
+    trusted = device_token_username(request.cookies.get(DEVICE_COOKIE)) == form.username
+    user = auth.authenticate(session, form.username, form.password, client_ip(request), trusted)
     token = create_access_token(user.id, user.token_version)
-    response.set_cookie(
-        SESSION_COOKIE,
-        token,
-        max_age=settings.access_token_ttl_minutes * 60,
-        httponly=True,
-        secure=settings.is_prod,
-        samesite="strict",
-    )
+    set_session_cookie(response, token)
+    set_device_cookie(response, create_device_token(user.username))
     return schemas.Token(access_token=token)
 
 
 @router.post("/auth/logout", status_code=204)
 def logout(response: Response):
-    response.delete_cookie(
-        SESSION_COOKIE, httponly=True, secure=settings.is_prod, samesite="strict"
-    )
+    clear_session_cookie(response)
 
 
 @router.get("/auth/session", response_model=schemas.UserOut | None)

@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request, Response
 from starlette.concurrency import run_in_threadpool
 
 from app import models
+from app.api.cookies import set_session_cookie
 from app.config import settings
 from app.db import get_session
 
@@ -31,6 +32,11 @@ def install(app: FastAPI) -> None:
             headers.setdefault("Content-Security-Policy", _CSP)
         if settings.is_prod:
             headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+
+        # Продлённую сессию готовит зависимость get_current_user.
+        renewed = getattr(request.state, "renewed_session", None)
+        if renewed and response.status_code < 400:
+            set_session_cookie(response, renewed)
 
         # (id, логин) кладёт в request.state зависимость get_current_user.
         actor = getattr(request.state, "actor", None)

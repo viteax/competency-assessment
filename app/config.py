@@ -1,30 +1,40 @@
+import secrets
+import warnings
 from typing import Literal
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DEV_SECRET_KEY = "dev-secret-change-me-in-production!"
-
 
 class Settings(BaseSettings):
+    """Настройки из переменных окружения (или файла .env).
+
+    По умолчанию — строгий режим prod: забытая настройка не должна оставлять систему открытой.
+    Для разработки нужно явно указать ENVIRONMENT=dev.
+    """
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # dev — локальная разработка и демо; prod — реальная эксплуатация (строже проверки,
-    # cookie только по HTTPS, демо-данные запрещены).
-    environment: Literal["dev", "prod"] = "dev"
+    # prod — реальная эксплуатация; dev — локальная разработка и демо (разрешены демо-данные,
+    # cookie без флага Secure, ключ подписи можно не задавать).
+    environment: Literal["dev", "prod"] = "prod"
 
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/competency"
     # Доля правильных ответов, начиная с которой компетенция считается сформированной.
     mastery_threshold: float = 0.6
 
-    # В проде обязателен свой случайный ключ, например:
+    # Ключ подписи токенов. В prod обязателен, например:
     #   python -c "import secrets; print(secrets.token_urlsafe(48))"
-    secret_key: str = DEV_SECRET_KEY
-    access_token_ttl_minutes: int = 12 * 60
+    # В dev без ключа генерируется случайный на время работы процесса — публичного ключа
+    # по умолчанию нет, поэтому токен нельзя подделать, даже если забыть про настройку.
+    secret_key: str | None = None
+    # Сессия завершается после стольких минут без действий (продлевается при активности).
+    session_idle_minutes: int = 60
 
-    # Защита от перебора паролей: столько неудачных попыток входа за окно — и пауза.
-    login_max_failures: int = 5
-    login_max_failures_per_ip: int = 30
+    # Защита от подбора паролей (см. services/auth.py).
+    login_slowdown_after: int = 5  # неудачных попыток для логина — дальше пауза между попытками
+    login_slowdown_seconds: int = 30
+    login_max_failures_per_ip: int = 300  # потолок с одного адреса (кампус выходит с одного IP)
     login_window_minutes: int = 15
 
     @property
@@ -32,9 +42,19 @@ class Settings(BaseSettings):
         return self.environment == "prod"
 
     @model_validator(mode="after")
-    def strong_secret_in_prod(self) -> "Settings":
-        if self.is_prod and (self.secret_key == DEV_SECRET_KEY or len(self.secret_key) < 32):
-            raise ValueError("в ENVIRONMENT=prod нужен свой SECRET_KEY длиной от 32 символов")
+    def check_secret(self) -> "Settings":
+        if self.secret_key is None:
+            if self.is_prod:
+                raise ValueError(
+                    "задайте SECRET_KEY (от 32 символов) или ENVIRONMENT=dev для разработки"
+                )
+            warnings.warn(
+                "SECRET_KEY не задан: временный ключ, сессии сбросятся при перезапуске",
+                stacklevel=2,
+            )
+            self.secret_key = secrets.token_urlsafe(48)
+        elif self.is_prod and len(self.secret_key) < 32:
+            raise ValueError("в ENVIRONMENT=prod SECRET_KEY должен быть не короче 32 символов")
         return self
 
 

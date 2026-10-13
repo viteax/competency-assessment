@@ -1,8 +1,13 @@
 """Безопасность: перебор паролей, смена и сброс паролей, cookie-сессия, CSRF, учётки."""
 
+from datetime import timedelta
+
+import pytest
 from fastapi.testclient import TestClient
 
 from app.config import settings
+from app.errors import DomainError
+from app.services.auth import validate_new_password
 from tests.helpers import assign, student_id
 
 FETCH = {"X-Requested-With": "fetch"}
@@ -12,29 +17,62 @@ def token_login(client: TestClient, username: str, password: str):
     return client.post("/auth/token", data={"username": username, "password": password})
 
 
-# --- перебор паролей -----------------------------------------------------------
+# --- подбор паролей ----------------------------------------------------------------
 
 
-def test_login_is_rate_limited(client: TestClient):
-    for _ in range(settings.login_max_failures):
-        assert token_login(client, "admin", "wrong").status_code == 401
-    blocked = token_login(client, "admin", "admin123")  # даже верный пароль — пауза
+def fail_logins(client: TestClient, username: str, times: int) -> None:
+    for _ in range(times):
+        assert token_login(client, username, "wrong-password").status_code == 401
+
+
+def test_login_slows_down_after_failures(client: TestClient):
+    fail_logins(client, "student2", settings.login_slowdown_after)
+    blocked = token_login(client, "student2", "student123")  # даже верный пароль — подождать
     assert blocked.status_code == 429
-    assert blocked.headers["Retry-After"] == str(settings.login_window_minutes * 60)
+    assert 0 < int(blocked.headers["Retry-After"]) <= settings.login_slowdown_seconds
 
 
-def test_successful_login_resets_failures(client: TestClient):
-    for _ in range(settings.login_max_failures - 1):
-        token_login(client, "admin", "wrong")
-    assert token_login(client, "admin", "admin123").status_code == 200
-    for _ in range(settings.login_max_failures - 1):
-        assert token_login(client, "admin", "wrong").status_code == 401
+def test_slowdown_is_a_pause_not_a_lockout(client: TestClient, session):
+    from app import models
+
+    fail_logins(client, "student2", settings.login_slowdown_after)
+    # Прошло больше паузы — владелец снова может войти, неудачи сбрасываются.
+    for failure in session.query(models.LoginFailure).all():
+        failure.created_at = failure.created_at - timedelta(seconds=settings.login_slowdown_seconds)
+    session.commit()
+    assert token_login(client, "student2", "student123").status_code == 200
+    assert session.query(models.LoginFailure).count() == 0
 
 
-def test_failures_of_one_user_do_not_block_another(client: TestClient):
-    for _ in range(settings.login_max_failures):
-        token_login(client, "admin", "wrong")
+def test_attack_on_one_login_does_not_affect_others(client: TestClient):
+    # На кампусе все с одного IP: подбор пароля к чужому логину не мешает остальным.
+    fail_logins(client, "student2", settings.login_slowdown_after)
+    assert token_login(client, "student2", "x").status_code == 429
     assert token_login(client, "student1", "student123").status_code == 200
+
+
+def test_trusted_device_is_not_slowed_down(client: TestClient):
+    owner = TestClient(client.app)
+    assert token_login(owner, "student2", "student123").status_code == 200  # ставит cookie device
+    attacker = TestClient(client.app)
+    fail_logins(attacker, "student2", settings.login_slowdown_after)
+    assert token_login(attacker, "student2", "student123").status_code == 429
+    # Владелец со своего браузера входит без ожидания.
+    assert token_login(owner, "student2", "student123").status_code == 200
+
+
+def test_per_ip_ceiling(client: TestClient, monkeypatch):
+    monkeypatch.setattr(settings, "login_max_failures_per_ip", 3)
+    for name in ("a1", "a2", "a3"):
+        fail_logins(client, name, 1)
+    assert token_login(client, "student1", "student123").status_code == 429
+
+
+def test_unknown_login_is_indistinguishable(client: TestClient):
+    unknown = token_login(client, "no-such-user", "whatever-pass")
+    wrong = token_login(client, "student1", "whatever-pass")
+    assert unknown.status_code == wrong.status_code == 401
+    assert unknown.json() == wrong.json()
 
 
 # --- смена и сброс пароля --------------------------------------------------------
@@ -86,6 +124,10 @@ def test_cookie_session_and_csrf(client: TestClient):
     cookie = response.headers["set-cookie"].lower()
     assert "httponly" in cookie and "samesite=strict" in cookie
     assert "secure" not in cookie  # в dev без HTTPS; в prod флаг включается
+    session_cookie = [
+        c for c in response.headers.get_list("set-cookie") if c.startswith("session=")
+    ]
+    assert "max-age" not in session_cookie[0].lower()  # исчезает при закрытии браузера
 
     assert client.get("/me").json()["username"] == "student1"  # без заголовка Authorization
     body = {"current_password": "student123", "new_password": "another-pass"}
@@ -166,3 +208,36 @@ def test_session_probe(client: TestClient):
     assert client.get("/auth/session").json() is None  # гость — 200 и null, а не 401
     token_login(client, "student1", "student123")
     assert client.get("/auth/session").json()["username"] == "student1"
+
+
+def test_idle_session_expires(client: TestClient, monkeypatch):
+    monkeypatch.setattr(settings, "session_idle_minutes", 0)  # токен истекает сразу
+    token_login(client, "student1", "student123")
+    assert client.get("/me").status_code == 401
+
+
+def test_session_sliding_window(client: TestClient):
+    from app.api import deps
+
+    token_login(client, "student1", "student123")
+    original = deps.timedelta
+    try:
+        # Делаем «половину срока» больше всего срока — любой запрос попадает в окно продления.
+        deps.timedelta = lambda minutes: original(minutes=minutes * 4)
+        response = client.get("/me")
+    finally:
+        deps.timedelta = original
+    assert response.status_code == 200
+    assert response.headers["set-cookie"].startswith("session=")
+
+
+@pytest.mark.parametrize(
+    "password", ["12345678", "qwerty123", "ЙЦУКЕНГШ", "aaaaaaaa", "0101200512", "my-student1-pw"]
+)
+def test_weak_passwords_rejected(password: str):
+    with pytest.raises(DomainError):
+        validate_new_password(password, "student1")
+
+
+def test_reasonable_password_accepted():
+    validate_new_password("кот-в-сапогах-7", "student1")

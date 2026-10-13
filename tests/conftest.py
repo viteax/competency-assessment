@@ -1,4 +1,11 @@
+import os
 from collections.abc import Callable, Iterator
+
+# До импорта приложения: по умолчанию включён строгий режим prod.
+os.environ["ENVIRONMENT"] = "dev"
+os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-long-enough-123")
+
+# ruff: noqa: E402
 
 import pytest
 from fastapi.testclient import TestClient

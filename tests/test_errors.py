@@ -45,9 +45,9 @@ def test_student_from_other_group_cannot_start(admin: TestClient, login):
         },
     )
     client = login("stranger", "secret12")
-    change = {"current_password": "secret12", "new_password": "stranger-pass"}
+    change = {"current_password": "secret12", "new_password": "other-group-pw"}
     client.post("/me/password", json=change, headers={"X-Requested-With": "fetch"})
-    client = login("stranger", "stranger-pass")
+    client = login("stranger", "other-group-pw")
     assert client.get("/me/assignments").json() == []
     response = client.post("/me/attempts", json={"assignment_id": ctx["assignment"]["id"]})
     assert response.status_code == 404

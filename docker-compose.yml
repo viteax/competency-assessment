@@ -18,7 +18,8 @@ services:
     build: .
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/competency
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me-in-production!}
+      # Конфигурация для локальной разработки и демо. Для сервера — docker-compose.prod.yml.
+      ENVIRONMENT: dev
     ports:
       - "8000:8000"
     depends_on:
