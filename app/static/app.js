@@ -38,11 +38,12 @@ function render(...nodes) {
   fill(app, ...nodes);
 }
 
-async function api(path, { method = "GET", body, form } = {}) {
+async function api(path, { method = "GET", body, form, multipart } = {}) {
   const headers = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   let payload;
-  if (form) payload = new URLSearchParams(form);
+  if (multipart) payload = multipart;
+  else if (form) payload = new URLSearchParams(form);
   else if (body !== undefined) {
     headers["Content-Type"] = "application/json";
     payload = JSON.stringify(body);
@@ -69,6 +70,12 @@ function errorBox() {
     show(error) { box.textContent = error.message || String(error); },
     clear() { box.textContent = ""; },
   };
+}
+
+// Высота textarea по содержимому (элемент уже должен быть в документе).
+function autoHeight(el) {
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight + 2}px`;
 }
 
 function percent(ratio) {
@@ -162,6 +169,7 @@ const ADMIN_NAV = () => [
   ["ПК → ОТФ", adminLaborFunctions],
   ["Банк вопросов", adminQuestions],
   ["Справочники", adminCatalogs],
+  ["Импорт", adminImport],
 ];
 
 async function adminAssign() {
@@ -938,6 +946,154 @@ async function adminQuestions() {
     formSlot,
   );
   await refresh();
+}
+
+// --- импорт компетенций ----------------------------------------------------
+
+const IMPORT_STATUS = {
+  new: ["новая", "ok"],
+  update: ["есть отличия", "warn"],
+  same: ["без изменений", ""],
+};
+
+async function adminImport() {
+  setNav(ADMIN_NAV(), adminImport);
+  const err = errorBox();
+  const file = h("input", { type: "file", accept: ".docx,.xlsx,.pdf,.txt", required: true });
+  const previewSlot = h("div");
+
+  async function upload(event) {
+    event.preventDefault();
+    err.clear();
+    fill(previewSlot);
+    if (!file.files.length) return;
+    const form = new FormData();
+    form.append("file", file.files[0]);
+    try {
+      showPreview(await api("/import/preview", { method: "POST", multipart: form }));
+    } catch (e) {
+      err.show(e);
+    }
+  }
+
+  function showPreview(p) {
+    const applyErr = errorBox();
+    const discipline = h("input", { type: "text", value: p.discipline_name || "", placeholder: "не привязывать к дисциплине" });
+    const overwrite = h("input", { type: "checkbox" });
+    // Для каждой компетенции: галочка «импортировать» и поле формулировки.
+    const rows = p.competencies.map((c) => ({
+      c,
+      include: h("input", { type: "checkbox", checked: c.status !== "same" }),
+      description: (() => {
+        const el = h("textarea", { rows: 2, placeholder: "формулировка компетенции" });
+        el.value = c.description;
+        el.addEventListener("input", () => autoHeight(el));
+        return el;
+      })(),
+    }));
+
+    const table = h("table", {},
+      h("tr", {}, ["", "Код", "Статус", "Формулировка из файла", "Индикаторы"].map((t) => h("th", {}, t))),
+      rows.map(({ c, include, description }) => {
+        const [label, cls] = IMPORT_STATUS[c.status];
+        return h("tr", {},
+          h("td", {}, include),
+          h("td", {}, h("strong", {}, c.code)),
+          h("td", {}, h("span", { class: `badge ${cls}` }, label)),
+          h("td", { class: "wrap import-desc" },
+            description,
+            c.existing_description && c.existing_description !== c.description
+              ? h("div", { class: "muted small" }, `Сейчас в базе: ${c.existing_description}`)
+              : null,
+          ),
+          h("td", { class: "wrap" },
+            c.indicators.length
+              ? h("ul", { class: "indicators" },
+                  c.indicators.map((i) =>
+                    h("li", {},
+                      h("strong", {}, i.code), " ", i.description || h("span", { class: "muted" }, "без формулировки"), " ",
+                      !i.exists ? h("span", { class: "badge ok" }, "новый")
+                        : i.changed ? h("span", { class: "badge warn" }, "другая формулировка") : null,
+                    ),
+                  ),
+                )
+              : h("span", { class: "muted" }, "—"),
+          ),
+        );
+      }),
+    );
+
+    fill(previewSlot,
+      h("div", { class: "card" },
+        h("h2", { style: "margin-top:0" }, `«${p.filename}»: найдено компетенций — ${p.competencies.length}`),
+        p.warnings.map((w) => h("p", { class: "error" }, w)),
+        p.competencies.length ? [
+          h("label", {}, "Дисциплина (компетенции будут к ней привязаны)"),
+          discipline,
+          p.discipline_name
+            ? h("div", { class: "muted small" }, p.discipline_exists ? "Дисциплина уже есть — компетенции добавятся к ней" : "Дисциплина будет создана")
+            : null,
+          h("label", { class: "inline" }, overwrite, "Перезаписать формулировки существующих компетенций и индикаторов"),
+          h("div", { class: "table-wrap", style: "margin-top:12px" }, table),
+          h("div", { class: "row", style: "margin-top:16px" },
+            h("button", {
+              class: "primary",
+              onclick: async () => {
+                applyErr.clear();
+                const selected = rows.filter((r) => r.include.checked);
+                if (!selected.length) return applyErr.show(new Error("не выбрано ни одной компетенции"));
+                try {
+                  const result = await api("/import/apply", {
+                    method: "POST",
+                    body: {
+                      discipline_name: discipline.value.trim() || null,
+                      overwrite_descriptions: overwrite.checked,
+                      competencies: selected.map(({ c, description }) => ({
+                        code: c.code,
+                        description: description.value.trim(),
+                        indicators: c.indicators.map((i) => ({ code: i.code, description: i.description })),
+                      })),
+                    },
+                  });
+                  fill(previewSlot, h("div", { class: "card" },
+                    h("h2", { style: "margin-top:0" }, "Импорт выполнен"),
+                    h("ul", {},
+                      h("li", {}, `Новых компетенций: ${result.created_competencies}`),
+                      h("li", {}, `Обновлено формулировок компетенций: ${result.updated_competencies}`),
+                      h("li", {}, `Новых индикаторов: ${result.created_indicators}`),
+                      h("li", {}, `Обновлено формулировок индикаторов: ${result.updated_indicators}`),
+                      result.discipline
+                        ? h("li", {}, `Дисциплина «${result.discipline.name}»${result.created_discipline ? " создана" : ""}, привязано компетенций: ${result.linked_competencies}`)
+                        : null,
+                    ),
+                    h("button", { onclick: adminCatalogs }, "Открыть справочники"),
+                  ));
+                } catch (e) {
+                  applyErr.show(e);
+                }
+              },
+            }, "Импортировать выбранные"),
+          ),
+          applyErr.el,
+        ] : null,
+      ),
+    );
+    rows.forEach(({ description }) => autoHeight(description));
+  }
+
+  render(
+    h("h1", {}, "Импорт компетенций из ОПОП / РПД"),
+    h("form", { class: "card", onsubmit: upload },
+      h("p", { class: "muted", style: "margin-top:0" },
+        "Загрузите РПД, матрицу компетенций или другой документ ОПОП (.docx, .xlsx, .pdf, .txt). ",
+        "В тексте ищутся коды УК-…, ОПК-…, ПК-… и индикаторы (УК-1.1, ИУК-1.1, ИД-1.УК-1) с формулировками. ",
+        "Перед сохранением результат можно проверить и поправить; ничего не удаляется."),
+      file,
+      h("div", { style: "margin-top:12px" }, h("button", { class: "primary" }, "Разобрать файл")),
+      err.el,
+    ),
+    previewSlot,
+  );
 }
 
 // --- студент ---------------------------------------------------------------

@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     mastery_threshold: float = 0.6
 
     # Обязательно переопределить в проде через переменную окружения SECRET_KEY.
-    secret_key: str = "dev-secret-change-me"
+    secret_key: str = "dev-secret-change-me-in-production!"
     access_token_ttl_minutes: int = 12 * 60
 
 

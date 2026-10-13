@@ -5,7 +5,17 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 
-from app.api import auth, competencies, me, questions, reports, standards, study, testing
+from app.api import (
+    auth,
+    competencies,
+    imports,
+    me,
+    questions,
+    reports,
+    standards,
+    study,
+    testing,
+)
 from app.errors import DomainError
 
 app = FastAPI(
@@ -14,7 +24,7 @@ app = FastAPI(
     version="0.1.0",
 )
 
-for module in (auth, me, study, competencies, standards, questions, testing, reports):
+for module in (auth, me, study, competencies, standards, questions, testing, reports, imports):
     app.include_router(module.router)
 
 
