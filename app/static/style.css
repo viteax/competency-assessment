@@ -140,3 +140,6 @@ label.inline { display: flex; align-items: center; font-weight: 400; margin-top:
 td.import-desc { min-width: 280px; }
 ul.indicators { margin: 0; padding-left: 18px; }
 ul.indicators li { margin: 3px 0; }
+.mapping-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0 12px; }
+details summary { cursor: pointer; font-weight: 500; }
+tr.muted td { color: var(--muted); }

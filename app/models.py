@@ -86,10 +86,14 @@ class Group(Base):
 
 class Student(Base):
     __tablename__ = "student"
+    __table_args__ = (UniqueConstraint("external_id", name="uq_student_external_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     full_name: Mapped[str] = mapped_column(String(255))
     group_id: Mapped[int] = mapped_column(ForeignKey("study_group.id"))
+    email: Mapped[str | None] = mapped_column(String(255))
+    # Идентификатор во внешней системе (СДО): индивидуальный номер или логин.
+    external_id: Mapped[str | None] = mapped_column(String(64))
 
     group: Mapped[Group] = relationship(back_populates="students")
 
