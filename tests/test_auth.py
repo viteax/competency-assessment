@@ -66,3 +66,11 @@ def test_create_user_validation(admin: TestClient):
         "/users", json={"username": "admin", "password": "secret1", "role": "admin"}
     )
     assert duplicate.status_code == 409
+
+
+def test_web_ui_is_served(client: TestClient):
+    root = client.get("/", follow_redirects=False)
+    assert (root.status_code, root.headers["location"]) == (307, "/ui/")
+    page = client.get("/ui/")
+    assert page.status_code == 200 and "app.js" in page.text
+    assert client.get("/ui/app.js").status_code == 200

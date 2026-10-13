@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 
 from app.api import auth, competencies, me, questions, reports, standards, study, testing
@@ -26,6 +29,14 @@ def handle_integrity_error(_: Request, exc: IntegrityError) -> JSONResponse:
         {"detail": "запись нарушает ограничение уникальности или ссылочной целостности"},
         status_code=409,
     )
+
+
+app.mount("/ui", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="ui")
+
+
+@app.get("/", include_in_schema=False)
+def index() -> RedirectResponse:
+    return RedirectResponse("/ui/")
 
 
 @app.get("/health", include_in_schema=False)

@@ -213,6 +213,21 @@ class AssignmentOut(ORM, AssignmentIn):
     created_at: datetime
 
 
+class AttemptSummary(ORM):
+    id: int
+    finished_at: datetime | None
+    score: int | None
+    max_score: int | None
+
+
+class StudentAssignmentOut(BaseModel):
+    id: int
+    title: str
+    question_count: int
+    created_at: datetime
+    attempt: AttemptSummary | None
+
+
 # Вопрос в том виде, в каком его видит студент: без признака правильности.
 class StudentOptionOut(ORM):
     id: int

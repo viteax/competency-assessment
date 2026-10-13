@@ -9,7 +9,12 @@ from tests.helpers import assign, by_code, correct_options, discipline_id, stude
 def test_full_flow(admin: TestClient, student: TestClient):
     ctx = assign(admin, ["ПК-1", "ПК-2"])
 
-    assert [a["id"] for a in student.get("/me/assignments").json()] == [ctx["assignment"]["id"]]
+    [pending] = student.get("/me/assignments").json()
+    assert (pending["id"], pending["question_count"], pending["attempt"]) == (
+        ctx["assignment"]["id"],
+        6,
+        None,
+    )
 
     started = student.post("/me/attempts", json={"assignment_id": ctx["assignment"]["id"]})
     assert started.status_code == 201, started.text
@@ -29,6 +34,8 @@ def test_full_flow(admin: TestClient, student: TestClient):
     )
     assert result.status_code == 200, result.text
     assert (result.json()["score"], result.json()["max_score"]) == (6, 6)
+    [done] = student.get("/me/assignments").json()
+    assert (done["attempt"]["score"], done["attempt"]["max_score"]) == (6, 6)
 
     report = student.get("/me/reports/competencies").json()
     assert {
