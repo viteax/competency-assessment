@@ -29,7 +29,7 @@ build-backend = "setuptools.build_meta"
 include = ["app*"]
 
 [tool.setuptools.package-data]
-app = ["static/*"]
+app = ["static/*", "static/js/*", "static/js/admin/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

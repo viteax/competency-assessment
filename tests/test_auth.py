@@ -72,5 +72,7 @@ def test_web_ui_is_served(client: TestClient):
     root = client.get("/", follow_redirects=False)
     assert (root.status_code, root.headers["location"]) == (307, "/ui/")
     page = client.get("/ui/")
-    assert page.status_code == 200 and "app.js" in page.text
-    assert client.get("/ui/app.js").status_code == 200
+    assert page.status_code == 200 and "js/main.js" in page.text
+    script = client.get("/ui/js/main.js")
+    assert script.status_code == 200 and "javascript" in script.headers["content-type"]
+    assert client.get("/ui/js/admin/catalogs.js").status_code == 200
