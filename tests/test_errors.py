@@ -117,3 +117,31 @@ def test_duplicate_competency_code(admin: TestClient):
         "/competencies", json={"code": "ПК-1", "kind": "ПК", "description": "дубль"}
     )
     assert response.status_code == 409
+
+
+def test_test_title_is_unique(admin: TestClient):
+    pk1 = by_code(admin, "ПК-1")["id"]
+    body = {"competency_ids": [pk1], "questions_per_competency": 2}
+    assert admin.post("/tests", json={**body, "title": "Входной контроль"}).status_code == 201
+    for duplicate in ["Входной контроль", "  входной   КОНТРОЛЬ "]:
+        response = admin.post("/tests", json={**body, "title": duplicate})
+        assert response.status_code == 409
+        assert "уже есть" in response.json()["detail"]
+    assert admin.post("/tests", json={**body, "title": "   "}).status_code == 422
+    assert admin.post("/tests", json={**body, "title": "Входной контроль 2"}).status_code == 201
+
+
+def test_existing_test_can_be_assigned_to_another_group(admin: TestClient):
+    ctx = assign(admin, ["ПК-1"])
+    other = admin.post(
+        "/groups", json={"name": "ПИ-22", "direction_id": ctx["group"]["direction_id"]}
+    ).json()
+    response = admin.post(
+        "/assignments", json={"test_id": ctx["test"]["id"], "group_id": other["id"]}
+    )
+    assert response.status_code == 201
+    [listed] = admin.get("/tests").json()
+    assert (listed["title"], sorted(listed["group_ids"])) == (
+        "Входной контроль",
+        sorted([ctx["group"]["id"], other["id"]]),
+    )

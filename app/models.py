@@ -263,6 +263,7 @@ class AnswerOption(Base):
 
 class Test(Base):
     __tablename__ = "test"
+    __table_args__ = (UniqueConstraint("title", name="uq_test_title"),)
     __test__ = False  # не путать pytest
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -275,9 +276,15 @@ class Test(Base):
         back_populates="test", cascade="all, delete-orphan", order_by="TestQuestion.position"
     )
 
+    assignments: Mapped[list["Assignment"]] = relationship(viewonly=True)
+
     @property
     def question_ids(self) -> list[int]:
         return [tq.question_id for tq in self.test_questions]
+
+    @property
+    def group_ids(self) -> list[int]:
+        return [a.group_id for a in self.assignments]
 
 
 class TestQuestion(Base):

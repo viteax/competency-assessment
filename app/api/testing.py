@@ -1,6 +1,8 @@
 """Сборка тестов и назначение их группам (администратор)."""
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app import models, schemas
 from app.api.deps import SessionDep, require_admin
@@ -14,6 +16,15 @@ router = APIRouter(tags=["Тестирование"], dependencies=[Depends(requ
 def create_test(data: schemas.TestCreate, session: SessionDep):
     """Собирает тест: по `questions_per_competency` вопросов на каждую компетенцию."""
     return testing.create_test(session, data)
+
+
+@router.get("/tests", response_model=list[schemas.TestOut])
+def list_tests(session: SessionDep):
+    return session.scalars(
+        select(models.Test)
+        .order_by(models.Test.created_at.desc())
+        .options(selectinload(models.Test.test_questions), selectinload(models.Test.assignments))
+    ).all()
 
 
 @router.get("/tests/{test_id}", response_model=schemas.TestOut)

@@ -26,10 +26,28 @@ def pick_questions(
     return interleaved[:count]
 
 
+def title_key(title: str) -> str:
+    return " ".join(title.split()).casefold()
+
+
+def ensure_unique_title(session: Session, title: str) -> None:
+    """Название теста уникально без учёта регистра и лишних пробелов: «Входной контроль»
+    и «входной  контроль» в списках и отчётах не различить.
+
+    Сравниваем в Python: lower() в SQLite не работает с кириллицей, а тестов немного.
+    """
+    key = title_key(title)
+    if any(title_key(t) == key for t in session.scalars(select(models.Test.title))):
+        raise Conflict(
+            f"тест «{title}» уже есть — выберите другое название или назначьте существующий тест"
+        )
+
+
 def create_test(
     session: Session, data: schemas.TestCreate, rng: random.Random | None = None
 ) -> models.Test:
     rng = rng or random.Random()
+    ensure_unique_title(session, data.title)
     if data.discipline_id is not None:
         get_or_404(session, models.Discipline, data.discipline_id)
     competencies = get_many_or_404(session, models.Competency, data.competency_ids)

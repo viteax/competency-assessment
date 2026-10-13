@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from app.models import CompetencyKind, Role
 
@@ -232,7 +232,7 @@ class QuestionOut(ORM):
 
 
 class TestCreate(BaseModel):
-    title: str
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
     discipline_id: int | None = None
     competency_ids: list[int] = Field(min_length=1)
     questions_per_competency: int = Field(default=5, ge=1, le=50)
@@ -244,6 +244,7 @@ class TestOut(ORM):
     discipline_id: int | None
     created_at: datetime
     question_ids: list[int]
+    group_ids: list[int]  # каким группам уже назначен
 
 
 class AssignmentIn(BaseModel):
