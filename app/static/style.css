@@ -68,7 +68,10 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-#nav { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+.topbar > strong { flex: 1; }
+/* Меню отдельной строкой под заголовком: пунктов у администратора много. */
+#nav { display: flex; flex-wrap: wrap; gap: 4px; order: 3; flex-basis: 100%; margin-left: -8px; }
+#nav:empty { display: none; }
 #who { color: var(--muted); font-size: 14px; }
 #theme { font-size: 14px; color: var(--muted); }
 
@@ -150,10 +153,6 @@ th { font-weight: 600; font-size: 13px; color: var(--muted); }
 
 .login { max-width: 360px; margin: 60px auto; }
 
-@media (max-width: 640px) {
-  .topbar { justify-content: space-between; }
-  #nav { order: 3; flex-basis: 100%; margin-left: -8px; }
-}
 
 .small { font-size: 13px; }
 label.inline { display: flex; align-items: center; font-weight: 400; margin-top: 14px; }
@@ -163,3 +162,5 @@ ul.indicators li { margin: 3px 0; }
 .mapping-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0 12px; }
 details summary { cursor: pointer; font-weight: 500; }
 tr.muted td { color: var(--muted); }
+.notice { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); }
+code { font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; padding: 1px 5px; border-radius: 4px; background: var(--bg); }

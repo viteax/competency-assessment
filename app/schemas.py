@@ -20,7 +20,7 @@ class Token(BaseModel):
 
 class UserCreate(BaseModel):
     username: str = Field(min_length=3, max_length=64)
-    password: str = Field(min_length=6)
+    password: str = Field(min_length=8)
     role: Role
     student_id: int | None = None
 
@@ -36,6 +36,17 @@ class UserOut(ORM):
     username: str
     role: Role
     student_id: int | None
+    must_change_password: bool
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class PasswordReset(BaseModel):
+    username: str
+    password: str  # показывается один раз
 
 
 # --- Учебная часть ---------------------------------------------------------
@@ -465,3 +476,13 @@ class StudentImportResult(BaseModel):
     unchanged: int = 0
     created_groups: list[str] = []
     accounts: list[CreatedAccount] = []
+
+
+class AuditEntryOut(ORM):
+    id: int
+    created_at: datetime
+    username: str
+    method: str
+    path: str
+    status_code: int
+    ip: str

@@ -52,7 +52,8 @@ def unique_username(session: Session, base: str, taken: set[str]) -> str:
 def create_student_account(
     session: Session, student: models.Student, base: str, taken: set[str]
 ) -> tuple[str, str]:
-    """Создаёт учётку студента и возвращает (логин, пароль) — пароль больше нигде не хранится."""
+    """Создаёт учётку студента и возвращает (логин, пароль) — пароль больше нигде не хранится.
+    При первом входе студент обязан его сменить."""
     username = unique_username(session, base, taken)
     password = generate_password()
     session.add(
@@ -61,6 +62,7 @@ def create_student_account(
             password_hash=hash_password(password),
             role=models.Role.STUDENT,
             student_id=student.id,
+            must_change_password=True,
         )
     )
     return username, password

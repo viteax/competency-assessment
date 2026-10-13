@@ -5,7 +5,9 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 
+from app import middleware
 from app.api import (
+    audit,
     auth,
     competencies,
     imports,
@@ -24,13 +26,26 @@ app = FastAPI(
     version="0.1.0",
 )
 
-for module in (auth, me, study, competencies, standards, questions, testing, reports, imports):
+for module in (
+    auth,
+    me,
+    study,
+    competencies,
+    standards,
+    questions,
+    testing,
+    reports,
+    imports,
+    audit,
+):
     app.include_router(module.router)
+
+middleware.install(app)
 
 
 @app.exception_handler(DomainError)
 def handle_domain_error(_: Request, exc: DomainError) -> JSONResponse:
-    return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+    return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
 
 
 @app.exception_handler(IntegrityError)

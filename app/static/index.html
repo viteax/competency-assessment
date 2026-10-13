@@ -6,13 +6,7 @@
   <title>Оценка компетенций</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
-  <script>
-    // Применяем выбранную тему до отрисовки, чтобы не было вспышки другой темы.
-    try {
-      const theme = localStorage.getItem("theme");
-      if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
-    } catch {}
-  </script>
+  <script src="js/theme-init.js"></script>
 </head>
 <body>
   <header class="topbar">

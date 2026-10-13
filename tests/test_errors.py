@@ -39,12 +39,15 @@ def test_student_from_other_group_cannot_start(admin: TestClient, login):
         "/users",
         json={
             "username": "stranger",
-            "password": "secret1",
+            "password": "secret12",
             "role": "student",
             "student_id": stranger.json()["id"],
         },
     )
-    client = login("stranger", "secret1")
+    client = login("stranger", "secret12")
+    change = {"current_password": "secret12", "new_password": "stranger-pass"}
+    client.post("/me/password", json=change, headers={"X-Requested-With": "fetch"})
+    client = login("stranger", "stranger-pass")
     assert client.get("/me/assignments").json() == []
     response = client.post("/me/attempts", json={"assignment_id": ctx["assignment"]["id"]})
     assert response.status_code == 404

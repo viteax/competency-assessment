@@ -1,80 +1,178 @@
-// Студенты группы и их учётные записи.
+// Студенты группы и их учётные записи: добавление, правка, сброс пароля, удаление.
 
 import { api, errorBox, fill, h, render } from "../core.js";
 
+// Временный пароль для новой учётки: без похожих символов, студент сменит его при входе.
+function temporaryPassword(length = 10) {
+  const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint32Array(length));
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+}
+
+// Плашка с выданным паролем — показывается один раз.
+function passwordNotice(fullName, username, password) {
+  return h("div", { class: "notice" },
+    h("strong", {}, fullName), ": логин ", h("code", {}, username), ", временный пароль ",
+    h("code", {}, password),
+    h("div", { class: "muted small" }, "Пароль показывается один раз; при входе студент задаст свой."),
+  );
+}
+
 export async function adminStudents() {
   const groups = await api("/groups");
+  const groupNames = new Map(groups.map((g) => [g.id, g.name]));
   const group = h("select", {}, groups.map((g) => h("option", { value: g.id }, g.name)));
   const table = h("div", { class: "table-wrap" });
+  const notice = h("div");
+  const editSlot = h("div");
   const err = errorBox();
-  const ok = h("div", { class: "success" });
+
+  async function action(fn) {
+    err.clear();
+    try {
+      await fn();
+    } catch (e) {
+      err.show(e);
+    }
+  }
+
+  function openEdit(student) {
+    const fullName = h("input", { type: "text", required: true, value: student.full_name });
+    const email = h("input", { type: "text", value: student.email || "" });
+    const groupSelect = h("select", {}, groups.map((g) => h("option", { value: g.id }, g.name)));
+    groupSelect.value = String(student.group_id);
+    const formErr = errorBox();
+    fill(editSlot, h("form", {
+      class: "card edit-form",
+      onsubmit: async (event) => {
+        event.preventDefault();
+        try {
+          await api(`/students/${student.id}`, {
+            method: "PUT",
+            body: {
+              full_name: fullName.value.trim(),
+              group_id: Number(groupSelect.value),
+              email: email.value.trim() || null,
+              external_id: student.external_id,
+            },
+          });
+          fill(editSlot);
+          await drawStudents();
+        } catch (e) {
+          formErr.show(e);
+        }
+      },
+    },
+      h("h2", { style: "margin-top:0" }, "Изменить студента"),
+      h("label", {}, "ФИО"), fullName,
+      h("div", { class: "row" },
+        h("div", {}, h("label", {}, "Группа"), groupSelect),
+        h("div", {}, h("label", {}, "E-mail"), email),
+      ),
+      h("div", { class: "row", style: "margin-top:16px" },
+        h("button", { class: "primary" }, "Сохранить"),
+        h("button", { type: "button", onclick: () => fill(editSlot) }, "Отмена"),
+      ),
+      formErr.el,
+    ));
+    editSlot.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
 
   async function drawStudents() {
     const [students, users] = await Promise.all([
       api(`/students?group_id=${group.value}`),
       api("/users"),
     ]);
-    const logins = new Map(users.filter((u) => u.student_id).map((u) => [u.student_id, u.username]));
+    const accounts = new Map(users.filter((u) => u.student_id).map((u) => [u.student_id, u]));
     fill(table,
       students.length
         ? h("table", {},
-            h("tr", {}, h("th", {}, "ФИО"), h("th", {}, "Логин")),
-            students.map((s) =>
-              h("tr", {}, h("td", {}, s.full_name), h("td", {}, logins.get(s.id) || h("span", { class: "muted" }, "нет"))),
-            ),
+            h("tr", {}, ["ФИО", "E-mail", "Логин", ""].map((t) => h("th", {}, t))),
+            students.map((s) => {
+              const account = accounts.get(s.id);
+              return h("tr", {},
+                h("td", { class: "wrap" }, s.full_name),
+                h("td", {}, s.email || h("span", { class: "muted" }, "—")),
+                h("td", {},
+                  account ? account.username : h("span", { class: "muted" }, "нет учётки"),
+                  account?.must_change_password ? h("span", { class: "badge warn", style: "margin-left:6px" }, "не входил") : null,
+                ),
+                h("td", { class: "actions" },
+                  h("button", { class: "link", onclick: () => openEdit(s) }, "Изменить"),
+                  account
+                    ? h("button", {
+                        class: "link",
+                        onclick: () => action(async () => {
+                          if (!confirm(`Сбросить пароль для ${s.full_name}? Текущий перестанет работать.`)) return;
+                          const reset = await api(`/users/${account.id}/reset-password`, { method: "POST" });
+                          fill(notice, passwordNotice(s.full_name, reset.username, reset.password));
+                          await drawStudents();
+                        }),
+                      }, "Сбросить пароль")
+                    : null,
+                  h("button", {
+                    class: "link danger",
+                    onclick: () => action(async () => {
+                      if (!confirm(`Удалить ${s.full_name} вместе с учётной записью?`)) return;
+                      await api(`/students/${s.id}`, { method: "DELETE" });
+                      await drawStudents();
+                    }),
+                  }, "Удалить"),
+                ),
+              );
+            }),
           )
-        : h("p", { class: "muted" }, "В группе пока нет студентов"),
+        : h("p", { class: "muted" }, `В группе ${groupNames.get(Number(group.value)) || ""} пока нет студентов`),
     );
   }
-  group.addEventListener("change", drawStudents);
+  group.addEventListener("change", () => { fill(editSlot); drawStudents(); });
 
   const fullName = h("input", { type: "text", required: true });
-  const username = h("input", { type: "text", required: true, minlength: 3 });
-  const password = h("input", { type: "text", required: true, minlength: 6 });
+  const email = h("input", { type: "text" });
+  const username = h("input", { type: "text", required: true, minlength: 3, pattern: "[A-Za-z0-9._\\-]+", title: "латиница, цифры, точка, дефис" });
+  const addErr = errorBox();
 
   render(
     h("h1", {}, "Студенты"),
-    h("div", { class: "card" }, h("label", {}, "Группа"), group, h("h2", {}, "Список"), table),
-    h(
-      "form",
-      {
-        class: "card",
-        onsubmit: async (event) => {
-          event.preventDefault();
-          err.clear();
-          ok.textContent = "";
-          try {
-            const student = await api("/students", {
-              method: "POST",
-              body: { full_name: fullName.value, group_id: Number(group.value) },
-            });
-            await api("/users", {
-              method: "POST",
-              body: {
-                username: username.value,
-                password: password.value,
-                role: "student",
-                student_id: student.id,
-              },
-            });
-            ok.textContent = `Добавлен ${student.full_name}, логин ${username.value}`;
-            fullName.value = username.value = password.value = "";
-            await drawStudents();
-          } catch (e) {
-            err.show(e);
-          }
-        },
+    h("div", { class: "card" },
+      h("label", {}, "Группа"), group,
+      err.el,
+      notice,
+      h("div", { style: "margin-top:12px" }, table),
+    ),
+    editSlot,
+    h("form", {
+      class: "card",
+      onsubmit: async (event) => {
+        event.preventDefault();
+        addErr.clear();
+        try {
+          const student = await api("/students", {
+            method: "POST",
+            body: { full_name: fullName.value.trim(), group_id: Number(group.value), email: email.value.trim() || null },
+          });
+          const password = temporaryPassword();
+          await api("/users", {
+            method: "POST",
+            body: { username: username.value, password, role: "student", student_id: student.id },
+          });
+          fill(notice, passwordNotice(student.full_name, username.value, password));
+          fullName.value = email.value = username.value = "";
+          await drawStudents();
+        } catch (e) {
+          addErr.show(e);
+        }
       },
+    },
       h("h2", { style: "margin-top:0" }, "Добавить студента в выбранную группу"),
-      h("label", {}, "ФИО"),
-      fullName,
+      h("p", { class: "muted small", style: "margin-top:0" }, "Временный пароль сгенерируется автоматически; список группы удобнее загрузить во вкладке «Импорт»."),
+      h("label", {}, "ФИО"), fullName,
       h("div", { class: "row" },
         h("div", {}, h("label", {}, "Логин"), username),
-        h("div", {}, h("label", {}, "Пароль"), password),
+        h("div", {}, h("label", {}, "E-mail (необязательно)"), email),
       ),
       h("div", { style: "margin-top:16px" }, h("button", { class: "primary" }, "Добавить")),
-      err.el,
-      ok,
+      addErr.el,
     ),
   );
   if (groups.length) await drawStudents();

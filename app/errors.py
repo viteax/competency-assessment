@@ -3,9 +3,18 @@ class DomainError(Exception):
 
     status_code = 400
 
-    def __init__(self, detail: str) -> None:
+    def __init__(self, detail: str, headers: dict[str, str] | None = None) -> None:
         super().__init__(detail)
         self.detail = detail
+        self.headers = headers
+
+
+class Unauthorized(DomainError):
+    status_code = 401
+
+
+class Forbidden(DomainError):
+    status_code = 403
 
 
 class NotFound(DomainError):
@@ -14,3 +23,7 @@ class NotFound(DomainError):
 
 class Conflict(DomainError):
     status_code = 409
+
+
+class TooManyRequests(DomainError):
+    status_code = 429

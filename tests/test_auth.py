@@ -54,16 +54,16 @@ def test_student_endpoints(client: TestClient, admin: TestClient, path: str):
 
 def test_create_user_validation(admin: TestClient):
     no_student = admin.post(
-        "/users", json={"username": "kid", "password": "secret1", "role": "student"}
+        "/users", json={"username": "kid", "password": "secret12", "role": "student"}
     )
     assert no_student.status_code == 422
     admin_with_student = admin.post(
         "/users",
-        json={"username": "boss", "password": "secret1", "role": "admin", "student_id": 1},
+        json={"username": "boss", "password": "secret12", "role": "admin", "student_id": 1},
     )
     assert admin_with_student.status_code == 422
     duplicate = admin.post(
-        "/users", json={"username": "admin", "password": "secret1", "role": "admin"}
+        "/users", json={"username": "admin", "password": "secret12", "role": "admin"}
     )
     assert duplicate.status_code == 409
 

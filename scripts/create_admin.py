@@ -12,7 +12,9 @@ from sqlalchemy import select
 
 from app import models
 from app.db import SessionLocal
+from app.errors import DomainError
 from app.security import hash_password
+from app.services.auth import validate_new_password
 
 
 def main() -> None:
@@ -20,8 +22,10 @@ def main() -> None:
     parser.add_argument("username")
     args = parser.parse_args()
     password = os.environ.get("ADMIN_PASSWORD") or getpass.getpass("Пароль: ")
-    if len(password) < 6:
-        raise SystemExit("пароль должен быть не короче 6 символов")
+    try:
+        validate_new_password(password, args.username)
+    except DomainError as exc:
+        raise SystemExit(exc.detail) from None
 
     with SessionLocal() as session:
         if session.scalar(select(models.User).where(models.User.username == args.username)):

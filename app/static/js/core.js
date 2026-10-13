@@ -66,28 +66,19 @@ export function downloadCsv(filename, rows) {
   link.remove();
 }
 
-// --- сессия и API -------------------------------------------------------------
+// --- API -----------------------------------------------------------------------
 
-let token = null;
-try { token = localStorage.getItem("token"); } catch { /* приватный режим */ }
+// Сессия живёт в httpOnly-cookie, которую ставит сервер при входе: JavaScript её не видит,
+// поэтому украсть токен через внедрённый скрипт нельзя. Заголовок X-Requested-With
+// сервер требует для изменяющих запросов — чужой сайт выставить его не может.
 let onUnauthorized = () => {};
 
-export const session = {
-  get token() { return token; },
-  set token(value) {
-    token = value;
-    try {
-      if (value) localStorage.setItem("token", value);
-      else localStorage.removeItem("token");
-    } catch { /* приватный режим */ }
-  },
-  // Что делать, когда сервер отклонил токен (main.js показывает форму входа).
-  onUnauthorized(handler) { onUnauthorized = handler; },
-};
+export function setUnauthorizedHandler(handler) {
+  onUnauthorized = handler;
+}
 
 export async function api(path, { method = "GET", body, form, multipart } = {}) {
-  const headers = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const headers = { "X-Requested-With": "fetch" };
   let payload;
   if (multipart) payload = multipart;
   else if (form) payload = new URLSearchParams(form);
@@ -95,8 +86,8 @@ export async function api(path, { method = "GET", body, form, multipart } = {}) 
     headers["Content-Type"] = "application/json";
     payload = JSON.stringify(body);
   }
-  const response = await fetch(path, { method, headers, body: payload });
-  if (response.status === 401 && path !== "/auth/token") {
+  const response = await fetch(path, { method, headers, body: payload, credentials: "same-origin" });
+  if (response.status === 401 && !path.startsWith("/auth/")) {
     onUnauthorized();
     throw new Error("сессия истекла, войдите снова");
   }

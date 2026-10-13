@@ -20,6 +20,7 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -108,8 +109,42 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[Role] = mapped_column(Enum(Role, values_callable=lambda e: [m.value for m in e]))
     student_id: Mapped[int | None] = mapped_column(ForeignKey("student.id"), unique=True)
+    # Выданный администратором пароль нужно сменить при первом входе.
+    must_change_password: Mapped[bool] = mapped_column(default=False, server_default=false())
+    # Увеличивается при смене/сбросе пароля — все ранее выданные токены перестают действовать.
+    token_version: Mapped[int] = mapped_column(default=0, server_default="0")
 
     student: Mapped[Student | None] = relationship()
+
+
+class LoginFailure(Base):
+    """Неудачная попытка входа — для защиты от перебора паролей."""
+
+    __tablename__ = "login_failure"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(64), index=True)
+    ip: Mapped[str] = mapped_column(String(64), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+
+
+class AuditEntry(Base):
+    """Журнал изменяющих действий: кто, когда, что вызвал и с каким результатом."""
+
+    __tablename__ = "audit_entry"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("app_user.id", ondelete="SET NULL"))
+    username: Mapped[str] = mapped_column(String(64))  # на случай, если учётку удалят
+    method: Mapped[str] = mapped_column(String(8))
+    path: Mapped[str] = mapped_column(String(255))
+    status_code: Mapped[int] = mapped_column(Integer)
+    ip: Mapped[str] = mapped_column(String(64))
 
 
 # --- Компетенции -----------------------------------------------------------

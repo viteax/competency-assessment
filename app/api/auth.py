@@ -1,23 +1,63 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 
 from app import models, schemas
-from app.api.deps import AdminUser, CurrentUser, SessionDep
-from app.security import create_access_token, hash_password, verify_password
-from app.services.common import get_or_404, save
+from app.api.deps import (
+    SESSION_COOKIE,
+    AdminUser,
+    CurrentUser,
+    SessionDep,
+    client_ip,
+    get_current_user,
+)
+from app.config import settings
+from app.errors import Conflict, Unauthorized
+from app.security import create_access_token, hash_password
+from app.services import auth
+from app.services.common import delete_or_conflict, get_or_404, save
 
 router = APIRouter(tags=["Пользователи"])
 
 
 @router.post("/auth/token", response_model=schemas.Token)
-def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], session: SessionDep):
-    user = session.scalar(select(models.User).where(models.User.username == form.username))
-    if user is None or not verify_password(form.password, user.password_hash):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "неверный логин или пароль")
-    return schemas.Token(access_token=create_access_token(user.id))
+def login(
+    form: Annotated[OAuth2PasswordRequestForm, Depends()],
+    request: Request,
+    response: Response,
+    session: SessionDep,
+):
+    """Вход. Токен возвращается в ответе (для API и Swagger) и ставится в httpOnly-cookie
+    (для веб-интерфейса — JavaScript его не видит)."""
+    user = auth.authenticate(session, form.username, form.password, client_ip(request))
+    token = create_access_token(user.id, user.token_version)
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=settings.access_token_ttl_minutes * 60,
+        httponly=True,
+        secure=settings.is_prod,
+        samesite="strict",
+    )
+    return schemas.Token(access_token=token)
+
+
+@router.post("/auth/logout", status_code=204)
+def logout(response: Response):
+    response.delete_cookie(
+        SESSION_COOKIE, httponly=True, secure=settings.is_prod, samesite="strict"
+    )
+
+
+@router.get("/auth/session", response_model=schemas.UserOut | None)
+def current_session(request: Request, session: SessionDep):
+    """Кто вошёл, или null — без 401, чтобы интерфейс мог проверить сессию при загрузке."""
+    try:
+        return get_current_user(request, session, bearer=None)
+    except Unauthorized:
+        return None
 
 
 @router.get("/me", response_model=schemas.UserOut)
@@ -25,8 +65,16 @@ def me(user: CurrentUser):
     return user
 
 
+@router.post("/me/password", status_code=204)
+def change_password(data: schemas.PasswordChange, user: CurrentUser, session: SessionDep):
+    """Смена своего пароля. Остальные сеансы этого пользователя завершаются."""
+    auth.change_password(session, user, data.current_password, data.new_password)
+
+
 @router.post("/users", response_model=schemas.UserOut, status_code=201)
 def create_user(data: schemas.UserCreate, session: SessionDep, _: AdminUser):
+    """Создаёт учётку; пароль, заданный администратором, нужно сменить при первом входе."""
+    auth.validate_new_password(data.password, data.username)
     if data.student_id is not None:
         get_or_404(session, models.Student, data.student_id)
     return save(
@@ -36,6 +84,7 @@ def create_user(data: schemas.UserCreate, session: SessionDep, _: AdminUser):
             password_hash=hash_password(data.password),
             role=data.role,
             student_id=data.student_id,
+            must_change_password=True,
         ),
     )
 
@@ -43,3 +92,20 @@ def create_user(data: schemas.UserCreate, session: SessionDep, _: AdminUser):
 @router.get("/users", response_model=list[schemas.UserOut])
 def list_users(session: SessionDep, _: AdminUser):
     return session.scalars(select(models.User).order_by(models.User.username)).all()
+
+
+@router.post("/users/{user_id}/reset-password", response_model=schemas.PasswordReset)
+def reset_password(user_id: int, session: SessionDep, _: AdminUser):
+    """Новый случайный пароль (показывается один раз); его нужно сменить при входе."""
+    user = get_or_404(session, models.User, user_id)
+    return schemas.PasswordReset(
+        username=user.username, password=auth.reset_password(session, user)
+    )
+
+
+@router.delete("/users/{user_id}", status_code=204)
+def delete_user(user_id: int, session: SessionDep, admin: AdminUser):
+    user = get_or_404(session, models.User, user_id)
+    if user.id == admin.id:
+        raise Conflict("нельзя удалить собственную учётную запись")
+    delete_or_conflict(session, user, "на учётную запись есть ссылки")

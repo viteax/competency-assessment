@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import models
+from app.config import settings
 from app.db import SessionLocal
 from app.models import CompetencyKind as K
 from app.security import hash_password
@@ -366,6 +367,11 @@ def seed(session: Session) -> None:
 
 
 def main() -> None:
+    if settings.is_prod:
+        raise SystemExit(
+            "демо-данные с известными паролями нельзя загружать в ENVIRONMENT=prod; "
+            "создайте администратора: python -m scripts.create_admin <логин>"
+        )
     migrate()
     with SessionLocal() as session:
         seed(session)
