@@ -25,7 +25,7 @@
 
 ## Стек
 
-Python 3.12+, FastAPI, SQLAlchemy 2, PostgreSQL, Pydantic 2, Pytest.
+Python 3.12 (uv), FastAPI, SQLAlchemy 2, PostgreSQL, Pydantic 2, Pytest.
 
 ## Запуск
 
@@ -43,15 +43,26 @@ docker compose exec api python -m scripts.seed   # демо-данные
 docker compose exec api python -m scripts.create_admin <логин>
 ```
 
-Локально без Docker:
+Локально без Docker — через [uv](https://docs.astral.sh/uv/getting-started/installation/)
+(он сам поставит Python 3.12 и зависимости точно по `uv.lock`):
 
 ```bash
-python -m venv .venv && . .venv/bin/activate
-pip install -e ".[dev]"
+uv sync
 export DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/competency
-python -m scripts.seed          # применяет миграции и заполняет демо-данными
-uvicorn app.main:app --reload
+uv run python -m scripts.seed          # применяет миграции и заполняет демо-данными
+uv run uvicorn app.main:app --reload
 ```
+
+Без PostgreSQL можно хранить всё в файле SQLite — удобно для демонстрации:
+
+```bash
+export DATABASE_URL=sqlite:///./competency.db   # PowerShell: $env:DATABASE_URL="sqlite:///./competency.db"
+uv run python -m scripts.seed
+uv run uvicorn app.main:app
+```
+
+Зависимости добавляются через `uv add <пакет>` (для разработки — `uv add --dev <пакет>`),
+после этого `uv.lock` нужно закоммитить.
 
 ## Веб-интерфейс
 
@@ -115,9 +126,9 @@ PDF разбирается по извлечённому тексту: у сло
 Схема БД ведётся через Alembic. Контейнер `api` применяет миграции при старте.
 
 ```bash
-alembic upgrade head                                  # применить
-alembic revision --autogenerate -m "что изменилось"   # после правки app/models.py
-alembic downgrade -1                                  # откатить последнюю
+uv run alembic upgrade head                                  # применить
+uv run alembic revision --autogenerate -m "что изменилось"   # после правки app/models.py
+uv run alembic downgrade -1                                  # откатить последнюю
 ```
 
 Тест `tests/test_migrations.py` и job `migrations` в CI падают, если модели разошлись
@@ -126,7 +137,8 @@ alembic downgrade -1                                  # откатить пос�
 Тесты используют SQLite в памяти, PostgreSQL для них не нужен:
 
 ```bash
-pytest
+uv run pytest
+uv run ruff check . && uv run ruff format --check .
 ```
 
 ## Роли и API
