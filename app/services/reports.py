@@ -2,14 +2,19 @@ from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app import models, schemas
-from app.config import settings
+from app.services import app_settings
 from app.services.common import get_or_404
 
 
-def competency_results(session: Session, student_id: int) -> list[schemas.CompetencyResult]:
-    """Доля верных ответов студента по каждой компетенции во всех завершённых попытках."""
+def _results_by_student(
+    session: Session, student_ids: list[int]
+) -> dict[int, list[schemas.CompetencyResult]]:
+    """Доля верных ответов по каждой компетенции во всех завершённых попытках — для всех
+    переданных студентов одним запросом (отчёт по группе не делает запрос на каждого)."""
+    threshold = app_settings.mastery_threshold(session)
     stmt = (
         select(
+            models.Attempt.student_id,
             models.Competency,
             func.sum(cast(models.AttemptAnswer.is_correct, Integer)),
             func.count(),
@@ -17,14 +22,14 @@ def competency_results(session: Session, student_id: int) -> list[schemas.Compet
         .join(models.Question, models.Question.competency_id == models.Competency.id)
         .join(models.AttemptAnswer, models.AttemptAnswer.question_id == models.Question.id)
         .join(models.Attempt, models.Attempt.id == models.AttemptAnswer.attempt_id)
-        .where(models.Attempt.student_id == student_id, models.Attempt.finished_at.is_not(None))
-        .group_by(models.Competency.id)
+        .where(models.Attempt.student_id.in_(student_ids), models.Attempt.finished_at.is_not(None))
+        .group_by(models.Attempt.student_id, models.Competency.id)
         .order_by(models.Competency.code)
     )
-    results = []
-    for competency, correct, total in session.execute(stmt):
+    results: dict[int, list[schemas.CompetencyResult]] = {sid: [] for sid in student_ids}
+    for student_id, competency, correct, total in session.execute(stmt):
         ratio = correct / total
-        results.append(
+        results[student_id].append(
             schemas.CompetencyResult(
                 competency_id=competency.id,
                 code=competency.code,
@@ -32,10 +37,14 @@ def competency_results(session: Session, student_id: int) -> list[schemas.Compet
                 correct=correct,
                 total=total,
                 ratio=round(ratio, 3),
-                mastered=ratio >= settings.mastery_threshold,
+                mastered=ratio >= threshold,
             )
         )
     return results
+
+
+def competency_results(session: Session, student_id: int) -> list[schemas.CompetencyResult]:
+    return _results_by_student(session, [student_id])[student_id]
 
 
 def student_report(session: Session, student_id: int) -> schemas.StudentCompetencyReport:
@@ -50,10 +59,16 @@ def student_report(session: Session, student_id: int) -> schemas.StudentCompeten
 def group_report(session: Session, group_id: int) -> schemas.GroupCompetencyReport:
     group = get_or_404(session, models.Group, group_id)
     students = sorted(group.students, key=lambda s: s.full_name)
+    results = _results_by_student(session, [s.id for s in students])
     return schemas.GroupCompetencyReport(
         group_id=group.id,
         name=group.name,
-        students=[student_report(session, s.id) for s in students],
+        students=[
+            schemas.StudentCompetencyReport(
+                student_id=s.id, full_name=s.full_name, competencies=results[s.id]
+            )
+            for s in students
+        ],
     )
 
 

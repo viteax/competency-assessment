@@ -1,10 +1,10 @@
 // Журнал изменяющих действий: кто, когда и что сделал.
 
-import { api, fill, h, render } from "../core.js";
+import { api, fill, h } from "../core.js";
 
 const PAGE = 100;
 
-export async function adminAudit() {
+export async function adminAudit(render) {
   const rows = h("tbody");
   const more = h("button", { type: "button" }, "Показать ещё");
   let offset = 0;

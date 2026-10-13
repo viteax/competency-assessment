@@ -1,8 +1,8 @@
 // Банк вопросов.
 
-import { api, byId, errorBox, fill, h, render } from "../core.js";
+import { api, byId, errorBox, fill, h } from "../core.js";
 
-export async function adminQuestions() {
+export async function adminQuestions(render) {
   const [competencies, disciplines] = await Promise.all([api("/competencies"), api("/disciplines")]);
   const comps = byId(competencies);
   const discs = byId(disciplines);

@@ -9,11 +9,11 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-long-enough-123")
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.db import Base, get_session
+from app.db import Base, enforce_sqlite_foreign_keys, get_session
 from app.main import app
 from scripts.seed import ADMIN_LOGIN, STUDENT_PASSWORD, seed
 
@@ -23,7 +23,7 @@ def session() -> Iterator[Session]:
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
-    event.listen(engine, "connect", lambda conn, _: conn.execute("PRAGMA foreign_keys=ON"))
+    enforce_sqlite_foreign_keys(engine)
     Base.metadata.create_all(engine)
     factory = sessionmaker(bind=engine, expire_on_commit=False)
     with factory() as s:

@@ -486,3 +486,8 @@ class AuditEntryOut(ORM):
     path: str
     status_code: int
     ip: str
+
+
+class SystemSettings(BaseModel):
+    # Доля верных ответов, начиная с которой компетенция считается сформированной.
+    mastery_threshold: float = Field(gt=0, le=1)

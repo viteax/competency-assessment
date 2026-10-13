@@ -1,6 +1,6 @@
 // Студенты группы и их учётные записи: добавление, правка, сброс пароля, удаление.
 
-import { api, errorBox, fill, h, render } from "../core.js";
+import { api, errorBox, fill, h } from "../core.js";
 
 // Временный пароль для новой учётки: без похожих символов, студент сменит его при входе.
 function temporaryPassword(length = 10) {
@@ -18,7 +18,7 @@ function passwordNotice(fullName, username, password) {
   );
 }
 
-export async function adminStudents() {
+export async function adminStudents(render) {
   const groups = await api("/groups");
   const groupNames = new Map(groups.map((g) => [g.id, g.name]));
   const group = h("select", {}, groups.map((g) => h("option", { value: g.id }, g.name)));

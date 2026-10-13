@@ -17,6 +17,16 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run pytest -q
 
+  e2e:
+    # Браузерные сценарии: настоящий сервер и Chromium (tests/e2e).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: uv run playwright install --with-deps chromium
+      - run: uv run pytest -m e2e -q
+
   audit:
     # Известные уязвимости в зависимостях (база OSV/PyPI), по точным версиям из uv.lock.
     runs-on: ubuntu-latest
@@ -54,7 +64,7 @@ jobs:
     # Собирает образ на каждом пуше и проверяет, что он запускается. На тегах v* публикует
     # его в GitHub Container Registry: ghcr.io/<владелец>/competency-assessment.
     runs-on: ubuntu-latest
-    needs: [test, migrations]
+    needs: [test, e2e, migrations]
     permissions:
       contents: read
       packages: write

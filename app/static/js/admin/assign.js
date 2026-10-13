@@ -1,8 +1,8 @@
 // Назначение теста группе: собрать новый или выбрать готовый.
 
-import { api, errorBox, fill, h, render } from "../core.js";
+import { api, errorBox, fill, h } from "../core.js";
 
-export async function adminAssign() {
+export async function adminAssign(render) {
   const [groups, competencies, disciplines, questions, tests] = await Promise.all([
     api("/groups"),
     api("/competencies"),

@@ -382,3 +382,12 @@ class AttemptAnswer(Base):
 
     attempt: Mapped[Attempt] = relationship(back_populates="answers")
     question: Mapped[Question] = relationship()
+
+
+class AppSetting(Base):
+    """Настройки, которые администратор меняет в интерфейсе (ключ → значение)."""
+
+    __tablename__ = "app_setting"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(String(255))

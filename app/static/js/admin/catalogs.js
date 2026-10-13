@@ -314,6 +314,40 @@ const CATALOGS = {
       remove: (r) => api(`/labor-functions/${r.id}`, { method: "DELETE" }),
     });
   },
+
+  async "Настройки"() {
+    const current = await api("/settings");
+    const err = errorBox();
+    const ok = h("div", { class: "success" });
+    const percent = h("input", {
+      type: "number", min: 1, max: 100, step: 1, required: true,
+      value: Math.round(current.mastery_threshold * 100),
+    });
+    return h("form", {
+      class: "card",
+      onsubmit: async (event) => {
+        event.preventDefault();
+        err.clear();
+        ok.textContent = "";
+        try {
+          const saved = await api("/settings", {
+            method: "PUT",
+            body: { mastery_threshold: Number(percent.value) / 100 },
+          });
+          ok.textContent = `Сохранено: компетенция сформирована от ${Math.round(saved.mastery_threshold * 100)}% верных ответов`;
+        } catch (e) {
+          err.show(e);
+        }
+      },
+    },
+      h("label", {}, "Компетенция сформирована, если верных ответов не меньше, %"),
+      percent,
+      h("p", { class: "muted small" }, "Порог действует на все отчёты сразу, включая уже пройденные тесты, и на связь с трудовыми функциями профстандарта."),
+      h("button", { class: "primary" }, "Сохранить"),
+      err.el,
+      ok,
+    );
+  },
 };
 
 export const adminCatalogs = tabbedPage("Справочники", CATALOGS, "Компетенции");

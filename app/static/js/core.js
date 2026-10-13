@@ -28,7 +28,12 @@ export function fill(el, ...nodes) {
   );
 }
 
+// Номер текущего экрана: растёт при каждом переходе (go) и при показе экранов вне меню.
+let screen = 0;
+
+// Экран вне меню (вход, смена пароля).
 export function render(...nodes) {
+  screen += 1;
   fill(app, ...nodes);
 }
 
@@ -103,31 +108,38 @@ export async function api(path, { method = "GET", body, form, multipart } = {}) 
 
 // --- навигация ----------------------------------------------------------------
 
-// Экран — асинхронная функция, которая рисует себя через render(). Меню задаёт main.js;
-// экраны переходят друг к другу через go() и ничего не знают о меню.
+// Экран — асинхронная функция, которая рисует себя через переданный ей render. Меню задаёт
+// main.js; экраны переходят друг к другу через go() и ничего не знают о меню.
 let menu = [];
 
 export function setMenu(items) {
   menu = items;
 }
 
-export function go(view) {
+// menuItem — какой пункт меню подсветить, если экран открыт не из меню.
+export function go(view, menuItem = view) {
   fill(nav, menu.map(([title, v]) =>
-    h("button", { class: `link ${v === view ? "active" : ""}`, onclick: () => go(v) }, title)));
-  return view();
+    h("button", { class: `link ${v === menuItem ? "active" : ""}`, onclick: () => go(v) }, title)));
+  const current = (screen += 1);
+  // Пока экран ждал ответа сервера, пользователь мог уйти на другой — тогда запоздавшая
+  // отрисовка не должна закрыть новый экран.
+  return view((...nodes) => {
+    if (current === screen) fill(app, ...nodes);
+  });
 }
 
 // Страница с вкладками; открытая вкладка запоминается до следующего захода.
 export function tabbedPage(title, tabs, initial = Object.keys(tabs)[0]) {
   let current = initial;
-  return async function page() {
+  return async function page(render) {
     const bar = h("div", { class: "subnav" });
     const body = h("div");
     async function open(name) {
       current = name;
       fill(bar, Object.keys(tabs).map((n) =>
         h("button", { class: `link ${n === name ? "active" : ""}`, onclick: () => open(n) }, n)));
-      fill(body, await tabs[name]());
+      const content = await tabs[name]();
+      if (current === name) fill(body, content);  // вкладку не сменили, пока она загружалась
     }
     render(h("h1", {}, title), bar, body);
     await open(current);

@@ -19,7 +19,12 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.6"]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+    "ruff>=0.6",
+    "playwright>=1.63.0",
+]
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -33,6 +38,9 @@ app = ["static/*", "static/js/*", "static/js/admin/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Браузерные тесты (tests/e2e) — отдельно: uv run pytest -m e2e
+addopts = "-m 'not e2e'"
+markers = ["e2e: браузерные тесты через Playwright, нужен Chromium"]
 
 [tool.ruff]
 line-length = 100

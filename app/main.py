@@ -21,6 +21,7 @@ from app.api import (
     reports,
     standards,
     study,
+    system,
     testing,
 )
 from app.api.deps import SessionDep
@@ -69,6 +70,7 @@ for module in (
     reports,
     imports,
     audit,
+    system,
 ):
     app.include_router(module.router)
 

@@ -1,9 +1,9 @@
 // Кабинет студента: назначенные тесты, прохождение, результаты.
 
-import { api, errorBox, go, h, masteryBadge, render } from "./core.js";
+import { api, errorBox, go, h, masteryBadge } from "./core.js";
 import { laborFunctionsView } from "./reports.js";
 
-export async function studentTests() {
+export async function studentTests(render) {
   const assignments = await api("/me/assignments");
   render(
     h("h1", {}, "Мои тесты"),
@@ -17,7 +17,7 @@ export async function studentTests() {
                 h("td", {}, a.title),
                 h("td", {}, a.question_count),
                 h("td", {}, done ? `${a.attempt.score}/${a.attempt.max_score}` : h("span", { class: "muted" }, "не пройден")),
-                h("td", {}, done ? "" : h("button", { class: "primary", onclick: () => takeTest(a.id) }, a.attempt ? "Продолжить" : "Пройти")),
+                h("td", {}, done ? "" : h("button", { class: "primary", onclick: () => go((render) => takeTest(a.id, render), studentTests) }, a.attempt ? "Продолжить" : "Пройти")),
               );
             }),
           ),
@@ -26,7 +26,7 @@ export async function studentTests() {
   );
 }
 
-async function takeTest(assignmentId) {
+async function takeTest(assignmentId, render) {
   const err = errorBox();
   let attempt;
   try {
@@ -78,7 +78,7 @@ async function takeTest(assignmentId) {
   render(h("h1", {}, attempt.title), form);
 }
 
-export async function studentResults() {
+export async function studentResults(render) {
   const [report, labor] = await Promise.all([
     api("/me/reports/competencies"),
     api("/me/reports/labor-functions"),
