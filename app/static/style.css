@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --bg: #f6f7f9;
   --card: #fff;
   --text: #1d2330;
@@ -13,8 +14,10 @@
   --warn-bg: #fef6dc;
 }
 
+/* Тёмная тема: по настройке системы (если не выбрана светлая) или явно выбранная. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --bg: #14171c;
     --card: #1d2128;
     --text: #e6e8ec;
@@ -28,6 +31,22 @@
     --warn: #e5c15c;
     --warn-bg: #352c12;
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #14171c;
+  --card: #1d2128;
+  --text: #e6e8ec;
+  --muted: #9aa1ad;
+  --border: #2d323b;
+  --accent: #6c9cf0;
+  --ok: #5cc98a;
+  --ok-bg: #173324;
+  --bad: #f0915c;
+  --bad-bg: #3a2318;
+  --warn: #e5c15c;
+  --warn-bg: #352c12;
 }
 
 * { box-sizing: border-box; }
@@ -51,6 +70,7 @@ body {
 
 #nav { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
 #who { color: var(--muted); font-size: 14px; }
+#theme { font-size: 14px; color: var(--muted); }
 
 main { max-width: 960px; margin: 0 auto; padding: 20px 16px 48px; }
 

@@ -6,12 +6,20 @@
   <title>Оценка компетенций</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
+  <script>
+    // Применяем выбранную тему до отрисовки, чтобы не было вспышки другой темы.
+    try {
+      const theme = localStorage.getItem("theme");
+      if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+    } catch {}
+  </script>
 </head>
 <body>
   <header class="topbar">
     <strong>Оценка компетенций</strong>
     <nav id="nav"></nav>
     <span id="who"></span>
+    <button id="theme" class="link" type="button" title="Тема оформления"></button>
   </header>
   <main id="app"></main>
   <script src="app.js"></script>

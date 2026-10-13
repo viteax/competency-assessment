@@ -1403,6 +1403,29 @@ async function studentResults() {
   );
 }
 
+// --- тема оформления ------------------------------------------------------
+
+const THEMES = [
+  ["auto", "◐ Тема: как в системе"],
+  ["light", "☀ Тема: светлая"],
+  ["dark", "☾ Тема: тёмная"],
+];
+
+function applyTheme(theme) {
+  if (theme === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+  try { localStorage.setItem("theme", theme); } catch { /* приватный режим */ }
+  const themeButton = document.getElementById("theme");
+  themeButton.textContent = THEMES.find(([t]) => t === theme)[1];
+  themeButton.dataset.value = theme;
+}
+
+document.getElementById("theme").addEventListener("click", (event) => {
+  const i = THEMES.findIndex(([t]) => t === event.currentTarget.dataset.value);
+  applyTheme(THEMES[(i + 1) % THEMES.length][0]);
+});
+applyTheme(document.documentElement.dataset.theme || "auto");
+
 window.addEventListener("unhandledrejection", (event) => {
   const box = errorBox();
   box.show(event.reason);
