@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app import models, schemas
 from app.api.deps import SessionDep, require_admin
-from app.services.common import get_or_404
+from app.services.common import delete_or_conflict, get_or_404
 
 router = APIRouter(tags=["Учебная часть"], dependencies=[Depends(require_admin)])
 
@@ -23,6 +23,20 @@ def list_directions(session: SessionDep):
     return session.scalars(select(models.Direction).order_by(models.Direction.code)).all()
 
 
+@router.put("/directions/{direction_id}", response_model=schemas.DirectionOut)
+def update_direction(direction_id: int, data: schemas.DirectionIn, session: SessionDep):
+    direction = get_or_404(session, models.Direction, direction_id)
+    direction.code, direction.name = data.code, data.name
+    session.commit()
+    return direction
+
+
+@router.delete("/directions/{direction_id}", status_code=204)
+def delete_direction(direction_id: int, session: SessionDep):
+    direction = get_or_404(session, models.Direction, direction_id)
+    delete_or_conflict(session, direction, "у направления есть группы")
+
+
 @router.post("/groups", response_model=schemas.GroupOut, status_code=201)
 def create_group(data: schemas.GroupIn, session: SessionDep):
     get_or_404(session, models.Direction, data.direction_id)
@@ -38,6 +52,21 @@ def list_groups(session: SessionDep, direction_id: int | None = None):
     if direction_id is not None:
         stmt = stmt.where(models.Group.direction_id == direction_id)
     return session.scalars(stmt).all()
+
+
+@router.put("/groups/{group_id}", response_model=schemas.GroupOut)
+def update_group(group_id: int, data: schemas.GroupIn, session: SessionDep):
+    group = get_or_404(session, models.Group, group_id)
+    get_or_404(session, models.Direction, data.direction_id)
+    group.name, group.direction_id = data.name, data.direction_id
+    session.commit()
+    return group
+
+
+@router.delete("/groups/{group_id}", status_code=204)
+def delete_group(group_id: int, session: SessionDep):
+    group = get_or_404(session, models.Group, group_id)
+    delete_or_conflict(session, group, "в группе есть студенты или назначенные тесты")
 
 
 @router.post("/students", response_model=schemas.StudentOut, status_code=201)

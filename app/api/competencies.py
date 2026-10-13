@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from app import models, schemas
 from app.api.deps import SessionDep, require_admin
-from app.services.common import get_many_or_404, get_or_404
+from app.services.common import delete_or_conflict, get_many_or_404, get_or_404
 
 router = APIRouter(tags=["Компетенции"], dependencies=[Depends(require_admin)])
 
@@ -36,17 +36,59 @@ def list_competencies(session: SessionDep, kind: models.CompetencyKind | None = 
     return session.scalars(stmt).all()
 
 
-@router.post(
-    "/competencies/{competency_id}/indicators",
-    response_model=schemas.IndicatorOut,
-    status_code=201,
-)
-def add_indicator(competency_id: int, data: schemas.IndicatorIn, session: SessionDep):
+@router.put("/competencies/{competency_id}", response_model=schemas.CompetencyOut)
+def update_competency(competency_id: int, data: schemas.CompetencyUpdate, session: SessionDep):
     competency = get_or_404(session, models.Competency, competency_id)
+    competency.code, competency.kind, competency.description = (
+        data.code,
+        data.kind,
+        data.description,
+    )
+    session.commit()
+    return competency
+
+
+@router.delete("/competencies/{competency_id}", status_code=204)
+def delete_competency(competency_id: int, session: SessionDep):
+    competency = get_or_404(session, models.Competency, competency_id)
+    delete_or_conflict(session, competency, "по компетенции есть вопросы в банке")
+
+
+# --- Индикаторы ------------------------------------------------------------
+
+
+@router.get("/indicators", response_model=list[schemas.IndicatorOut])
+def list_indicators(session: SessionDep, competency_id: int | None = None):
+    stmt = select(models.Indicator).order_by(models.Indicator.code)
+    if competency_id is not None:
+        stmt = stmt.where(models.Indicator.competency_id == competency_id)
+    return session.scalars(stmt).all()
+
+
+@router.post("/indicators", response_model=schemas.IndicatorOut, status_code=201)
+def create_indicator(data: schemas.IndicatorCreate, session: SessionDep):
+    get_or_404(session, models.Competency, data.competency_id)
     indicator = models.Indicator(**data.model_dump())
-    competency.indicators.append(indicator)
+    session.add(indicator)
     session.commit()
     return indicator
+
+
+@router.put("/indicators/{indicator_id}", response_model=schemas.IndicatorOut)
+def update_indicator(indicator_id: int, data: schemas.IndicatorIn, session: SessionDep):
+    indicator = get_or_404(session, models.Indicator, indicator_id)
+    indicator.code, indicator.description = data.code, data.description
+    session.commit()
+    return indicator
+
+
+@router.delete("/indicators/{indicator_id}", status_code=204)
+def delete_indicator(indicator_id: int, session: SessionDep):
+    indicator = get_or_404(session, models.Indicator, indicator_id)
+    delete_or_conflict(session, indicator, "к индикатору привязаны вопросы")
+
+
+# --- Дисциплины ------------------------------------------------------------
 
 
 @router.post("/disciplines", response_model=schemas.DisciplineOut, status_code=201)
@@ -69,9 +111,16 @@ def list_disciplines(session: SessionDep):
     ).all()
 
 
-@router.put("/disciplines/{discipline_id}/competencies", response_model=schemas.DisciplineOut)
-def set_discipline_competencies(discipline_id: int, competency_ids: list[int], session: SessionDep):
+@router.put("/disciplines/{discipline_id}", response_model=schemas.DisciplineOut)
+def update_discipline(discipline_id: int, data: schemas.DisciplineIn, session: SessionDep):
     discipline = get_or_404(session, models.Discipline, discipline_id)
-    discipline.competencies = get_many_or_404(session, models.Competency, competency_ids)
+    discipline.name = data.name
+    discipline.competencies = get_many_or_404(session, models.Competency, data.competency_ids)
     session.commit()
     return discipline
+
+
+@router.delete("/disciplines/{discipline_id}", status_code=204)
+def delete_discipline(discipline_id: int, session: SessionDep):
+    discipline = get_or_404(session, models.Discipline, discipline_id)
+    delete_or_conflict(session, discipline, "к дисциплине привязаны вопросы или тесты")

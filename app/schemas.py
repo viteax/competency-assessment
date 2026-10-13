@@ -80,11 +80,21 @@ class IndicatorOut(ORM, IndicatorIn):
     competency_id: int
 
 
+class IndicatorCreate(IndicatorIn):
+    competency_id: int
+
+
 class CompetencyIn(BaseModel):
     code: str = Field(examples=["ОПК-5"])
     kind: CompetencyKind
     description: str
     indicators: list[IndicatorIn] = []
+
+
+class CompetencyUpdate(BaseModel):
+    code: str
+    kind: CompetencyKind
+    description: str
 
 
 class CompetencyOut(ORM):
@@ -115,8 +125,13 @@ class LaborFunctionIn(BaseModel):
     competency_ids: list[int] = []
 
 
+class LaborFunctionCreate(LaborFunctionIn):
+    general_function_id: int
+
+
 class LaborFunctionOut(ORM):
     id: int
+    general_function_id: int
     code: str
     name: str
     competency_ids: list[int]
@@ -129,8 +144,19 @@ class GeneralLaborFunctionIn(BaseModel):
     functions: list[LaborFunctionIn] = []
 
 
+class GeneralLaborFunctionUpdate(BaseModel):
+    code: str
+    name: str
+    qualification_level: int
+
+
+class GeneralLaborFunctionCreate(GeneralLaborFunctionUpdate):
+    standard_id: int
+
+
 class GeneralLaborFunctionOut(ORM):
     id: int
+    standard_id: int
     code: str
     name: str
     qualification_level: int
@@ -141,6 +167,11 @@ class ProfStandardIn(BaseModel):
     code: str = Field(examples=["06.001"])
     name: str = Field(examples=["Программист"])
     general_functions: list[GeneralLaborFunctionIn] = []
+
+
+class ProfStandardUpdate(BaseModel):
+    code: str
+    name: str
 
 
 class ProfStandardOut(ORM):
@@ -162,11 +193,15 @@ class AnswerOptionOut(ORM, AnswerOptionIn):
     id: int
 
 
+class AnswerOptionUpdate(AnswerOptionIn):
+    id: int | None = None  # None — новый вариант
+
+
 class QuestionIn(BaseModel):
     competency_id: int
     indicator_id: int | None = None
     discipline_id: int | None = None
-    text: str
+    text: str = Field(min_length=1)
     options: list[AnswerOptionIn] = Field(min_length=2)
 
     @model_validator(mode="after")
@@ -176,6 +211,10 @@ class QuestionIn(BaseModel):
         return self
 
 
+class QuestionUpdate(QuestionIn):
+    options: list[AnswerOptionUpdate] = Field(min_length=2)
+
+
 class QuestionOut(ORM):
     id: int
     competency_id: int
@@ -183,6 +222,7 @@ class QuestionOut(ORM):
     discipline_id: int | None
     text: str
     options: list[AnswerOptionOut]
+    in_use: bool  # входит в собранные тесты: менять можно только формулировки
 
 
 # --- Тесты -----------------------------------------------------------------

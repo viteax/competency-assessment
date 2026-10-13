@@ -73,6 +73,16 @@ input, select, button {
 }
 
 input[type="text"], input[type="password"], input[type="number"], select { width: 100%; max-width: 420px; }
+textarea {
+  font: inherit;
+  color: inherit;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--card);
+  resize: vertical;
+}
 input[type="checkbox"], input[type="radio"] { width: auto; margin-right: 6px; }
 
 button { cursor: pointer; }
@@ -80,6 +90,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button.link { border: none; background: none; color: var(--accent); padding: 6px 8px; }
 button.link.active { font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
 button:disabled { opacity: .5; cursor: default; }
+button.link.danger { color: var(--bad); }
 
 .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
 .muted { color: var(--muted); }
@@ -87,6 +98,15 @@ button:disabled { opacity: .5; cursor: default; }
 .success { color: var(--ok); margin-top: 10px; }
 
 .check-list label { font-weight: 400; margin: 6px 0; }
+.check-grid { display: flex; flex-wrap: wrap; gap: 0 18px; }
+
+.subnav { display: flex; flex-wrap: wrap; gap: 2px; margin: -6px 0 12px -8px; }
+
+td.wrap { white-space: normal; min-width: 160px; }
+td.actions { text-align: right; }
+
+.option-row { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+.option-row input[type="text"] { max-width: none; flex: 1; }
 
 .table-wrap { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; }

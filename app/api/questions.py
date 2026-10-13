@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from app import models, schemas
 from app.api.deps import SessionDep, require_admin
-from app.errors import DomainError
+from app.services import questions
 from app.services.common import get_or_404
 
 router = APIRouter(tags=["Банк вопросов"], dependencies=[Depends(require_admin)])
@@ -14,23 +14,7 @@ router = APIRouter(tags=["Банк вопросов"], dependencies=[Depends(req
 
 @router.post("/questions", response_model=schemas.QuestionOut, status_code=201)
 def create_question(data: schemas.QuestionIn, session: SessionDep):
-    get_or_404(session, models.Competency, data.competency_id)
-    if data.indicator_id is not None:
-        indicator = get_or_404(session, models.Indicator, data.indicator_id)
-        if indicator.competency_id != data.competency_id:
-            raise DomainError("индикатор относится к другой компетенции")
-    if data.discipline_id is not None:
-        get_or_404(session, models.Discipline, data.discipline_id)
-    question = models.Question(
-        competency_id=data.competency_id,
-        indicator_id=data.indicator_id,
-        discipline_id=data.discipline_id,
-        text=data.text,
-        options=[models.AnswerOption(**o.model_dump()) for o in data.options],
-    )
-    session.add(question)
-    session.commit()
-    return question
+    return questions.create_question(session, data)
 
 
 @router.get("/questions", response_model=list[schemas.QuestionOut])
@@ -42,10 +26,21 @@ def list_questions(
     stmt = (
         select(models.Question)
         .order_by(models.Question.id)
-        .options(selectinload(models.Question.options))
+        .options(selectinload(models.Question.options), selectinload(models.Question.test_links))
     )
     if competency_id is not None:
         stmt = stmt.where(models.Question.competency_id == competency_id)
     if discipline_id is not None:
         stmt = stmt.where(models.Question.discipline_id == discipline_id)
     return session.scalars(stmt).all()
+
+
+@router.put("/questions/{question_id}", response_model=schemas.QuestionOut)
+def update_question(question_id: int, data: schemas.QuestionUpdate, session: SessionDep):
+    question = get_or_404(session, models.Question, question_id)
+    return questions.update_question(session, question, data)
+
+
+@router.delete("/questions/{question_id}", status_code=204)
+def delete_question(question_id: int, session: SessionDep):
+    questions.delete_question(session, get_or_404(session, models.Question, question_id))

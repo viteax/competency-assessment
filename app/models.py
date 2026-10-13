@@ -236,6 +236,11 @@ class Question(Base):
     options: Mapped[list["AnswerOption"]] = relationship(
         back_populates="question", cascade="all, delete-orphan", order_by="AnswerOption.id"
     )
+    test_links: Mapped[list["TestQuestion"]] = relationship(viewonly=True)
+
+    @property
+    def in_use(self) -> bool:
+        return bool(self.test_links)
 
 
 class AnswerOption(Base):
