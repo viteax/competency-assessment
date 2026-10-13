@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from app import models, schemas
 from app.api.deps import SessionDep, require_admin
-from app.services.common import delete_or_conflict, get_many_or_404, get_or_404
+from app.services.common import delete_or_conflict, get_many_or_404, get_or_404, save, update_fields
 
 router = APIRouter(tags=["Профстандарты"], dependencies=[Depends(require_admin)])
 
@@ -14,29 +14,31 @@ router = APIRouter(tags=["Профстандарты"], dependencies=[Depends(re
 @router.post("/standards", response_model=schemas.ProfStandardOut, status_code=201)
 def create_standard(data: schemas.ProfStandardIn, session: SessionDep):
     """Создаёт профстандарт сразу с ОТФ и ТФ (удобно для импорта)."""
-    standard = models.ProfStandard(
-        code=data.code,
-        name=data.name,
-        general_functions=[
-            models.GeneralLaborFunction(
-                code=g.code,
-                name=g.name,
-                qualification_level=g.qualification_level,
-                functions=[
-                    models.LaborFunction(
-                        code=f.code,
-                        name=f.name,
-                        competencies=get_many_or_404(session, models.Competency, f.competency_ids),
-                    )
-                    for f in g.functions
-                ],
-            )
-            for g in data.general_functions
-        ],
+    return save(
+        session,
+        models.ProfStandard(
+            code=data.code,
+            name=data.name,
+            general_functions=[
+                models.GeneralLaborFunction(
+                    code=g.code,
+                    name=g.name,
+                    qualification_level=g.qualification_level,
+                    functions=[
+                        models.LaborFunction(
+                            code=f.code,
+                            name=f.name,
+                            competencies=get_many_or_404(
+                                session, models.Competency, f.competency_ids
+                            ),
+                        )
+                        for f in g.functions
+                    ],
+                )
+                for g in data.general_functions
+            ],
+        ),
     )
-    session.add(standard)
-    session.commit()
-    return standard
 
 
 @router.get("/standards", response_model=list[schemas.ProfStandardOut])
@@ -55,9 +57,7 @@ def list_standards(session: SessionDep):
 @router.put("/standards/{standard_id}", response_model=schemas.ProfStandardOut)
 def update_standard(standard_id: int, data: schemas.ProfStandardUpdate, session: SessionDep):
     standard = get_or_404(session, models.ProfStandard, standard_id)
-    standard.code, standard.name = data.code, data.name
-    session.commit()
-    return standard
+    return update_fields(session, standard, data)
 
 
 @router.delete("/standards/{standard_id}", status_code=204)
@@ -89,10 +89,7 @@ def list_general_functions(session: SessionDep, standard_id: int | None = None):
 @router.post("/general-functions", response_model=schemas.GeneralLaborFunctionOut, status_code=201)
 def create_general_function(data: schemas.GeneralLaborFunctionCreate, session: SessionDep):
     get_or_404(session, models.ProfStandard, data.standard_id)
-    general = models.GeneralLaborFunction(**data.model_dump())
-    session.add(general)
-    session.commit()
-    return general
+    return save(session, models.GeneralLaborFunction(**data.model_dump()))
 
 
 @router.put("/general-functions/{general_id}", response_model=schemas.GeneralLaborFunctionOut)
@@ -100,13 +97,7 @@ def update_general_function(
     general_id: int, data: schemas.GeneralLaborFunctionUpdate, session: SessionDep
 ):
     general = get_or_404(session, models.GeneralLaborFunction, general_id)
-    general.code, general.name, general.qualification_level = (
-        data.code,
-        data.name,
-        data.qualification_level,
-    )
-    session.commit()
-    return general
+    return update_fields(session, general, data)
 
 
 @router.delete("/general-functions/{general_id}", status_code=204)
@@ -134,15 +125,15 @@ def list_labor_functions(session: SessionDep, general_function_id: int | None = 
 @router.post("/labor-functions", response_model=schemas.LaborFunctionOut, status_code=201)
 def create_labor_function(data: schemas.LaborFunctionCreate, session: SessionDep):
     get_or_404(session, models.GeneralLaborFunction, data.general_function_id)
-    labor_function = models.LaborFunction(
-        general_function_id=data.general_function_id,
-        code=data.code,
-        name=data.name,
-        competencies=get_many_or_404(session, models.Competency, data.competency_ids),
+    return save(
+        session,
+        models.LaborFunction(
+            general_function_id=data.general_function_id,
+            code=data.code,
+            name=data.name,
+            competencies=get_many_or_404(session, models.Competency, data.competency_ids),
+        ),
     )
-    session.add(labor_function)
-    session.commit()
-    return labor_function
 
 
 @router.put("/labor-functions/{labor_function_id}", response_model=schemas.LaborFunctionOut)
@@ -151,10 +142,13 @@ def update_labor_function(
 ):
     """Меняет ТФ и её связь ТФ ⇒ компетенции."""
     labor_function = get_or_404(session, models.LaborFunction, labor_function_id)
-    labor_function.code, labor_function.name = data.code, data.name
-    labor_function.competencies = get_many_or_404(session, models.Competency, data.competency_ids)
-    session.commit()
-    return labor_function
+    return update_fields(
+        session,
+        labor_function,
+        code=data.code,
+        name=data.name,
+        competencies=get_many_or_404(session, models.Competency, data.competency_ids),
+    )
 
 
 @router.delete("/labor-functions/{labor_function_id}", status_code=204)

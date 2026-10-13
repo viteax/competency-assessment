@@ -1,3 +1,6 @@
+from typing import Any
+
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -32,3 +35,19 @@ def delete_or_conflict(session: Session, obj: Base, reason: str) -> None:
     except IntegrityError:
         session.rollback()
         raise Conflict(f"нельзя удалить: {reason}") from None
+
+
+def save[M: Base](session: Session, obj: M) -> M:
+    session.add(obj)
+    session.commit()
+    return obj
+
+
+def update_fields[M: Base](
+    session: Session, obj: M, data: BaseModel | None = None, **values: Any
+) -> M:
+    """Переносит поля схемы (и/или явно переданные значения) в объект и сохраняет."""
+    for name, value in {**(data.model_dump() if data else {}), **values}.items():
+        setattr(obj, name, value)
+    session.commit()
+    return obj

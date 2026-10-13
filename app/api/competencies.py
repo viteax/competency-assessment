@@ -6,22 +6,22 @@ from sqlalchemy.orm import selectinload
 
 from app import models, schemas
 from app.api.deps import SessionDep, require_admin
-from app.services.common import delete_or_conflict, get_many_or_404, get_or_404
+from app.services.common import delete_or_conflict, get_many_or_404, get_or_404, save, update_fields
 
 router = APIRouter(tags=["Компетенции"], dependencies=[Depends(require_admin)])
 
 
 @router.post("/competencies", response_model=schemas.CompetencyOut, status_code=201)
 def create_competency(data: schemas.CompetencyIn, session: SessionDep):
-    competency = models.Competency(
-        code=data.code,
-        kind=data.kind,
-        description=data.description,
-        indicators=[models.Indicator(**i.model_dump()) for i in data.indicators],
+    return save(
+        session,
+        models.Competency(
+            code=data.code,
+            kind=data.kind,
+            description=data.description,
+            indicators=[models.Indicator(**i.model_dump()) for i in data.indicators],
+        ),
     )
-    session.add(competency)
-    session.commit()
-    return competency
 
 
 @router.get("/competencies", response_model=list[schemas.CompetencyOut])
@@ -39,13 +39,7 @@ def list_competencies(session: SessionDep, kind: models.CompetencyKind | None = 
 @router.put("/competencies/{competency_id}", response_model=schemas.CompetencyOut)
 def update_competency(competency_id: int, data: schemas.CompetencyUpdate, session: SessionDep):
     competency = get_or_404(session, models.Competency, competency_id)
-    competency.code, competency.kind, competency.description = (
-        data.code,
-        data.kind,
-        data.description,
-    )
-    session.commit()
-    return competency
+    return update_fields(session, competency, data)
 
 
 @router.delete("/competencies/{competency_id}", status_code=204)
@@ -68,18 +62,13 @@ def list_indicators(session: SessionDep, competency_id: int | None = None):
 @router.post("/indicators", response_model=schemas.IndicatorOut, status_code=201)
 def create_indicator(data: schemas.IndicatorCreate, session: SessionDep):
     get_or_404(session, models.Competency, data.competency_id)
-    indicator = models.Indicator(**data.model_dump())
-    session.add(indicator)
-    session.commit()
-    return indicator
+    return save(session, models.Indicator(**data.model_dump()))
 
 
 @router.put("/indicators/{indicator_id}", response_model=schemas.IndicatorOut)
 def update_indicator(indicator_id: int, data: schemas.IndicatorIn, session: SessionDep):
     indicator = get_or_404(session, models.Indicator, indicator_id)
-    indicator.code, indicator.description = data.code, data.description
-    session.commit()
-    return indicator
+    return update_fields(session, indicator, data)
 
 
 @router.delete("/indicators/{indicator_id}", status_code=204)
@@ -93,13 +82,13 @@ def delete_indicator(indicator_id: int, session: SessionDep):
 
 @router.post("/disciplines", response_model=schemas.DisciplineOut, status_code=201)
 def create_discipline(data: schemas.DisciplineIn, session: SessionDep):
-    discipline = models.Discipline(
-        name=data.name,
-        competencies=get_many_or_404(session, models.Competency, data.competency_ids),
+    return save(
+        session,
+        models.Discipline(
+            name=data.name,
+            competencies=get_many_or_404(session, models.Competency, data.competency_ids),
+        ),
     )
-    session.add(discipline)
-    session.commit()
-    return discipline
 
 
 @router.get("/disciplines", response_model=list[schemas.DisciplineOut])
@@ -114,10 +103,12 @@ def list_disciplines(session: SessionDep):
 @router.put("/disciplines/{discipline_id}", response_model=schemas.DisciplineOut)
 def update_discipline(discipline_id: int, data: schemas.DisciplineIn, session: SessionDep):
     discipline = get_or_404(session, models.Discipline, discipline_id)
-    discipline.name = data.name
-    discipline.competencies = get_many_or_404(session, models.Competency, data.competency_ids)
-    session.commit()
-    return discipline
+    return update_fields(
+        session,
+        discipline,
+        name=data.name,
+        competencies=get_many_or_404(session, models.Competency, data.competency_ids),
+    )
 
 
 @router.delete("/disciplines/{discipline_id}", status_code=204)

@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.errors import Conflict, DomainError
-from app.services.common import get_or_404
+from app.services.common import get_or_404, save
 
 
 def _check_links(session: Session, data: schemas.QuestionIn) -> None:
@@ -24,9 +24,7 @@ def create_question(session: Session, data: schemas.QuestionIn) -> models.Questi
         text=data.text,
         options=[models.AnswerOption(text=o.text, is_correct=o.is_correct) for o in data.options],
     )
-    session.add(question)
-    session.commit()
-    return question
+    return save(session, question)
 
 
 def update_question(

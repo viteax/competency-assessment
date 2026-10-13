@@ -190,19 +190,33 @@ uv run ruff check . && uv run ruff format --check .
 
 ```
 app/
-  models.py        модель данных
-  security.py      хеширование паролей (scrypt) и JWT
-  schemas.py       Pydantic-схемы запросов и ответов
-  api/             роутеры FastAPI
-  services/        сборка тестов, проверка ответов, отчёты
-  static/          веб-интерфейс (HTML + JS без сборки)
-migrations/        ревизии Alembic
-scripts/
-  init_db.py       применение миграций
-  create_admin.py  создание администратора
-  seed.py          демо-данные (формулировки примерные)
+  models.py              модель данных
+  schemas.py             Pydantic-схемы запросов и ответов
+  security.py            хеширование паролей (scrypt) и JWT
+  api/                   роутеры FastAPI: HTTP, права доступа, простой CRUD
+  services/
+    common.py            get_or_404, save, update_fields, delete_or_conflict
+    testing.py           сборка тестов, назначение, прохождение и проверка
+    questions.py         правила редактирования банка вопросов
+    reports.py           результаты по компетенциям и ТФ профстандарта
+    files.py             чтение загруженных файлов (docx, xlsx, pdf, csv)
+    competency_import.py импорт компетенций из ОПОП / РПД
+    student_columns.py   таблица студентов: колонки и разбор строк (без БД)
+    student_import.py    импорт студентов: сопоставление, предпросмотр, сохранение
+    accounts.py          логины и пароли студентов
+  static/                веб-интерфейс без сборки (ES-модули)
+    js/core.js           DOM, запросы к API, сессия, навигация
+    js/main.js           вход, меню по ролям, тема
+    js/student.js        кабинет студента
+    js/admin/*.js        экраны администратора, по файлу на экран
+migrations/              ревизии Alembic
+scripts/                 миграции, создание администратора, демо-данные
 tests/
 ```
+
+Правило слоёв: роутер отвечает за HTTP и права, а простое создание и изменение записи делает
+через `save` / `update_fields`. Всё, где есть правила предметной области или несколько шагов
+(сборка теста, проверка ответов, импорт, ограничения на правку вопросов), — в `services/`.
 
 ## Дальше
 

@@ -8,7 +8,6 @@
 потом сохраняется.
 """
 
-import io
 import re
 from dataclasses import dataclass, field
 
@@ -17,8 +16,8 @@ from sqlalchemy.orm import Session, selectinload
 
 from app import models, schemas
 from app.errors import DomainError
+from app.services import files
 
-MAX_FILE_SIZE = 10 * 1024 * 1024
 SUPPORTED = (".docx", ".xlsx", ".pdf", ".txt")
 
 _DASH = r"[-‑–—]"
@@ -69,72 +68,17 @@ class ParsedDocument:
 # --- извлечение текста ------------------------------------------------------
 
 
-def _docx_text(data: bytes) -> str:
-    from docx import Document
-    from docx.table import Table
-    from docx.text.paragraph import Paragraph
-
-    document = Document(io.BytesIO(data))
-    chunks: list[str] = []
-
-    def table_text(table: Table) -> None:
-        for row in table.rows:
-            previous = None
-            for cell in row.cells:
-                # Объединённые ячейки python-docx возвращает несколько раз подряд.
-                if cell._tc is previous:
-                    continue
-                previous = cell._tc
-                chunks.append(cell.text)
-                for nested in cell.tables:
-                    table_text(nested)
-
-    for block in document.iter_inner_content():
-        if isinstance(block, Paragraph):
-            chunks.append(block.text)
-        elif isinstance(block, Table):
-            table_text(block)
-    return "\n".join(chunks)
-
-
-def _xlsx_text(data: bytes) -> str:
-    from openpyxl import load_workbook
-
-    workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
-    chunks = []
-    for sheet in workbook.worksheets:
-        for row in sheet.iter_rows(values_only=True):
-            chunks.extend(str(v) for v in row if v not in (None, ""))
-    return "\n".join(chunks)
-
-
-def _pdf_text(data: bytes) -> str:
-    from pypdf import PdfReader
-
-    reader = PdfReader(io.BytesIO(data))
-    return "\n".join(page.extract_text() or "" for page in reader.pages)
-
-
 def extract_text(filename: str, data: bytes) -> str:
-    name = filename.lower()
-    if len(data) > MAX_FILE_SIZE:
-        raise DomainError("файл больше 10 МБ")
-    if name.endswith((".doc", ".xls")):
-        raise DomainError("старые форматы .doc/.xls не поддерживаются — сохраните как .docx/.xlsx")
-    try:
-        if name.endswith(".docx"):
-            return _docx_text(data)
-        if name.endswith(".xlsx"):
-            return _xlsx_text(data)
-        if name.endswith(".pdf"):
-            return _pdf_text(data)
-        if name.endswith(".txt"):
-            return data.decode("utf-8-sig", errors="replace")
-    except DomainError:
-        raise
-    except Exception as exc:  # повреждённый или не тот файл
-        raise DomainError(f"не удалось прочитать файл: {exc}") from exc
-    raise DomainError(f"поддерживаются файлы {', '.join(SUPPORTED)}")
+    ext = files.file_kind(filename, data, SUPPORTED)
+    with files.reading():
+        if ext == ".docx":
+            return files.docx_text(data)
+        if ext == ".xlsx":
+            rows = files.xlsx_rows(data, all_sheets=True)
+            return "\n".join(cell for row in rows for cell in row if cell)
+        if ext == ".pdf":
+            return files.pdf_text(data)
+        return files.decode_text(data)
 
 
 # --- разбор текста ----------------------------------------------------------

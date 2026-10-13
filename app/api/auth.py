@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app import models, schemas
 from app.api.deps import AdminUser, CurrentUser, SessionDep
 from app.security import create_access_token, hash_password, verify_password
-from app.services.common import get_or_404
+from app.services.common import get_or_404, save
 
 router = APIRouter(tags=["Пользователи"])
 
@@ -29,15 +29,15 @@ def me(user: CurrentUser):
 def create_user(data: schemas.UserCreate, session: SessionDep, _: AdminUser):
     if data.student_id is not None:
         get_or_404(session, models.Student, data.student_id)
-    user = models.User(
-        username=data.username,
-        password_hash=hash_password(data.password),
-        role=data.role,
-        student_id=data.student_id,
+    return save(
+        session,
+        models.User(
+            username=data.username,
+            password_hash=hash_password(data.password),
+            role=data.role,
+            student_id=data.student_id,
+        ),
     )
-    session.add(user)
-    session.commit()
-    return user
 
 
 @router.get("/users", response_model=list[schemas.UserOut])

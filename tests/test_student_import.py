@@ -4,7 +4,7 @@ import json
 from fastapi.testclient import TestClient
 from openpyxl import Workbook
 
-from app.services.student_import import guess_mapping
+from app.services.student_columns import guess_mapping
 
 # Выгрузка участников курса Moodle («Скачать данные таблицы как CSV»).
 MOODLE_PARTICIPANTS = (

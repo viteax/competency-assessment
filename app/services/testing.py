@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app import models, schemas
 from app.errors import Conflict, DomainError, NotFound
-from app.services.common import get_many_or_404, get_or_404
+from app.services.common import get_many_or_404, get_or_404, save
 
 
 def pick_questions(
@@ -69,9 +69,7 @@ def create_test(
     test.test_questions = [
         models.TestQuestion(question=q, position=i) for i, q in enumerate(selected)
     ]
-    session.add(test)
-    session.commit()
-    return test
+    return save(session, test)
 
 
 def assign_test(session: Session, data: schemas.AssignmentIn) -> models.Assignment:
@@ -86,9 +84,7 @@ def assign_test(session: Session, data: schemas.AssignmentIn) -> models.Assignme
     if exists:
         raise Conflict("тест уже назначен этой группе")
     assignment = models.Assignment(test_id=data.test_id, group_id=data.group_id)
-    session.add(assignment)
-    session.commit()
-    return assignment
+    return save(session, assignment)
 
 
 def _test_questions(session: Session, test_id: int) -> list[models.Question]:
@@ -118,9 +114,7 @@ def start_attempt(
     if attempt is not None and attempt.finished_at is not None:
         raise Conflict("тест уже пройден")
     if attempt is None:
-        attempt = models.Attempt(assignment_id=assignment.id, student_id=student.id)
-        session.add(attempt)
-        session.commit()
+        attempt = save(session, models.Attempt(assignment_id=assignment.id, student_id=student.id))
     return attempt, _test_questions(session, assignment.test_id)
 
 

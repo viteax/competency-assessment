@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.services.importer import parse_text
+from app.services.competency_import import parse_text
 from tests.helpers import by_code
 from tests.import_samples import matrix_xlsx, rpd_docx
 
