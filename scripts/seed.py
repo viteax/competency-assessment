@@ -9,9 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import models
-from app.db import Base, SessionLocal, engine
+from app.db import SessionLocal
 from app.models import CompetencyKind as K
 from app.security import hash_password
+from scripts.init_db import migrate
 
 COMPETENCIES = [
     (
@@ -365,7 +366,7 @@ def seed(session: Session) -> None:
 
 
 def main() -> None:
-    Base.metadata.create_all(engine)
+    migrate()
     with SessionLocal() as session:
         seed(session)
 

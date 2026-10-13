@@ -49,9 +49,22 @@ docker compose exec api python -m scripts.create_admin <логин>
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
 export DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/competency
-python -m scripts.seed          # создаёт таблицы и заполняет демо-данными
+python -m scripts.seed          # применяет миграции и заполняет демо-данными
 uvicorn app.main:app --reload
 ```
+
+## Миграции
+
+Схема БД ведётся через Alembic. Контейнер `api` применяет миграции при старте.
+
+```bash
+alembic upgrade head                                  # применить
+alembic revision --autogenerate -m "что изменилось"   # после правки app/models.py
+alembic downgrade -1                                  # откатить последнюю
+```
+
+Тест `tests/test_migrations.py` и job `migrations` в CI падают, если модели разошлись
+с миграциями, — то есть если забыли сгенерировать ревизию.
 
 Тесты используют SQLite в памяти, PostgreSQL для них не нужен:
 
@@ -99,8 +112,9 @@ app/
   schemas.py       Pydantic-схемы запросов и ответов
   api/             роутеры FastAPI
   services/        сборка тестов, проверка ответов, отчёты
+migrations/        ревизии Alembic
 scripts/
-  init_db.py       создание таблиц
+  init_db.py       применение миграций
   create_admin.py  создание администратора
   seed.py          демо-данные (формулировки примерные)
 tests/
@@ -108,7 +122,6 @@ tests/
 
 ## Дальше
 
-- Миграции Alembic вместо `create_all`
 - Импорт компетенций и учебного плана из файлов ОПОП / РПД
 - Веб-интерфейс администратора и студента
 - Ограничение по времени на попытку, вопросы с несколькими правильными ответами

@@ -1,13 +1,16 @@
-"""Создаёт таблицы в БД из DATABASE_URL. Пока нет миграций — достаточно для MVP."""
+"""Применяет миграции Alembic к БД из DATABASE_URL (то же, что `alembic upgrade head`)."""
 
-from app import models  # noqa: F401  регистрирует модели в metadata
-from app.db import Base, engine
+from pathlib import Path
+
+from alembic import command
+from alembic.config import Config
+
+ALEMBIC_INI = Path(__file__).resolve().parent.parent / "alembic.ini"
 
 
-def main() -> None:
-    Base.metadata.create_all(engine)
-    print("таблицы созданы")
+def migrate() -> None:
+    command.upgrade(Config(str(ALEMBIC_INI)), "head")
 
 
 if __name__ == "__main__":
-    main()
+    migrate()
