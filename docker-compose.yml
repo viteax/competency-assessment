@@ -20,6 +20,8 @@ services:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/competency
       # Конфигурация для локальной разработки и демо. Для сервера — docker-compose.prod.yml.
       ENVIRONMENT: dev
+      # В dev ключ подписи случайный в каждом процессе — нужен один процесс.
+      WEB_CONCURRENCY: 1
     ports:
       - "8000:8000"
     depends_on:

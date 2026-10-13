@@ -1,11 +1,14 @@
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app import middleware
 from app.api import (
@@ -20,10 +23,19 @@ from app.api import (
     study,
     testing,
 )
+from app.api.deps import SessionDep
 from app.config import settings
 from app.db import SessionLocal
 from app.errors import DomainError
+from app.logging_setup import setup_logging
 from app.services import auth as auth_service
+
+try:
+    VERSION = version("competency-assessment")
+except PackageNotFoundError:  # запуск из исходников без установки пакета
+    VERSION = "dev"
+
+setup_logging()
 
 
 @asynccontextmanager
@@ -42,8 +54,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     lifespan=lifespan,
     title="Competency Assessment",
+    version=VERSION,
     description="Тестирование студентов по компетенциям ФГОС с привязкой к профстандарту",
-    version="0.1.0",
 )
 
 for module in (
@@ -84,6 +96,19 @@ def index() -> RedirectResponse:
     return RedirectResponse("/ui/")
 
 
-@app.get("/health", include_in_schema=False)
+@app.get("/health", tags=["Служебное"])
 def health() -> dict[str, str]:
-    return {"status": "ok"}
+    """Процесс жив (liveness). Базу не трогает — чтобы оркестратор не перезапускал
+    приложение из-за проблем с БД."""
+    return {"status": "ok", "version": VERSION}
+
+
+@app.get("/ready", tags=["Служебное"])
+def ready(session: SessionDep) -> JSONResponse:
+    """Готов обслуживать запросы (readiness): база доступна."""
+    try:
+        session.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        logging.getLogger("app").exception("база данных недоступна")
+        return JSONResponse({"status": "unavailable"}, status_code=503)
+    return JSONResponse({"status": "ok", "version": VERSION})

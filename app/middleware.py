@@ -1,12 +1,20 @@
-"""Заголовки безопасности и журнал изменяющих действий."""
+"""Middleware: id запроса и лог доступа, заголовки безопасности, журнал изменяющих действий."""
+
+import logging
+import time
+import uuid
 
 from fastapi import FastAPI, Request, Response
+from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from app import models
 from app.api.cookies import set_session_cookie
 from app.config import settings
 from app.db import get_session
+from app.logging_setup import request_id_var
+
+log = logging.getLogger("app.request")
 
 # Интерфейс не подключает ничего стороннего, поэтому политика строгая. Inline-стили
 # разрешены: интерфейс задаёт отступы атрибутом style, а исполняемого кода в них нет.
@@ -17,12 +25,27 @@ _CSP = (
 # Swagger UI грузит скрипты с CDN — на документацию CSP не распространяем.
 _DOCS = ("/docs", "/redoc", "/openapi.json")
 _SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+# Проверки работоспособности дёргаются каждые несколько секунд — в лог их не пишем.
+_QUIET = {"/health", "/ready"}
 
 
 def install(app: FastAPI) -> None:
     @app.middleware("http")
     async def security_and_audit(request: Request, call_next) -> Response:
-        response = await call_next(request)
+        # Id запроса: берём от прокси, если он его выставил, иначе создаём свой.
+        request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:16]
+        token = request_id_var.set(request_id[:64])
+        started = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            # Подробности — только в лог; пользователю — id, по которому их найти.
+            log.exception("необработанная ошибка")
+            response = JSONResponse(
+                {"detail": f"внутренняя ошибка сервера, код запроса {request_id}"},
+                status_code=500,
+            )
+        response.headers["X-Request-ID"] = request_id
 
         headers = response.headers
         headers.setdefault("X-Content-Type-Options", "nosniff")
@@ -42,6 +65,20 @@ def install(app: FastAPI) -> None:
         actor = getattr(request.state, "actor", None)
         if actor is not None and request.method not in _SAFE_METHODS:
             await run_in_threadpool(_record, app, actor, request, response.status_code)
+
+        if request.url.path not in _QUIET:
+            log.info(
+                "запрос",
+                extra={
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status": response.status_code,
+                    "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+                    "user": actor[1] if actor else None,
+                    "ip": request.client.host if request.client else None,
+                },
+            )
+        request_id_var.reset(token)
         return response
 
 

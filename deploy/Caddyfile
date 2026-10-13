@@ -1,0 +1,26 @@
+# Обратный прокси перед приложением.
+#
+# SITE_ADDRESS из .env:
+#   tests.example.ru  — публичный домен: Caddy сам получит и будет продлевать сертификат
+#                       Let's Encrypt (нужны открытые порты 80 и 443 и DNS-запись на сервер);
+#   :80               — только HTTP, если HTTPS уже делает прокси вуза перед этим сервером.
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	header -Server
+
+	# Чуть больше лимита приложения на загружаемые файлы (10 МБ).
+	request_body {
+		max_size 12MB
+	}
+
+	reverse_proxy api:8000 {
+		# Один id запроса в логах прокси и приложения.
+		header_up X-Request-ID {http.request.uuid}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

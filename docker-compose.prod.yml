@@ -1,0 +1,94 @@
+# Продакшен: приложение, PostgreSQL, Caddy (HTTPS) и ежедневные бэкапы.
+#
+#   cp .env.example .env   # и заполнить
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Подробно — docs/deploy.md.
+
+name: competency
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: competency
+      POSTGRES_USER: competency
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U competency -d competency"]
+      interval: 5s
+      retries: 20
+    logging: *logging
+    # Порт базы наружу не открыт.
+
+  api:
+    image: ${APP_IMAGE:-ghcr.io/viteax/competency-assessment:latest}
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ENVIRONMENT: prod
+      DATABASE_URL: postgresql+psycopg://competency:${POSTGRES_PASSWORD}@db:5432/competency
+    depends_on:
+      db:
+        condition: service_healthy
+    # Контейнер не может изменить собственный код и повысить привилегии.
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+    # Порт 8000 наружу не открыт — запросы приходят только через Caddy.
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?задайте SITE_ADDRESS в .env (домен или :80)}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # сертификаты Let's Encrypt
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    logging: *logging
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGUSER: competency
+      PGDATABASE: competency
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_TIME: ${BACKUP_TIME:-03:30}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
+      TZ: ${TZ:-Asia/Tomsk}
+    volumes:
+      - ./deploy/backup.sh:/usr/local/bin/backup.sh:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+    entrypoint: ["/bin/sh", "/usr/local/bin/backup.sh", "--daemon"]
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
