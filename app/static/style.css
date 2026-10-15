@@ -118,6 +118,7 @@ button.link { border: none; background: none; color: var(--accent); padding: 6px
 button.link.active { font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
 button:disabled { opacity: .5; cursor: default; }
 button.link.danger { color: var(--bad); }
+button.danger:not(.link) { color: var(--bad); border-color: var(--bad); }
 
 .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
 .muted { color: var(--muted); }

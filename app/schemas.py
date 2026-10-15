@@ -64,10 +64,12 @@ class DirectionOut(ORM, DirectionIn):
 class GroupIn(BaseModel):
     name: str = Field(examples=["ПИ-21"])
     direction_id: int
+    start_year: int | None = Field(default=None, ge=2000, le=2100, examples=[2024])
 
 
 class GroupOut(ORM, GroupIn):
     id: int
+    current_semester: int | None  # по году набора и сегодняшней дате
 
 
 class StudentIn(BaseModel):
@@ -128,6 +130,23 @@ class DisciplineOut(ORM):
     id: int
     name: str
     competency_ids: list[int]
+
+
+class CurriculumEntryIn(BaseModel):
+    direction_id: int
+    discipline_id: int
+    first_semester: int = Field(ge=1, le=12)
+    last_semester: int = Field(ge=1, le=12)
+
+    @model_validator(mode="after")
+    def ordered(self) -> "CurriculumEntryIn":
+        if self.first_semester > self.last_semester:
+            raise ValueError("первый семестр не может быть позже последнего")
+        return self
+
+
+class CurriculumEntryOut(ORM, CurriculumEntryIn):
+    id: int
 
 
 # --- Профстандарт ----------------------------------------------------------
@@ -243,19 +262,70 @@ class QuestionOut(ORM):
 
 
 class TestCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")  # опечатка в поле не должна молча игнорироваться
+
     title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
-    discipline_id: int | None = None
     competency_ids: list[int] = Field(min_length=1)
+    # Вопросы берутся только из этих дисциплин; пусто — из любых.
+    discipline_ids: list[int] = []
     questions_per_competency: int = Field(default=5, ge=1, le=50)
+    semester: int | None = Field(default=None, ge=1, le=12)
 
 
 class TestOut(ORM):
     id: int
     title: str
-    discipline_id: int | None
+    semester: int | None
+    discipline_ids: list[int]
     created_at: datetime
     question_ids: list[int]
+    variant_count: int
+    questions_per_variant: int
     group_ids: list[int]  # каким группам уже назначен
+
+
+class TestVariantOut(BaseModel):
+    variant: int
+    questions: list[QuestionOut]
+
+
+class TestAssignmentOut(BaseModel):
+    id: int
+    group_id: int
+    group_name: str
+    created_at: datetime
+    started: int  # студентов открыли тест
+    finished: int  # и сдали
+
+
+class TestDetail(TestOut):
+    variants: list[TestVariantOut]
+    assignments: list[TestAssignmentOut]
+
+
+class PlanDiscipline(BaseModel):
+    id: int
+    name: str
+    first_semester: int
+    last_semester: int
+    competency_ids: list[int]
+
+
+class QuestionCount(BaseModel):
+    competency_id: int
+    discipline_id: int
+    count: int
+
+
+class AssemblyPlan(BaseModel):
+    """Что доступно для оценки остаточных знаний группы в семестре."""
+
+    group_id: int
+    semester: int
+    finished: list[PlanDiscipline]  # завершены до этого семестра — из них берутся вопросы
+    not_finished: list[PlanDiscipline]  # ещё изучаются или впереди
+    unplanned: list[str]  # дисциплины, у которых семестры не указаны ни в одном учебном плане
+    question_counts: list[QuestionCount]  # вопросов в банке по завершённым дисциплинам
 
 
 class AssignmentIn(BaseModel):

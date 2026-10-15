@@ -34,6 +34,8 @@ function fieldInput(field, value) {
     value: value ?? "",
     required: field.required !== false,
     min: field.min,
+    max: field.max,
+    placeholder: field.placeholder,
   });
 }
 
@@ -45,7 +47,7 @@ function readField(field, el) {
     if (el.value === "") return null;
     return field.raw ? el.value : Number(el.value);
   }
-  if (field.type === "number") return Number(el.value);
+  if (field.type === "number") return el.value === "" ? null : Number(el.value);
   return el.value.trim();
 }
 
@@ -162,13 +164,17 @@ const CATALOGS = {
     return crudSection({
       load: () => api("/groups"),
       label: (r) => r.name,
+      hint: "По году набора система сама считает текущий семестр группы — от него зависит, какие дисциплины попадут в тест на остаточные знания.",
       columns: [
         ["Группа", (r) => r.name],
         ["Направление", (r) => { const d = dirs.get(r.direction_id); return d ? `${d.code} ${d.name}` : "—"; }],
+        ["Год набора", (r) => r.start_year ?? "—"],
+        ["Семестр сейчас", (r) => r.current_semester ?? "—"],
       ],
       fields: [
         { name: "name", label: "Название" },
         { name: "direction_id", label: "Направление", type: "select", options: directions.map((d) => [d.id, `${d.code} ${d.name}`]) },
+        { name: "start_year", label: "Год набора (необязательно)", type: "number", min: 2000, max: 2100, required: false, placeholder: "например, 2024" },
       ],
       toForm: (r) => r,
       create: (d) => api("/groups", { method: "POST", body: d }),
@@ -240,6 +246,33 @@ const CATALOGS = {
       create: (d) => api("/disciplines", { method: "POST", body: d }),
       update: (r, d) => api(`/disciplines/${r.id}`, { method: "PUT", body: d }),
       remove: (r) => api(`/disciplines/${r.id}`, { method: "DELETE" }),
+    });
+  },
+
+  async "Учебный план"() {
+    const [directions, disciplines] = await Promise.all([api("/directions"), api("/disciplines")]);
+    const dirs = byId(directions);
+    const discs = byId(disciplines);
+    const semesters = (r) => (r.first_semester === r.last_semester ? `${r.first_semester}` : `${r.first_semester}–${r.last_semester}`);
+    return crudSection({
+      hint: "В каких семестрах изучается дисциплина. В тест на остаточные знания попадают только дисциплины, завершённые до текущего семестра группы: во 2-м семестре нельзя проверять математику, которая идёт в 1–2 семестрах.",
+      load: () => api("/curriculum"),
+      label: (r) => discs.get(r.discipline_id)?.name || "запись",
+      columns: [
+        ["Направление", (r) => dirs.get(r.direction_id)?.code || "—"],
+        ["Дисциплина", (r) => discs.get(r.discipline_id)?.name || "—"],
+        ["Семестры", semesters],
+      ],
+      fields: [
+        { name: "direction_id", label: "Направление", type: "select", options: directions.map((d) => [d.id, `${d.code} ${d.name}`]) },
+        { name: "discipline_id", label: "Дисциплина", type: "select", options: disciplines.map((d) => [d.id, d.name]) },
+        { name: "first_semester", label: "Первый семестр", type: "number", min: 1, max: 12 },
+        { name: "last_semester", label: "Последний семестр", type: "number", min: 1, max: 12 },
+      ],
+      toForm: (r) => r,
+      create: (d) => api("/curriculum", { method: "POST", body: d }),
+      update: (r, d) => api(`/curriculum/${r.id}`, { method: "PUT", body: d }),
+      remove: (r) => api(`/curriculum/${r.id}`, { method: "DELETE" }),
     });
   },
 

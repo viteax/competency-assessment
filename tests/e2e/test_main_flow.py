@@ -59,7 +59,7 @@ def test_duplicate_title_and_existing_test(admin_page: Page):
     page.reload()
     assign_new_test(page, "Входной контроль", ["ПК-1"])
 
-    page.fill("input[placeholder^='например']", "входной  КОНТРОЛЬ")
+    page.fill("input[placeholder^='любое']", "входной  КОНТРОЛЬ")
     expect(page.locator(".error.small")).to_contain_text("уже есть")
     page.click("button:text-is('Собрать и назначить')")
     expect(page.locator("[role=alert]")).to_contain_text("уже есть")

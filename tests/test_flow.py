@@ -82,7 +82,7 @@ def test_test_spreads_questions_across_indicators(admin: TestClient):
             "title": "t",
             "competency_ids": [opk1["id"]],
             "questions_per_competency": 2,
-            "discipline_id": discipline_id(admin, "Математика"),
+            "discipline_ids": [discipline_id(admin, "Математика")],
         },
     ).json()
     questions = {q["id"]: q for q in admin.get("/questions").json()}

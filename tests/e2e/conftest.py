@@ -138,10 +138,12 @@ def admin_page(page: Page) -> Page:
 
 
 def assign_new_test(page: Page, title: str, codes: list[str], per_competency: int = 3) -> None:
-    """Вкладка «Назначить тест» администратора: собрать новый тест группе по умолчанию."""
-    page.fill("input[placeholder^='например']", title)
-    page.fill("input[type=number]", str(per_competency))
+    """Вкладка «Назначить тест» администратора: собрать новый тест группе по умолчанию
+    (семестр подставляется текущий, вопросы — из завершённых дисциплин)."""
+    page.wait_for_selector("text=Завершены до")
     for code in codes:
         page.locator("label", has_text=re.compile(rf"^{code} ")).locator("input").check()
+    page.fill("input[placeholder^='любое']", title)
+    page.get_by_label("Вопросов на компетенцию").fill(str(per_competency))
     page.click("button:text-is('Собрать и назначить')")
     page.wait_for_selector(".success:has-text('назначен')")

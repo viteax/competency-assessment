@@ -11,6 +11,7 @@ import enum
 from datetime import UTC, datetime
 
 from sqlalchemy import (
+    CheckConstraint,
     Column,
     DateTime,
     Enum,
@@ -25,6 +26,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+from app.semesters import current_semester
 
 
 def utcnow() -> datetime:
@@ -47,6 +49,14 @@ discipline_competency = Table(
     Base.metadata,
     Column("discipline_id", ForeignKey("discipline.id", ondelete="CASCADE"), primary_key=True),
     Column("competency_id", ForeignKey("competency.id", ondelete="CASCADE"), primary_key=True),
+)
+
+# Дисциплины, из вопросов которых собран тест (пусто — из любых).
+test_discipline = Table(
+    "test_discipline",
+    Base.metadata,
+    Column("test_id", ForeignKey("test.id", ondelete="CASCADE"), primary_key=True),
+    Column("discipline_id", ForeignKey("discipline.id"), primary_key=True),
 )
 
 labor_function_competency = Table(
@@ -80,9 +90,15 @@ class Group(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(32), unique=True)
     direction_id: Mapped[int] = mapped_column(ForeignKey("direction.id"))
+    # Год набора: по нему считается текущий семестр группы.
+    start_year: Mapped[int | None] = mapped_column(Integer)
 
     direction: Mapped[Direction] = relationship(back_populates="groups")
     students: Mapped[list["Student"]] = relationship(back_populates="group")
+
+    @property
+    def current_semester(self) -> int | None:
+        return current_semester(self.start_year) if self.start_year else None
 
 
 class Student(Base):
@@ -199,6 +215,32 @@ class Discipline(Base):
         return [c.id for c in self.competencies]
 
 
+class CurriculumEntry(Base):
+    """Строка учебного плана: в каких семестрах направления изучается дисциплина.
+
+    Для оценки остаточных знаний важен последний семестр: в семестре N проверяются только
+    дисциплины, завершённые раньше (last_semester < N).
+    """
+
+    __tablename__ = "curriculum_entry"
+    __table_args__ = (
+        UniqueConstraint("direction_id", "discipline_id", name="uq_curriculum_entry"),
+        CheckConstraint(
+            "first_semester >= 1 AND first_semester <= last_semester AND last_semester <= 12",
+            name="ck_curriculum_semesters",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    direction_id: Mapped[int] = mapped_column(ForeignKey("direction.id", ondelete="CASCADE"))
+    discipline_id: Mapped[int] = mapped_column(ForeignKey("discipline.id", ondelete="CASCADE"))
+    first_semester: Mapped[int] = mapped_column(Integer)
+    last_semester: Mapped[int] = mapped_column(Integer)
+
+    direction: Mapped[Direction] = relationship()
+    discipline: Mapped[Discipline] = relationship()
+
+
 # --- Профстандарт ----------------------------------------------------------
 
 
@@ -303,10 +345,13 @@ class Test(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(255))
-    discipline_id: Mapped[int | None] = mapped_column(ForeignKey("discipline.id"))
+    # Семестр, для которого собран тест (оценка остаточных знаний), если собирали по семестру.
+    semester: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    discipline: Mapped[Discipline | None] = relationship()
+    disciplines: Mapped[list[Discipline]] = relationship(
+        secondary=test_discipline, order_by="Discipline.name"
+    )
     test_questions: Mapped[list["TestQuestion"]] = relationship(
         back_populates="test", cascade="all, delete-orphan", order_by="TestQuestion.position"
     )
@@ -316,6 +361,19 @@ class Test(Base):
     @property
     def question_ids(self) -> list[int]:
         return [tq.question_id for tq in self.test_questions]
+
+    @property
+    def discipline_ids(self) -> list[int]:
+        return [d.id for d in self.disciplines]
+
+    @property
+    def variant_count(self) -> int:
+        return len({tq.variant for tq in self.test_questions})
+
+    @property
+    def questions_per_variant(self) -> int:
+        """Сколько вопросов получает каждый студент (варианты одинаковой длины)."""
+        return len(self.test_questions) // max(self.variant_count, 1)
 
     @property
     def group_ids(self) -> list[int]:
@@ -330,6 +388,8 @@ class TestQuestion(Base):
         ForeignKey("test.id", ondelete="CASCADE"), primary_key=True
     )
     question_id: Mapped[int] = mapped_column(ForeignKey("question.id"), primary_key=True)
+    # Номер варианта (с 1): варианты одного теста не пересекаются по вопросам.
+    variant: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     position: Mapped[int] = mapped_column(Integer)
 
     test: Mapped[Test] = relationship(back_populates="test_questions")
@@ -358,6 +418,8 @@ class Attempt(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     assignment_id: Mapped[int] = mapped_column(ForeignKey("assignment.id"))
     student_id: Mapped[int] = mapped_column(ForeignKey("student.id"))
+    # Доставшийся студенту вариант теста (выбирается при первом открытии теста).
+    variant: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     score: Mapped[int | None] = mapped_column(Integer)

@@ -7,11 +7,13 @@ import { adminImport } from "./admin/import.js";
 import { adminQuestions } from "./admin/questions.js";
 import { adminGroupResults, adminLaborFunctions } from "./admin/results.js";
 import { adminStudents } from "./admin/students.js";
+import { adminTests } from "./admin/tests.js";
 import { api, errorBox, fill, go, h, render, setMenu, setUnauthorizedHandler } from "./core.js";
 import { studentResults, studentTests } from "./student.js";
 
 const ADMIN_MENU = [
   ["Назначить тест", adminAssign],
+  ["Тесты", adminTests],
   ["Студенты", adminStudents],
   ["Результаты группы", adminGroupResults],
   ["ПК → ОТФ", adminLaborFunctions],

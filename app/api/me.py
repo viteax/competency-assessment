@@ -33,7 +33,7 @@ def my_assignments(student: CurrentStudent, session: SessionDep):
         schemas.StudentAssignmentOut(
             id=a.id,
             title=a.test.title,
-            question_count=len(a.test.test_questions),
+            question_count=a.test.questions_per_variant,
             created_at=a.created_at,
             attempt=attempts.get(a.id),
         )
@@ -47,7 +47,7 @@ def start_attempt(data: schemas.AttemptStart, student: CurrentStudent, session: 
     return schemas.AttemptStarted(
         attempt_id=attempt.id,
         title=attempt.assignment.test.title,
-        questions=[schemas.StudentQuestionOut.model_validate(q) for q in questions],
+        questions=questions,
     )
 
 
