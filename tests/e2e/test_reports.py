@@ -73,3 +73,11 @@ def test_too_few_axes_explained(admin_page: Page, new_page):
     page.click("nav >> text=Результаты группы")
     # Одна компетенция и одна ТФ (B/03.4) — для обеих «роз» объяснение вместо диаграммы.
     expect(page.locator("text=Для диаграммы нужно минимум 3 оси, сейчас 1")).to_have_count(2)
+
+
+def test_radar_section_explains_when_empty(admin_page: Page):
+    page = admin_page
+    page.click("nav >> text=Результаты группы")
+    expect(page.locator(".notice")).to_contain_text("Появится, когда студенты сдадут тест")
+    page.click("button:text-is('Роза ветров ↓')")
+    expect(page.locator("h2:text-is('Роза ветров')")).to_be_in_viewport()

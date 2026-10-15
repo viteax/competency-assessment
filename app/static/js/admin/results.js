@@ -12,6 +12,21 @@ export async function adminGroupResults(render) {
   const out = h("div", { class: "table-wrap" });
   const whom = h("select", { "aria-label": "Чья роза" });
   const charts = h("div");
+  const radarHint = h("p", { class: "notice" },
+    "Появится, когда студенты сдадут тест: назначьте его во вкладке «Назначить тест», студент проходит его в «Мои тесты». Для диаграммы нужно минимум 3 компетенции.");
+  const radarSection = h("section", {},
+    h("h2", {}, "Роза ветров"),
+    h("div", { class: "card" },
+      h("div", {}, h("label", {}, "Чьи результаты"), whom),
+      h("p", { class: "muted small" }, "Шкала 0–5: 5 — все ответы верные. Уровень трудовой функции — среднее по связанным с ней компетенциям, которые проверялись."),
+      radarHint,
+    ),
+    charts,
+  );
+  const toRadar = h("button", {
+    type: "button", class: "link",
+    onclick: () => radarSection.scrollIntoView({ behavior: "smooth", block: "start" }),
+  }, "Роза ветров ↓");
   let report = null;
 
   function drawTests() {
@@ -52,10 +67,12 @@ export async function adminGroupResults(render) {
       fill(charts);
       excel.hidden = true;
       whom.parentElement.hidden = true;
+      radarHint.hidden = false;
       return;
     }
     excel.hidden = false;
     whom.parentElement.hidden = false;
+    radarHint.hidden = true;
     fill(out,
       h("p", { class: "muted small", style: "margin-top:0" },
         `«N из M» — верных ответов из заданных. Зелёным — компетенция сформирована (от ${Math.round(settings.mastery_threshold * 100)}% верных; порог меняется в «Справочники → Настройки»).`),
@@ -84,15 +101,11 @@ export async function adminGroupResults(render) {
         h("div", {}, h("label", {}, "Группа"), group),
         h("div", { style: "flex:1;min-width:220px" }, h("label", {}, "Тест"), test),
         h("div", {}, excel),
+        h("div", { style: "padding-bottom:6px" }, toRadar),
       ),
     ),
     h("div", { class: "card" }, out),
-    h("h2", {}, "Роза ветров"),
-    h("div", { class: "card" },
-      h("div", {}, h("label", {}, "Чьи результаты"), whom),
-      h("p", { class: "muted small" }, "Шкала 0–5: 5 — все ответы верные. Уровень трудовой функции — среднее по связанным с ней компетенциям, которые проверялись."),
-    ),
-    charts,
+    radarSection,
   );
   if (groups.length) {
     drawTests();

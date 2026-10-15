@@ -55,6 +55,10 @@ def install(app: FastAPI) -> None:
             headers.setdefault("Content-Security-Policy", _CSP)
         if settings.is_prod:
             headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+        if request.url.path.startswith("/ui"):
+            # Браузер хранит файлы интерфейса, но перед использованием сверяет их с сервером
+            # (по ETag): после обновления сразу подхватывается новая версия, без Ctrl+F5.
+            headers.setdefault("Cache-Control", "no-cache")
 
         # Продлённую сессию готовит зависимость get_current_user.
         renewed = getattr(request.state, "renewed_session", None)

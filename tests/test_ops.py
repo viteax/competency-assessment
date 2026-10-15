@@ -66,3 +66,11 @@ def test_json_log_line():
         request_id_var.reset(token)
     assert entry["message"] == "запрос" and entry["request_id"] == "abc123"
     assert (entry["status"], entry["path"], entry["user"]) == (201, "/directions", "admin")
+
+
+def test_ui_files_are_revalidated(client: TestClient):
+    """После обновления браузер должен сразу взять новую версию интерфейса, без Ctrl+F5."""
+    response = client.get("/ui/js/main.js")
+    assert response.headers["cache-control"] == "no-cache"
+    assert response.headers["etag"]
+    assert "cache-control" not in client.get("/health").headers
