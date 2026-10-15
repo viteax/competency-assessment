@@ -14,6 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
+        with:
+          # Задачи идут параллельно: кэш зависимостей сохраняет одна, остальные только читают.
+          save-cache: ${{ github.job == 'test' }}
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
@@ -25,6 +28,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
+        with:
+          # Задачи идут параллельно: кэш зависимостей сохраняет одна, остальные только читают.
+          save-cache: ${{ github.job == 'test' }}
       - run: uv sync --locked
       - run: uv run playwright install --with-deps chromium
       - run: uv run pytest -m e2e -q
@@ -35,6 +41,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
+        with:
+          # Задачи идут параллельно: кэш зависимостей сохраняет одна, остальные только читают.
+          save-cache: ${{ github.job == 'test' }}
       - run: uv export --frozen --no-dev --no-emit-project -o requirements.txt
       - run: uvx pip-audit -r requirements.txt --disable-pip --require-hashes
 
@@ -56,6 +65,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
+        with:
+          # Задачи идут параллельно: кэш зависимостей сохраняет одна, остальные только читают.
+          save-cache: ${{ github.job == 'test' }}
       - run: uv sync --locked
       - run: uv run alembic upgrade head
       - run: uv run alembic check
