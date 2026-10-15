@@ -6,12 +6,14 @@ on:
     tags: ["v*"]
   pull_request:
 
+# Версия Ubuntu закреплена: смена образа «ubuntu-latest» не должна внезапно ломать сборку
+# (например, установку браузера для e2e). Обновлять осознанно.
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
@@ -19,25 +21,25 @@ jobs:
 
   e2e:
     # Браузерные сценарии: настоящий сервер и Chromium (tests/e2e).
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --locked
       - run: uv run playwright install --with-deps chromium
       - run: uv run pytest -m e2e -q
 
   audit:
     # Известные уязвимости в зависимостях (база OSV/PyPI), по точным версиям из uv.lock.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
       - run: uv export --frozen --no-dev --no-emit-project -o requirements.txt
       - run: uvx pip-audit -r requirements.txt --disable-pip --require-hashes
 
   migrations:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
@@ -52,8 +54,8 @@ jobs:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/competency
       ENVIRONMENT: dev
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --locked
       - run: uv run alembic upgrade head
       - run: uv run alembic check
@@ -63,20 +65,20 @@ jobs:
   docker:
     # Собирает образ на каждом пуше и проверяет, что он запускается. На тегах v* публикует
     # его в GitHub Container Registry: ghcr.io/<владелец>/competency-assessment.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [test, e2e, migrations]
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
       - name: Simulate a Windows checkout (CRLF in scripts)
         # Образ должен запускаться, даже если скрипты пришли с концами строк Windows.
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: sed -i 's/$/\r/' scripts/*.sh
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository_owner }}/competency-assessment
           tags: |
@@ -85,7 +87,7 @@ jobs:
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=sha
       - name: Build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           load: true
@@ -106,13 +108,13 @@ jobs:
           curl -fsS localhost:8000/ui/ | grep -q "js/main.js"
           docker exec app id -u | grep -qx 10001  # не root
       - if: startsWith(github.ref, 'refs/tags/v')
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - if: startsWith(github.ref, 'refs/tags/v')
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
