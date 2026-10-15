@@ -72,3 +72,9 @@ def my_competencies(student: CurrentStudent, session: SessionDep):
 @router.get("/reports/labor-functions", response_model=list[schemas.GeneralLaborFunctionResult])
 def my_labor_functions(student: CurrentStudent, session: SessionDep):
     return reports.labor_function_report(session, student.id)
+
+
+@router.get("/reports/profile", response_model=schemas.Profile)
+def my_profile(student: CurrentStudent, session: SessionDep):
+    """Мои уровни по компетенциям и трудовым функциям — для «розы ветров»."""
+    return reports.profile(session, [student.id])

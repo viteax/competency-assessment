@@ -424,12 +424,29 @@ class StudentCompetencyReport(BaseModel):
     student_id: int
     full_name: str
     competencies: list[CompetencyResult]
+    tested_at: datetime | None = None  # последняя сданная попытка (в отчёте по группе)
 
 
 class GroupCompetencyReport(BaseModel):
     group_id: int
     name: str
     students: list[StudentCompetencyReport]
+
+
+class ProfileAxis(BaseModel):
+    """Ось «розы ветров»: компетенция или трудовая функция."""
+
+    code: str
+    name: str
+    value: float | None  # уровень 0..1; None — не проверялась
+    measured: int  # компетенция: сколько студентов проверено; ТФ: сколько её компетенций
+    total: int  # компетенция: студентов в выборке; ТФ: всего её компетенций
+
+
+class Profile(BaseModel):
+    students: int  # у скольких студентов есть результаты
+    competencies: list[ProfileAxis]
+    labor_functions: list[ProfileAxis]
 
 
 # --- Импорт компетенций ----------------------------------------------------

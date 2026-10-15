@@ -6,6 +6,7 @@
   --muted: #6b7280;
   --border: #e3e6eb;
   --accent: #2f6fde;
+  --series-1: #2a78d6; /* данные на диаграммах */
   --ok: #1f8f4e;
   --ok-bg: #e5f5ec;
   --bad: #c2410c;
@@ -24,6 +25,7 @@
     --muted: #9aa1ad;
     --border: #2d323b;
     --accent: #6c9cf0;
+    --series-1: #3987e5;
     --ok: #5cc98a;
     --ok-bg: #173324;
     --bad: #f0915c;
@@ -41,6 +43,7 @@
   --muted: #9aa1ad;
   --border: #2d323b;
   --accent: #6c9cf0;
+  --series-1: #3987e5;
   --ok: #5cc98a;
   --ok-bg: #173324;
   --bad: #f0915c;
@@ -90,7 +93,7 @@ h2 { font-size: 17px; margin: 24px 0 8px; }
 
 label { display: block; margin: 12px 0 4px; font-weight: 500; }
 
-input, select, button {
+input, select, button, a.button {
   font: inherit;
   color: inherit;
   padding: 7px 10px;
@@ -113,6 +116,7 @@ textarea {
 input[type="checkbox"], input[type="radio"] { width: auto; margin-right: 6px; }
 
 button { cursor: pointer; }
+a.button { display: inline-block; text-decoration: none; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.link { border: none; background: none; color: var(--accent); padding: 6px 8px; }
 button.link.active { font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
@@ -165,3 +169,14 @@ details summary { cursor: pointer; font-weight: 500; }
 tr.muted td { color: var(--muted); }
 .notice { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); }
 code { font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; padding: 1px 5px; border-radius: 4px; background: var(--bg); }
+
+/* «Роза ветров» */
+.radar-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+.radar-grid > .card { flex: 1 1 380px; min-width: 0; }
+.radar-wrap { position: relative; max-width: 460px; margin: 0 auto 8px; }
+.radar-wrap svg { display: block; width: 100%; height: auto; }
+.radar-tip {
+  position: absolute; transform: translate(-50%, calc(-100% - 12px)); pointer-events: none;
+  background: var(--text); color: var(--card); padding: 6px 10px; border-radius: 6px;
+  font-size: 13px; max-width: 260px; width: max-content;
+}

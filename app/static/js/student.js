@@ -1,6 +1,7 @@
 // Кабинет студента: назначенные тесты, прохождение, результаты.
 
 import { api, errorBox, go, h, masteryBadge } from "./core.js";
+import { profileCharts } from "./radar.js";
 import { laborFunctionsView } from "./reports.js";
 
 export async function studentTests(render) {
@@ -79,9 +80,10 @@ async function takeTest(assignmentId, render) {
 }
 
 export async function studentResults(render) {
-  const [report, labor] = await Promise.all([
+  const [report, labor, profile] = await Promise.all([
     api("/me/reports/competencies"),
     api("/me/reports/labor-functions"),
+    api("/me/reports/profile"),
   ]);
   render(
     h("h1", {}, "Мои результаты"),
@@ -100,6 +102,7 @@ export async function studentResults(render) {
           ),
         )
       : h("p", { class: "muted" }, "Пока нет пройденных тестов"),
+    report.competencies.length ? profileCharts(profile, "мои результаты") : null,
     h("h2", {}, "Трудовые функции профстандарта"),
     laborFunctionsView(labor),
   );
