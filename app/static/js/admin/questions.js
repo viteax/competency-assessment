@@ -1,6 +1,6 @@
 // Банк вопросов.
 
-import { api, byId, errorBox, fill, h } from "../core.js";
+import { api, byId, DIFFICULTIES, errorBox, fill, h, QUESTION_KINDS } from "../core.js";
 
 export async function adminQuestions(render) {
   const [competencies, disciplines] = await Promise.all([api("/competencies"), api("/disciplines")]);
@@ -24,14 +24,14 @@ export async function adminQuestions(render) {
     fill(tableSlot,
       questions.length
         ? h("table", {},
-            h("tr", {}, ["Вопрос", "Компетенция", "Индикатор", "Дисциплина", "Вариантов", ""].map((t) => h("th", {}, t))),
+            h("tr", {}, ["Вопрос", "Тип", "Компетенция", "Индикатор", "Дисциплина", ""].map((t) => h("th", {}, t))),
             questions.map((q) =>
               h("tr", {},
                 h("td", { class: "wrap" }, q.text, q.in_use ? [" ", h("span", { class: "badge ok" }, "в тестах")] : null),
+                h("td", { class: "wrap small" }, QUESTION_KINDS[q.kind], q.difficulty === "advanced" ? h("div", { class: "muted" }, "повышенный") : null),
                 h("td", {}, comps.get(q.competency_id)?.code || "—"),
                 h("td", {}, indicators.get(q.indicator_id)?.code || "—"),
                 h("td", { class: "wrap" }, discs.get(q.discipline_id)?.name || "—"),
-                h("td", {}, q.options.length),
                 h("td", { class: "actions" },
                   h("button", { class: "link", onclick: () => openForm(q) }, "Изменить"),
                   q.in_use ? null : h("button", {
@@ -59,13 +59,17 @@ export async function adminQuestions(render) {
   function openForm(q) {
     const locked = Boolean(q?.in_use);
     const formErr = errorBox();
-    const competency = h("select", { required: true, disabled: locked },
+    const competency = h("select", { required: true, disabled: locked, "aria-label": "Компетенция" },
       competencies.map((c) => h("option", { value: c.id }, `${c.code} — ${c.description}`)));
     const indicator = h("select");
     const discipline = h("select", {}, h("option", { value: "" }, "Без дисциплины"),
       disciplines.map((d) => h("option", { value: d.id }, d.name)));
     const text = h("textarea", { rows: 3, required: true });
-    const options = h("div", { class: "options" });
+    const kind = h("select", { disabled: locked, "aria-label": "Тип задания" },
+      Object.entries(QUESTION_KINDS).map(([v, label]) => h("option", { value: v }, label)));
+    const difficulty = h("select", { "aria-label": "Уровень сложности" },
+      Object.entries(DIFFICULTIES).map(([v, label]) => h("option", { value: v }, label)));
+    const editor = optionsEditor(locked);
 
     function drawIndicators(selected) {
       const c = comps.get(Number(competency.value));
@@ -77,27 +81,18 @@ export async function adminQuestions(render) {
     }
     competency.addEventListener("change", () => drawIndicators(null));
 
-    const radioName = `correct-${Date.now()}`;
-    function optionRow(o = { text: "", is_correct: false }) {
-      const row = h("div", { class: "option-row" },
-        h("input", { type: "radio", name: radioName, checked: o.is_correct, disabled: locked, title: "Правильный ответ" }),
-        h("input", { type: "text", value: o.text, required: true, placeholder: "Вариант ответа" }),
-        locked ? null : h("button", { type: "button", class: "link danger", onclick: () => row.remove() }, "✕"),
-      );
-      row.dataset.id = o.id ?? "";
-      return row;
-    }
-
     if (q) {
       competency.value = String(q.competency_id);
       discipline.value = q.discipline_id ? String(q.discipline_id) : "";
       text.value = q.text;
-      q.options.forEach((o) => options.append(optionRow(o)));
+      kind.value = q.kind;
+      difficulty.value = q.difficulty;
     } else {
       if (filterCompetency.value) competency.value = filterCompetency.value;
       if (filterDiscipline.value) discipline.value = filterDiscipline.value;
-      options.append(optionRow({ text: "", is_correct: true }), optionRow(), optionRow(), optionRow());
     }
+    editor.draw(kind.value, q);
+    kind.addEventListener("change", () => editor.draw(kind.value, null));
     drawIndicators(q?.indicator_id);
 
     fill(formSlot,
@@ -106,19 +101,21 @@ export async function adminQuestions(render) {
         onsubmit: async (event) => {
           event.preventDefault();
           formErr.clear();
-          const rows = [...options.querySelectorAll(".option-row")];
+          let options;
+          try {
+            options = editor.read();
+          } catch (e) {
+            return formErr.show(e);
+          }
           const body = {
             competency_id: Number(competency.value),
             indicator_id: indicator.value ? Number(indicator.value) : null,
             discipline_id: discipline.value ? Number(discipline.value) : null,
             text: text.value.trim(),
-            options: rows.map((r) => ({
-              ...(r.dataset.id ? { id: Number(r.dataset.id) } : {}),
-              text: r.querySelector("input[type=text]").value.trim(),
-              is_correct: r.querySelector("input[type=radio]").checked,
-            })),
+            kind: kind.value,
+            difficulty: difficulty.value,
+            options,
           };
-          if (!body.options.some((o) => o.is_correct)) return formErr.show(new Error("отметьте правильный вариант"));
           try {
             if (q) await api(`/questions/${q.id}`, { method: "PUT", body });
             else await api("/questions", { method: "POST", body });
@@ -130,15 +127,18 @@ export async function adminQuestions(render) {
         },
       },
       h("h2", { style: "margin-top:0" }, q ? "Изменить вопрос" : "Новый вопрос"),
-      locked ? h("p", { class: "muted" }, "Вопрос уже входит в собранные тесты, по нему могут быть ответы студентов. Можно править формулировки, индикатор и дисциплину; для остального создайте новый вопрос.") : null,
+      locked ? h("p", { class: "muted" }, "Вопрос уже входит в собранные тесты, по нему могут быть ответы студентов. Можно править формулировки, индикатор, дисциплину и сложность; для остального создайте новый вопрос.") : null,
+      h("div", { class: "row" },
+        h("div", {}, h("label", {}, "Тип задания"), kind),
+        h("div", {}, h("label", {}, "Уровень сложности"), difficulty),
+      ),
       h("label", {}, "Компетенция"), competency,
       h("div", { class: "row" },
         h("div", {}, h("label", {}, "Индикатор"), indicator),
         h("div", {}, h("label", {}, "Дисциплина"), discipline),
       ),
-      h("label", {}, "Текст вопроса"), text,
-      h("label", {}, "Варианты ответа (отметьте правильный)"), options,
-      locked ? null : h("button", { type: "button", class: "link", onclick: () => options.append(optionRow()) }, "+ вариант"),
+      h("label", {}, "Текст задания"), text,
+      editor.el,
       h("div", { class: "row", style: "margin-top:16px" },
         h("button", { class: "primary" }, "Сохранить"),
         h("button", { type: "button", onclick: () => fill(formSlot) }, "Отмена"),
@@ -165,4 +165,110 @@ export async function adminQuestions(render) {
     formSlot,
   );
   await refresh();
+}
+
+// Редактор вариантов: своя форма для каждого типа задания. read() возвращает options для API.
+function optionsEditor(locked) {
+  const el = h("div");
+  let read = () => [];
+
+  const textInput = (value, placeholder) => h("input", { type: "text", value: value ?? "", required: true, placeholder });
+  const removeButton = (row) => (locked ? null : h("button", { type: "button", class: "link danger", title: "Удалить", onclick: () => row.remove() }, "✕"));
+  const withId = (row, option) => { row.dataset.id = option?.id ?? ""; return row; };
+  const idOf = (row) => (row.dataset.id ? { id: Number(row.dataset.id) } : {});
+
+  function list(label, hint, makeRow, initial, addLabel) {
+    const box = h("div", { class: "options" });
+    initial.forEach((o) => box.append(makeRow(o)));
+    return {
+      box,
+      nodes: [
+        h("label", {}, label),
+        hint ? h("p", { class: "muted small", style: "margin-top:0" }, hint) : null,
+        box,
+        locked ? null : h("button", { type: "button", class: "link", onclick: () => box.append(makeRow()) }, addLabel),
+      ],
+    };
+  }
+
+  const drawers = {
+    single(q) {
+      const name = `correct-${Date.now()}`;
+      const row = (o = {}) => {
+        const r = h("div", { class: "option-row" },
+          h("input", { type: "radio", name, checked: o.is_correct, disabled: locked, title: "Правильный ответ" }),
+          textInput(o.text, "Вариант ответа"));
+        r.append(removeButton(r) || "");
+        return withId(r, o);
+      };
+      const initial = q ? q.options : [{ is_correct: true }, {}, {}, {}];
+      const { box, nodes } = list("Варианты ответа (отметьте правильный)", null, row, initial, "+ вариант");
+      read = () => {
+        const options = [...box.children].map((r) => ({ ...idOf(r), text: r.querySelector("input[type=text]").value.trim(), is_correct: r.querySelector("input[type=radio]").checked }));
+        if (!options.some((o) => o.is_correct)) throw new Error("отметьте правильный вариант");
+        return options;
+      };
+      return nodes;
+    },
+    open(q) {
+      const row = (o = {}) => { const r = h("div", { class: "option-row" }, textInput(o.text, "Правильный ответ")); r.append(removeButton(r) || ""); return withId(r, o); };
+      const { box, nodes } = list("Допустимые ответы",
+        "Засчитывается совпадение с любым из них. Регистр, «ё/е», кавычки и точка в конце не важны.",
+        row, q ? q.options : [{}], "+ ещё вариант ответа");
+      read = () => [...box.children].map((r) => ({ ...idOf(r), text: r.querySelector("input").value.trim() }));
+      return nodes;
+    },
+    sequence(q) {
+      const row = (o = {}) => {
+        const r = h("div", { class: "option-row" }, h("span", { class: "seq-num" }), textInput(o.text, "Элемент"));
+        if (!locked) {
+          r.append(
+            h("button", { type: "button", class: "link", title: "Выше", onclick: () => r.previousElementSibling?.before(r) }, "↑"),
+            h("button", { type: "button", class: "link", title: "Ниже", onclick: () => r.nextElementSibling?.after(r) }, "↓"),
+            removeButton(r));
+        }
+        return withId(r, o);
+      };
+      const { box, nodes } = list("Элементы в правильном порядке",
+        "Студенту они будут показаны вперемешку; в Word — пронумерованы в случайном порядке.",
+        row, q ? q.options : [{}, {}, {}, {}], "+ элемент");
+      box.classList.add("numbered");
+      read = () => [...box.children].map((r) => ({ ...idOf(r), text: r.querySelector("input").value.trim() }));
+      return nodes;
+    },
+    matching(q) {
+      const byId = new Map((q?.options || []).map((o) => [o.id, o]));
+      const lefts = (q?.options || []).filter((o) => o.match_id);
+      const used = new Set(lefts.map((o) => o.match_id));
+      const extras = (q?.options || []).filter((o) => !o.match_id && !used.has(o.id));
+      const pairRow = (pair = {}) => {
+        const r = h("div", { class: "option-row pair-row" },
+          textInput(pair.left?.text, "Левый столбец (например, термин)"),
+          h("span", { "aria-hidden": "true" }, "→"),
+          textInput(pair.right?.text, "Правый столбец (его пара)"));
+        r.append(removeButton(r) || "");
+        r.dataset.left = pair.left?.id ?? "";
+        r.dataset.right = pair.right?.id ?? "";
+        return r;
+      };
+      const extraRow = (o = {}) => { const r = h("div", { class: "option-row" }, textInput(o.text, "Лишний элемент правого столбца")); r.append(removeButton(r) || ""); return withId(r, o); };
+      const pairs = list("Пары (левый столбец → правильный элемент правого)", null, pairRow,
+        q ? lefts.map((o) => ({ left: o, right: byId.get(o.match_id) })) : [{}, {}, {}, {}], "+ пара");
+      const extra = list("Лишние элементы правого столбца (необязательно)", "Усложняют задание: их нельзя сопоставить ни с чем.", extraRow, extras, "+ лишний элемент");
+      read = () => {
+        const rows = [...pairs.box.children];
+        const lefts = rows.map((r, i) => ({ ...(r.dataset.left ? { id: Number(r.dataset.left) } : {}), text: r.querySelectorAll("input")[0].value.trim(), match_index: rows.length + i }));
+        const rights = rows.map((r) => ({ ...(r.dataset.right ? { id: Number(r.dataset.right) } : {}), text: r.querySelectorAll("input")[1].value.trim() }));
+        const more = [...extra.box.children].map((r) => ({ ...idOf(r), text: r.querySelector("input").value.trim() }));
+        return [...lefts, ...rights, ...more];
+      };
+      return [...pairs.nodes, ...extra.nodes];
+    },
+  };
+
+  return {
+    el,
+    draw(kind, q) { fill(el, drawers[kind](q)); },
+    read: () => read(),
+  };
 }

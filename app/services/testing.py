@@ -1,3 +1,4 @@
+import json
 import random
 from collections import Counter, defaultdict
 from itertools import zip_longest
@@ -157,15 +158,67 @@ def _choose_variant(session: Session, assignment: models.Assignment) -> int:
     return random.choice([v for v in variants if issued[v] == least])
 
 
+def _for_student(question: models.Question, rng: random.Random) -> schemas.StudentQuestionOut:
+    """Вопрос без правильных ответов, варианты перемешаны."""
+    kind = question.kind
+    as_out = schemas.StudentOptionOut.model_validate
+    if kind == models.QuestionKind.OPEN:
+        options, right = [], []  # допустимые ответы студенту не передаются
+    elif kind == models.QuestionKind.MATCHING:
+        options = [as_out(o) for o in question.options if o.match_id is not None]
+        right = [as_out(o) for o in question.options if o.match_id is None]
+    else:
+        options, right = [as_out(o) for o in question.options], []
+    rng.shuffle(options)
+    rng.shuffle(right)
+    return schemas.StudentQuestionOut(
+        id=question.id, text=question.text, kind=kind, options=options, right=right
+    )
+
+
 def _shuffled_for(attempt: models.Attempt, questions: list[models.Question]):
     """Порядок вопросов и вариантов ответа у каждого студента свой, но при повторном
     открытии теста тот же (зависит от номера попытки)."""
     rng = random.Random(attempt.id)
-    result = [schemas.StudentQuestionOut.model_validate(q) for q in questions]
+    result = [_for_student(q, rng) for q in questions]
     rng.shuffle(result)
-    for q in result:
-        rng.shuffle(q.options)
     return result
+
+
+def normalize_answer(text: str) -> str:
+    """Открытый ответ сравнивается без учёта регистра, «ё/е», лишних пробелов, кавычек и
+    точки в конце."""
+    text = text.casefold().replace("ё", "е")
+    text = text.strip(" \t«»\"'.,;:!?")
+    return " ".join(text.split())
+
+
+def _grade(question: models.Question, answer: schemas.AnswerIn | None) -> tuple[bool, str | None]:
+    """(верно ли, ответ для сохранения в JSON). Нет ответа — неверно."""
+    if answer is None:
+        return False, None
+    kind = question.kind
+    ids = {o.id for o in question.options}
+    if kind == models.QuestionKind.SINGLE:
+        if answer.option_id is None:
+            return False, None
+        if answer.option_id not in ids:
+            raise DomainError(f"вариант {answer.option_id} не относится к вопросу {question.id}")
+        return any(o.id == answer.option_id and o.is_correct for o in question.options), None
+    if kind == models.QuestionKind.OPEN:
+        given = normalize_answer(answer.text or "")
+        accepted = {normalize_answer(o.text) for o in question.options}
+        return bool(given) and given in accepted, json.dumps({"text": answer.text or ""})
+    if kind == models.QuestionKind.SEQUENCE:
+        order = answer.order or []
+        if not set(order) <= ids:
+            raise DomainError(f"в ответе на вопрос {question.id} чужие элементы")
+        return order == [o.id for o in question.options], json.dumps({"order": order})
+    pairs = answer.pairs or {}  # matching
+    if not set(pairs) | set(pairs.values()) <= ids:
+        raise DomainError(f"в ответе на вопрос {question.id} чужие элементы")
+    correct = {o.id: o.match_id for o in question.options if o.match_id is not None}
+    return pairs == correct, json.dumps({"pairs": {str(k): v for k, v in pairs.items()}})
 
 
 def start_attempt(
@@ -209,26 +262,31 @@ def submit_attempt(
     questions = {
         q.id: q for q in _test_questions(session, attempt.assignment.test_id, attempt.variant)
     }
-    chosen: dict[int, int] = {}
+    given: dict[int, schemas.AnswerIn] = {}
     for answer in data.answers:
-        question = questions.get(answer.question_id)
-        if question is None:
+        if answer.question_id not in questions:
             raise NotFound(f"вопроса {answer.question_id} нет в этом тесте")
-        if answer.question_id in chosen:
+        if answer.question_id in given:
             raise DomainError(f"на вопрос {answer.question_id} дано несколько ответов")
-        if answer.option_id not in {o.id for o in question.options}:
-            raise DomainError(f"вариант {answer.option_id} не относится к вопросу {question.id}")
-        chosen[answer.question_id] = answer.option_id
+        given[answer.question_id] = answer
 
-    # Вопросы без ответа засчитываются как неверные.
+    # Вопросы без ответа засчитываются как неверные. Задание засчитывается целиком:
+    # «полное совпадение с верным ответом — 1 балл, иначе 0».
     attempt.answers = []
     score = 0
     for question in questions.values():
-        option_id = chosen.get(question.id)
-        correct = any(o.id == option_id and o.is_correct for o in question.options)
+        answer = given.get(question.id)
+        correct, response = _grade(question, answer)
         score += correct
         attempt.answers.append(
-            models.AttemptAnswer(question_id=question.id, option_id=option_id, is_correct=correct)
+            models.AttemptAnswer(
+                question_id=question.id,
+                option_id=answer.option_id
+                if answer and question.kind == models.QuestionKind.SINGLE
+                else None,
+                response=response,
+                is_correct=correct,
+            )
         )
     attempt.score = score
     attempt.max_score = len(questions)

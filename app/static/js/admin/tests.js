@@ -1,7 +1,7 @@
 // Собранные тесты: варианты с вопросами, кому назначены, сколько прошли; снять назначение,
 // удалить тест, пока его никто не открывал.
 
-import { api, errorBox, fill, h } from "../core.js";
+import { api, errorBox, fill, h, QUESTION_KINDS } from "../core.js";
 
 export async function adminTests(render) {
   const [tests, competencies, disciplines] = await Promise.all([
@@ -74,13 +74,13 @@ export async function adminTests(render) {
             )))
         : h("p", { class: "muted" }, "Пока никому не назначен."),
       h("h3", {}, `Варианты (${t.variant_count})`),
-      h("p", { class: "muted small" }, "Варианты не пересекаются по вопросам. Каждому студенту при открытии теста достаётся случайный из тех, что выданы реже, а порядок вопросов и ответов перемешивается. Правильный ответ отмечен ✓."),
+      h("p", { class: "muted small" }, "Варианты не пересекаются по вопросам. Каждому студенту при открытии теста достаётся случайный из тех, что выданы реже, а порядок вопросов и ответов перемешивается. Правильные ответы отмечены ✓, для последовательности — верный порядок."),
       t.variants.map((v) => h("details", { open: t.variant_count === 1 },
         h("summary", {}, `Вариант ${v.variant} — ${v.questions.length} вопр.`),
         h("ol", {}, v.questions.map((q) => h("li", { style: "margin:8px 0" },
-          h("span", { class: "badge" }, codes.get(q.competency_id) || "—"), " ", q.text,
-          h("ul", { class: "small" }, q.options.map((o) =>
-            h("li", { class: o.is_correct ? "" : "muted" }, o.is_correct ? `✓ ${o.text}` : o.text))),
+          h("span", { class: "badge" }, codes.get(q.competency_id) || "—"), " ",
+          h("span", { class: "muted small" }, QUESTION_KINDS[q.kind], ". "), q.text,
+          answerKey(q),
         ))),
       )),
       h("div", { class: "row", style: "margin-top:16px" },
@@ -113,4 +113,25 @@ export async function adminTests(render) {
     detail,
   );
   drawTable();
+}
+
+// Правильный ответ на вопрос любого типа (для преподавателя).
+function answerKey(q) {
+  const opts = q.options;
+  if (q.kind === "open") {
+    return h("div", { class: "small" }, "✓ ", opts.map((o) => o.text).join(" / "));
+  }
+  if (q.kind === "sequence") {
+    return h("ol", { class: "small" }, opts.map((o) => h("li", {}, o.text)));
+  }
+  if (q.kind === "matching") {
+    const byId = new Map(opts.map((o) => [o.id, o]));
+    const used = new Set(opts.map((o) => o.match_id).filter(Boolean));
+    const extra = opts.filter((o) => !o.match_id && !used.has(o.id));
+    return h("ul", { class: "small" },
+      opts.filter((o) => o.match_id).map((o) => h("li", {}, `${o.text} → ${byId.get(o.match_id)?.text}`)),
+      extra.length ? h("li", { class: "muted" }, `лишние: ${extra.map((o) => o.text).join(", ")}`) : null);
+  }
+  return h("ul", { class: "small" }, opts.map((o) =>
+    h("li", { class: o.is_correct ? "" : "muted" }, o.is_correct ? `✓ ${o.text}` : o.text)));
 }

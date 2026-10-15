@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.semesters import current_semester
-from tests.helpers import assign, by_code, correct_options, discipline_id
+from tests.helpers import assign, by_code, correct_answers, discipline_id
 
 
 @pytest.mark.parametrize(
@@ -148,13 +148,11 @@ def test_students_get_different_variants_that_persist(admin: TestClient, login):
     again = client.post("/me/attempts", json={"assignment_id": ctx["assignment"]["id"]}).json()
     assert again == first  # тот же вариант, тот же порядок вопросов и ответов
 
-    correct = correct_options(admin)
+    correct = correct_answers(admin)
     result = client.post(
         f"/me/attempts/{first['attempt_id']}/submit",
         json={
-            "answers": [
-                {"question_id": q["id"], "option_id": correct[q["id"]]} for q in first["questions"]
-            ]
+            "answers": [{"question_id": q["id"], **correct[q["id"]]} for q in first["questions"]]
         },
     ).json()
     assert (result["score"], result["max_score"]) == (5, 5)
@@ -168,7 +166,7 @@ def test_answer_from_another_variant_is_rejected(admin: TestClient, login):
     foreign = next(q for q in ctx["test"]["question_ids"] if q not in mine)
     response = client.post(
         f"/me/attempts/{body['attempt_id']}/submit",
-        json={"answers": [{"question_id": foreign, "option_id": correct_options(admin)[foreign]}]},
+        json={"answers": [{"question_id": foreign, **correct_answers(admin)[foreign]}]},
     )
     assert response.status_code == 404
 

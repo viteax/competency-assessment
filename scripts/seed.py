@@ -17,7 +17,7 @@ from app.db import SessionLocal
 from app.demo import DEMO_ADMIN, DEMO_STUDENT_COUNT, DEMO_STUDENT_PASSWORD
 from app.models import CompetencyKind as K
 from app.security import hash_password
-from scripts.demo_questions import QUESTIONS
+from scripts.demo_questions import QUESTIONS, TYPED_QUESTIONS
 from scripts.init_db import migrate
 
 COMPETENCIES = [
@@ -137,6 +137,26 @@ STUDENT_PASSWORD = DEMO_STUDENT_PASSWORD
 assert len(STUDENTS) == DEMO_STUDENT_COUNT
 
 
+def typed_options(spec: dict, rng: random.Random) -> list[models.AnswerOption]:
+    """Варианты задания на соответствие, последовательность или открытого типа."""
+    if spec["kind"] == "open":
+        return [models.AnswerOption(text=a, is_correct=True) for a in spec["answers"]]
+    if spec["kind"] == "sequence":
+        return [models.AnswerOption(text=t, position=i) for i, t in enumerate(spec["items"])]
+    # matching: правый столбец (пары и лишние элементы) в случайном порядке, затем левый
+    rights = [r for _, r in spec["pairs"]] + spec.get("extra", [])
+    rng.shuffle(rights)
+    right = {
+        t: models.AnswerOption(text=t, position=len(spec["pairs"]) + i)
+        for i, t in enumerate(rights)
+    }
+    left = [
+        models.AnswerOption(text=l_text, position=i, match=right[r_text])
+        for i, (l_text, r_text) in enumerate(spec["pairs"])
+    ]
+    return left + list(right.values())
+
+
 def seed(session: Session) -> None:
     if session.scalar(select(models.Direction).limit(1)):
         print("БД уже заполнена, пропускаю")
@@ -218,9 +238,23 @@ def seed(session: Session) -> None:
                 options=options,
             )
         )
+    for spec in TYPED_QUESTIONS:
+        indicator = indicators[spec["indicator"]]
+        session.add(
+            models.Question(
+                competency=indicator.competency,
+                indicator=indicator,
+                discipline=disciplines[spec["discipline"]],
+                text=spec["text"],
+                kind=models.QuestionKind(spec["kind"]),
+                difficulty=models.Difficulty(spec.get("difficulty", "basic")),
+                options=typed_options(spec, rng),
+            )
+        )
     session.commit()
     print(
-        f"добавлено: {len(competencies)} компетенций, {len(QUESTIONS)} вопросов, "
+        f"добавлено: {len(competencies)} компетенций, "
+        f"{len(QUESTIONS) + len(TYPED_QUESTIONS)} вопросов, "
         f"{len(STUDENTS)} студентов\n"
         f"демо-логины: {ADMIN_LOGIN[0]}/{ADMIN_LOGIN[1]}, "
         f"student1..{len(STUDENTS)}/{STUDENT_PASSWORD}"

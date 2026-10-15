@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from tests.helpers import assign, by_code, correct_options
+from tests.helpers import assign, by_code
 
 
 def test_not_enough_questions(admin: TestClient):
@@ -79,12 +79,16 @@ def test_cannot_submit_someone_elses_attempt(admin: TestClient, student: TestCli
 def test_option_from_another_question(admin: TestClient, student: TestClient):
     ctx = assign(admin, ["ПК-1"])
     started = student.post("/me/attempts", json={"assignment_id": ctx["assignment"]["id"]}).json()
-    q1, q2 = started["questions"][:2]
+    q1 = next(q for q in started["questions"] if q["kind"] == "single")
+    foreign = next(
+        o["id"]
+        for q in admin.get("/questions").json()
+        if q["kind"] == "single" and q["id"] != q1["id"]
+        for o in q["options"]
+    )
     response = student.post(
         f"/me/attempts/{started['attempt_id']}/submit",
-        json={
-            "answers": [{"question_id": q1["id"], "option_id": correct_options(admin)[q2["id"]]}]
-        },
+        json={"answers": [{"question_id": q1["id"], "option_id": foreign}]},
     )
     assert response.status_code == 400
 

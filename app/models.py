@@ -38,6 +38,20 @@ class Role(enum.StrEnum):
     STUDENT = "student"
 
 
+class QuestionKind(enum.StrEnum):
+    """Тип задания (названия — как в фонде оценочных материалов)."""
+
+    SINGLE = "single"  # закрытого типа: выбор одного ответа
+    MATCHING = "matching"  # на установление соответствия
+    SEQUENCE = "sequence"  # на установление последовательности
+    OPEN = "open"  # открытого типа: ответ словом
+
+
+class Difficulty(enum.StrEnum):
+    BASIC = "basic"  # базовый, 1–3 минуты
+    ADVANCED = "advanced"  # повышенный, 3–5 минут
+
+
 class CompetencyKind(enum.StrEnum):
     UK = "УК"
     OPK = "ОПК"
@@ -310,12 +324,30 @@ class Question(Base):
     indicator_id: Mapped[int | None] = mapped_column(ForeignKey("indicator.id"))
     discipline_id: Mapped[int | None] = mapped_column(ForeignKey("discipline.id"))
     text: Mapped[str] = mapped_column(Text)
+    kind: Mapped[QuestionKind] = mapped_column(
+        Enum(QuestionKind, values_callable=lambda e: [m.value for m in e]),
+        default=QuestionKind.SINGLE,
+        server_default=QuestionKind.SINGLE.value,
+    )
+    difficulty: Mapped[Difficulty] = mapped_column(
+        Enum(Difficulty, values_callable=lambda e: [m.value for m in e]),
+        default=Difficulty.BASIC,
+        server_default=Difficulty.BASIC.value,
+    )
 
     competency: Mapped[Competency] = relationship()
     indicator: Mapped[Indicator | None] = relationship()
     discipline: Mapped[Discipline | None] = relationship()
+    # Смысл вариантов зависит от типа задания:
+    #   single   — варианты, ровно один is_correct;
+    #   open     — допустимые ответы (сравниваются без учёта регистра);
+    #   sequence — элементы в правильном порядке (position);
+    #   matching — левый столбец (match — пара из правого) и правый столбец (match пуст;
+    #              в правом могут быть лишние элементы).
     options: Mapped[list["AnswerOption"]] = relationship(
-        back_populates="question", cascade="all, delete-orphan", order_by="AnswerOption.id"
+        back_populates="question",
+        cascade="all, delete-orphan",
+        order_by="(AnswerOption.position, AnswerOption.id)",
     )
     test_links: Mapped[list["TestQuestion"]] = relationship(viewonly=True)
 
@@ -331,8 +363,14 @@ class AnswerOption(Base):
     question_id: Mapped[int] = mapped_column(ForeignKey("question.id", ondelete="CASCADE"))
     text: Mapped[str] = mapped_column(Text)
     is_correct: Mapped[bool] = mapped_column(default=False)
+    position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # Задание на соответствие: элемент левого столбца ссылается на свою пару из правого.
+    match_id: Mapped[int | None] = mapped_column(
+        ForeignKey("answer_option.id", ondelete="SET NULL")
+    )
 
     question: Mapped[Question] = relationship(back_populates="options")
+    match: Mapped["AnswerOption | None"] = relationship(remote_side=[id])
 
 
 # --- Тесты и прохождение ---------------------------------------------------
@@ -440,6 +478,8 @@ class AttemptAnswer(Base):
     )
     question_id: Mapped[int] = mapped_column(ForeignKey("question.id"), primary_key=True)
     option_id: Mapped[int | None] = mapped_column(ForeignKey("answer_option.id"))
+    # Ответ на задания других типов (JSON): текст, порядок элементов или пары.
+    response: Mapped[str | None] = mapped_column(Text)
     is_correct: Mapped[bool] = mapped_column(default=False)
 
     attempt: Mapped[Attempt] = relationship(back_populates="answers")

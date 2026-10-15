@@ -252,7 +252,7 @@ IP, — жёсткой блокировки нет, иначе любой сту
 | admin | `POST/GET/PUT/DELETE` | `/curriculum` | Учебный план: семестры дисциплины по направлению |
 | admin | `POST/GET/PUT/DELETE` | `/standards`, `/general-functions` | Профстандарты и ОТФ |
 | admin | `POST/GET/PUT/DELETE` | `/labor-functions` | ТФ и связь ТФ ⇒ компетенции |
-| admin | `POST/GET/PUT/DELETE` | `/questions` | Банк вопросов (один правильный вариант) |
+| admin | `POST/GET/PUT/DELETE` | `/questions` | Банк вопросов: выбор ответа, соответствие, последовательность, открытый ответ |
 | admin | `GET` | `/tests/plan?group_id=&semester=` | Завершённые к семестру дисциплины и вопросы по ним |
 | admin | `POST/GET` | `/tests` | Собрать тест в вариантах (название уникально) / список тестов |
 | admin | `GET/DELETE` | `/tests/{id}` | Варианты с вопросами и прогресс групп / удалить, если не проходили |

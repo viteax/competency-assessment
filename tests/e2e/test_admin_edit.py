@@ -62,7 +62,7 @@ def test_edit_questions(admin_page: Page):
     page.click("nav >> text=Банк вопросов")
     page.click("button:text-is('Новый вопрос')")
     form = page.locator("form.edit-form")
-    select_prefix(form.locator("select").nth(0), "ПК-2 ")
+    select_prefix(form.get_by_label("Компетенция"), "ПК-2 ")
     form.locator("textarea").fill("Какая диаграмма UML описывает классы?")
     options = form.locator(".option-row")
     expect(options).to_have_count(4)
@@ -83,7 +83,9 @@ def test_edit_questions(admin_page: Page):
     # вопрос, уже вошедший в тест: компетенцию сменить нельзя
     page.locator("tr", has=page.locator("text=в тестах")).first.locator("text=Изменить").click()
     expect(page.locator("text=уже входит в собранные тесты")).to_be_visible()
-    expect(page.locator("form.edit-form select").first).to_be_disabled()
+    form = page.locator("form.edit-form")
+    expect(form.get_by_label("Компетенция")).to_be_disabled()
+    expect(form.get_by_label("Тип задания")).to_be_disabled()
 
 
 def test_mastery_threshold_setting(admin_page: Page):

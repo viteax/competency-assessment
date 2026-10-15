@@ -138,7 +138,10 @@ td.wrap { white-space: normal; min-width: 160px; }
 td.actions { text-align: right; }
 
 .option-row { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
-.option-row input[type="text"] { max-width: none; flex: 1; }
+.option-row input[type="text"] { max-width: none; flex: 1; min-width: 0; }
+.options.numbered { counter-reset: seq; }
+.options.numbered .seq-num::before { counter-increment: seq; content: counter(seq) "."; display: inline-block; min-width: 1.6em; }
+@media (max-width: 600px) { .pair-row { flex-wrap: wrap; } .pair-row input[type="text"] { flex-basis: 100%; } }
 
 .table-wrap { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; }
@@ -153,6 +156,15 @@ th { font-weight: 600; font-size: 13px; color: var(--muted); }
 .question { margin-bottom: 18px; }
 .question p { margin: 0 0 6px; font-weight: 500; }
 .question label { font-weight: 400; margin: 4px 0; }
+.question .hint { font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+.seq-list { list-style: none; padding: 0; margin: 0; counter-reset: seq; }
+.seq-list li { display: flex; align-items: center; gap: 6px; padding: 6px 8px; margin: 4px 0;
+  border: 1px solid var(--border); border-radius: 7px; background: var(--card); }
+.seq-list li::before { counter-increment: seq; content: counter(seq) "."; min-width: 1.6em; color: var(--muted); }
+.seq-list li span { flex: 1; }
+.match-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px 12px; align-items: center; }
+.match-grid select { max-width: none; }
+@media (max-width: 600px) { .match-grid { grid-template-columns: 1fr; } }
 
 .score { font-size: 32px; font-weight: 700; }
 

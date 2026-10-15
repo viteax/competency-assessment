@@ -3,7 +3,7 @@ import re
 import pytest
 from playwright.sync_api import Page, expect
 
-from tests.e2e.conftest import assign_new_test, login, logout
+from tests.e2e.conftest import answer_all, assign_new_test, login, logout
 
 pytestmark = pytest.mark.e2e
 
@@ -22,8 +22,7 @@ def test_assign_take_and_review(admin_page: Page):
     page.click("text=Пройти")
     questions = page.locator(".question")
     expect(questions).to_have_count(6)
-    for i in range(questions.count()):
-        questions.nth(i).locator("input[type=radio]").first.check()
+    answer_all(page)
     page.click("text=Сдать тест")
     expect(page.locator(".score")).to_be_visible()
 

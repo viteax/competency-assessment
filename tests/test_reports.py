@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from fastapi.testclient import TestClient
 from sqlalchemy import event
 
-from tests.helpers import assign, correct_options
+from tests.helpers import assign, correct_answers
 
 
 @contextmanager
@@ -45,11 +45,9 @@ def test_group_report_query_count_does_not_grow_with_students(admin: TestClient,
 def test_mastery_threshold_setting(admin: TestClient, student: TestClient):
     ctx = assign(admin, ["ПК-1"])
     started = student.post("/me/attempts", json={"assignment_id": ctx["assignment"]["id"]}).json()
-    correct = correct_options(admin)
+    correct = correct_answers(admin)
     # 2 верных из 3 — 67 %.
-    answers = [
-        {"question_id": q["id"], "option_id": correct[q["id"]]} for q in started["questions"][:2]
-    ]
+    answers = [{"question_id": q["id"], **correct[q["id"]]} for q in started["questions"][:2]]
     student.post(f"/me/attempts/{started['attempt_id']}/submit", json={"answers": answers})
 
     def mastered() -> bool:

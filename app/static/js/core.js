@@ -145,3 +145,13 @@ export function tabbedPage(title, tabs, initial = Object.keys(tabs)[0]) {
     await open(current);
   };
 }
+
+// --- типы заданий ----------------------------------------------------------------
+
+export const QUESTION_KINDS = {
+  single: "Выбор одного ответа",
+  matching: "На установление соответствия",
+  sequence: "На установление последовательности",
+  open: "Открытого типа",
+};
+export const DIFFICULTIES = { basic: "Базовый (1–3 мин)", advanced: "Повышенный (3–5 мин)" };

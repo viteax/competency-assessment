@@ -3,7 +3,7 @@
 
 from fastapi.testclient import TestClient
 
-from tests.helpers import assign, by_code, correct_options, discipline_id, student_id
+from tests.helpers import assign, by_code, correct_answers, discipline_id, student_id
 
 
 def test_full_flow(admin: TestClient, student: TestClient):
@@ -23,14 +23,10 @@ def test_full_flow(admin: TestClient, student: TestClient):
     # Студент не видит правильные ответы.
     assert all("is_correct" not in o for q in body["questions"] for o in q["options"])
 
-    correct = correct_options(admin)
+    correct = correct_answers(admin)
     result = student.post(
         f"/me/attempts/{body['attempt_id']}/submit",
-        json={
-            "answers": [
-                {"question_id": q["id"], "option_id": correct[q["id"]]} for q in body["questions"]
-            ]
-        },
+        json={"answers": [{"question_id": q["id"], **correct[q["id"]]} for q in body["questions"]]},
     )
     assert result.status_code == 200, result.text
     assert (result.json()["score"], result.json()["max_score"]) == (6, 6)
@@ -62,11 +58,7 @@ def test_wrong_answers_not_mastered(admin: TestClient, student: TestClient):
     # Отвечаем верно только на первый вопрос, остальные пропускаем.
     result = student.post(
         f"/me/attempts/{started['attempt_id']}/submit",
-        json={
-            "answers": [
-                {"question_id": first["id"], "option_id": correct_options(admin)[first["id"]]}
-            ]
-        },
+        json={"answers": [{"question_id": first["id"], **correct_answers(admin)[first["id"]]}]},
     ).json()
     assert (result["score"], result["max_score"]) == (1, 3)
 

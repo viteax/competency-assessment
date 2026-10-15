@@ -16,7 +16,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from playwright.sync_api import Browser, Page, sync_playwright
+from playwright.sync_api import Browser, Page, expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2]
 SECRET = "e2e-secret-key-that-is-long-enough-1234567"
@@ -147,3 +147,17 @@ def assign_new_test(page: Page, title: str, codes: list[str], per_competency: in
     page.get_by_label("Вопросов на компетенцию").fill(str(per_competency))
     page.click("button:text-is('Собрать и назначить')")
     page.wait_for_selector(".success:has-text('назначен')")
+
+
+def answer_all(page: Page) -> None:
+    """Отвечает на все вопросы теста как придётся: первый вариант, первая пара, любое слово."""
+    questions = page.locator(".question")
+    expect(questions.first).to_be_visible()
+    for i in range(questions.count()):
+        q = questions.nth(i)
+        if q.locator("input[type=radio]").count():
+            q.locator("input[type=radio]").first.check()
+        elif q.locator("input[type=text]").count():
+            q.locator("input[type=text]").fill("ответ")
+        for select in q.locator("select").all():
+            select.select_option(index=1)

@@ -5,20 +5,17 @@ import io
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
 
-from tests.helpers import assign, correct_options, student_id
+from tests.helpers import answer_for, assign, student_id
 
 
 def take(student: TestClient, admin: TestClient, assignment_id: int, right: int) -> None:
     """Студент проходит тест, отвечая верно на первые `right` вопросов своего варианта."""
     body = student.post("/me/attempts", json={"assignment_id": assignment_id}).json()
-    correct = correct_options(admin)
     questions = {q["id"]: q for q in admin.get("/questions").json()}
-    answers = []
-    for i, q in enumerate(body["questions"]):
-        wrong = next(o["id"] for o in questions[q["id"]]["options"] if not o["is_correct"])
-        answers.append(
-            {"question_id": q["id"], "option_id": correct[q["id"]] if i < right else wrong}
-        )
+    answers = [
+        {"question_id": q["id"], **answer_for(questions[q["id"]], correct=i < right)}
+        for i, q in enumerate(body["questions"])
+    ]
     result = student.post(f"/me/attempts/{body['attempt_id']}/submit", json={"answers": answers})
     assert result.status_code == 200, result.text
 

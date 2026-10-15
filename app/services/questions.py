@@ -15,6 +15,22 @@ def _check_links(session: Session, data: schemas.QuestionIn) -> None:
         get_or_404(session, models.Discipline, data.discipline_id)
 
 
+def _build_options(data: schemas.QuestionIn) -> list[models.AnswerOption]:
+    """Варианты в порядке списка (для последовательности это правильный порядок)."""
+    open_kind = data.kind == models.QuestionKind.OPEN
+    single = data.kind == models.QuestionKind.SINGLE
+    options = [
+        models.AnswerOption(
+            text=o.text, is_correct=open_kind or (single and o.is_correct), position=i
+        )
+        for i, o in enumerate(data.options)
+    ]
+    for option, o in zip(options, data.options, strict=True):
+        if o.match_index is not None:
+            option.match = options[o.match_index]
+    return options
+
+
 def create_question(session: Session, data: schemas.QuestionIn) -> models.Question:
     _check_links(session, data)
     question = models.Question(
@@ -22,9 +38,31 @@ def create_question(session: Session, data: schemas.QuestionIn) -> models.Questi
         indicator_id=data.indicator_id,
         discipline_id=data.discipline_id,
         text=data.text,
-        options=[models.AnswerOption(text=o.text, is_correct=o.is_correct) for o in data.options],
+        kind=data.kind,
+        difficulty=data.difficulty,
+        options=_build_options(data),
     )
     return save(session, question)
+
+
+def _same_answers(question: models.Question, data: schemas.QuestionUpdate) -> bool:
+    """Те же варианты с тем же правильным ответом, порядком и парами (тексты — любые)."""
+    current = {o.id: o for o in question.options}
+    new_ids = [o.id for o in data.options]
+    old_ids = [o.id for o in question.options]
+    if data.kind != question.kind or sorted(new_ids, key=str) != sorted(old_ids, key=str):
+        return False
+    # Порядок важен только в последовательности; в остальных типах — это порядок показа.
+    if data.kind == models.QuestionKind.SEQUENCE and new_ids != old_ids:
+        return False
+    for o in data.options:
+        option = current[o.id]
+        match_id = data.options[o.match_index].id if o.match_index is not None else None
+        if option.match_id != match_id:
+            return False
+        if data.kind == models.QuestionKind.SINGLE and option.is_correct != o.is_correct:
+            return False
+    return True
 
 
 def update_question(
@@ -38,24 +76,23 @@ def update_question(
     """
     _check_links(session, data)
     if question.in_use:
-        current = {o.id: o for o in question.options}
-        same_options = {o.id for o in data.options} == set(current) and all(
-            current[o.id].is_correct == o.is_correct for o in data.options
-        )
-        if not same_options or data.competency_id != question.competency_id:
+        if not _same_answers(question, data) or data.competency_id != question.competency_id:
             raise Conflict(
                 "вопрос уже используется в тестах: можно менять только формулировки, "
-                "индикатор и дисциплину. Для других изменений создайте новый вопрос"
+                "индикатор, дисциплину и сложность. Для других изменений создайте новый вопрос"
             )
+        current = {o.id: o for o in question.options}
         for o in data.options:
             current[o.id].text = o.text
     else:
-        question.options = [
-            models.AnswerOption(text=o.text, is_correct=o.is_correct) for o in data.options
-        ]
+        question.options = []
+        session.flush()  # старые варианты удаляются до вставки новых (ссылки match)
+        question.kind = data.kind
+        question.options = _build_options(data)
     question.competency_id = data.competency_id
     question.indicator_id = data.indicator_id
     question.discipline_id = data.discipline_id
+    question.difficulty = data.difficulty
     question.text = data.text
     session.commit()
     return question
