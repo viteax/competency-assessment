@@ -158,6 +158,15 @@ def _choose_variant(session: Session, assignment: models.Assignment) -> int:
     return random.choice([v for v in variants if issued[v] == least])
 
 
+def shuffle_away(items: list, rng: random.Random) -> None:
+    """Перемешивает так, чтобы порядок отличался от исходного: в последовательности
+    исходный порядок — правильный ответ."""
+    original = items[:]
+    rng.shuffle(items)
+    if len(items) > 1 and items == original:
+        items.append(items.pop(0))
+
+
 def _for_student(question: models.Question, rng: random.Random) -> schemas.StudentQuestionOut:
     """Вопрос без правильных ответов, варианты перемешаны."""
     kind = question.kind
@@ -169,7 +178,10 @@ def _for_student(question: models.Question, rng: random.Random) -> schemas.Stude
         right = [as_out(o) for o in question.options if o.match_id is None]
     else:
         options, right = [as_out(o) for o in question.options], []
-    rng.shuffle(options)
+    if kind == models.QuestionKind.SEQUENCE:
+        shuffle_away(options, rng)
+    else:
+        rng.shuffle(options)
     rng.shuffle(right)
     return schemas.StudentQuestionOut(
         id=question.id, text=question.text, kind=kind, options=options, right=right

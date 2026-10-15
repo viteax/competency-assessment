@@ -1,12 +1,13 @@
 """Сборка тестов и назначение их группам (администратор)."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app import models, schemas
 from app.api.deps import SessionDep, require_admin
-from app.services import curriculum, testing
+from app.api.files import DOCX, attachment
+from app.services import curriculum, fund, testing
 
 router = APIRouter(tags=["Тестирование"], dependencies=[Depends(require_admin)])
 
@@ -37,6 +38,14 @@ def assembly_plan(group_id: int, session: SessionDep, semester: int | None = Non
 def get_test(test_id: int, session: SessionDep):
     """Тест с вопросами по вариантам и назначениями группам."""
     return testing.test_detail(session, test_id)
+
+
+@router.get("/tests/{test_id}/document.docx", response_class=Response)
+def test_document(test_id: int, session: SessionDep, key: bool = False, variant: int | None = None):
+    """Тест в Word по образцу ФОМ: бланк (поля «Ответ» пустые) или ключ (key=true).
+    Без variant — все варианты, каждый с новой страницы."""
+    content, filename = fund.test_document(session, test_id, key, variant)
+    return attachment(content, filename, DOCX)
 
 
 @router.delete("/tests/{test_id}", status_code=204)

@@ -1,8 +1,11 @@
 """Задания на соответствие, последовательность и открытого типа: создание, проверка, правка."""
 
+import random
+
 import pytest
 from fastapi.testclient import TestClient
 
+from app.services.testing import shuffle_away
 from tests.helpers import answer_for, by_code
 
 
@@ -235,3 +238,10 @@ def test_used_sequence_keeps_order(admin, lone):
         f"/questions/{question['id']}", json={**payload, "options": options[::-1]}
     )
     assert reordered.status_code == 409
+
+
+def test_shuffle_never_keeps_the_answer_order():
+    for seed in range(200):
+        items = list(range(4))
+        shuffle_away(items, random.Random(seed))
+        assert items != [0, 1, 2, 3] and sorted(items) == [0, 1, 2, 3]

@@ -13,6 +13,18 @@ export async function adminQuestions(render) {
   const filterDiscipline = h("select", {}, h("option", { value: "" }, "Все дисциплины"),
     disciplines.map((d) => h("option", { value: d.id }, d.name)));
   const err = errorBox();
+  const fundBlank = h("a", { class: "button", download: "" }, "ФОМ дисциплины (Word)");
+  const fundKey = h("a", { class: "button", download: "" }, "Ключ к ФОМ");
+  const fundHint = h("span", { class: "muted small" }, "Выберите дисциплину, чтобы выгрузить её ФОМ в Word.");
+  function setFundLinks() {
+    const id = filterDiscipline.value;
+    fundBlank.hidden = fundKey.hidden = !id;
+    fundHint.hidden = Boolean(id);
+    if (id) {
+      fundBlank.href = `/disciplines/${id}/fund.docx`;
+      fundKey.href = `/disciplines/${id}/fund.docx?key=true`;
+    }
+  }
   const formSlot = h("div");
   const tableSlot = h("div", { class: "table-wrap" });
 
@@ -150,7 +162,8 @@ export async function adminQuestions(render) {
   }
 
   filterCompetency.addEventListener("change", refresh);
-  filterDiscipline.addEventListener("change", refresh);
+  filterDiscipline.addEventListener("change", () => { setFundLinks(); refresh(); });
+  setFundLinks();
   render(
     h("h1", {}, "Банк вопросов"),
     h("div", { class: "card" },
@@ -159,6 +172,7 @@ export async function adminQuestions(render) {
         h("div", {}, h("label", {}, "Дисциплина"), filterDiscipline),
         h("button", { class: "primary", onclick: () => openForm(null) }, "Новый вопрос"),
       ),
+      h("div", { class: "row", style: "margin-top:10px" }, fundBlank, fundKey, fundHint),
       err.el,
       h("div", { style: "margin-top:12px" }, tableSlot),
     ),

@@ -1,16 +1,13 @@
-from urllib.parse import quote
-
 from fastapi import APIRouter, Depends, Response
 
 from app import models, schemas
 from app.api.deps import SessionDep, require_admin
+from app.api.files import XLSX, attachment
 from app.errors import NotFound
 from app.services import report_export, reports
 from app.services.common import get_or_404
 
 router = APIRouter(prefix="/reports", tags=["Отчёты"], dependencies=[Depends(require_admin)])
-
-XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 @router.get("/students/{student_id}/competencies", response_model=schemas.StudentCompetencyReport)
@@ -37,12 +34,7 @@ def group_competencies_xlsx(group_id: int, session: SessionDep, test_id: int | N
     """То же в Excel: лист «Компетенции» («N из M» по каждой) и лист «Трудовые функции»."""
     group = get_or_404(session, models.Group, group_id)
     content = report_export.group_results_xlsx(session, group.id, test_id)
-    filename = quote(f"Результаты {group.name}.xlsx")
-    return Response(
-        content,
-        media_type=XLSX,
-        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"},
-    )
+    return attachment(content, f"Результаты {group.name}.xlsx", XLSX)
 
 
 @router.get("/groups/{group_id}/profile", response_model=schemas.Profile)

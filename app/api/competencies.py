@@ -1,11 +1,13 @@
 """Компетенции, индикаторы, дисциплины."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app import models, schemas
 from app.api.deps import SessionDep, require_admin
+from app.api.files import DOCX, attachment
+from app.services import fund
 from app.services.common import delete_or_conflict, get_many_or_404, get_or_404, save, update_fields
 
 router = APIRouter(tags=["Компетенции"], dependencies=[Depends(require_admin)])
@@ -109,6 +111,13 @@ def update_discipline(discipline_id: int, data: schemas.DisciplineIn, session: S
         name=data.name,
         competencies=get_many_or_404(session, models.Competency, data.competency_ids),
     )
+
+
+@router.get("/disciplines/{discipline_id}/fund.docx", response_class=Response)
+def discipline_fund(discipline_id: int, session: SessionDep, key: bool = False):
+    """Фонд оценочных материалов дисциплины в Word: все её вопросы по компетенциям."""
+    content, filename = fund.discipline_document(session, discipline_id, key)
+    return attachment(content, filename, DOCX)
 
 
 @router.delete("/disciplines/{discipline_id}", status_code=204)
