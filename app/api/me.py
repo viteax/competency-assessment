@@ -61,6 +61,7 @@ def submit_attempt(
         score=attempt.score,
         max_score=attempt.max_score,
         finished_at=attempt.finished_at,
+        competencies=reports.attempt_results(session, attempt),
     )
 
 
@@ -77,4 +78,6 @@ def my_labor_functions(student: CurrentStudent, session: SessionDep):
 @router.get("/reports/profile", response_model=schemas.Profile)
 def my_profile(student: CurrentStudent, session: SessionDep):
     """Мои уровни по компетенциям и трудовым функциям — для «розы ветров»."""
-    return reports.profile(session, [student.id])
+    result = reports.profile(session, [student.id])
+    result.legend = reports.student_legend(student)
+    return result

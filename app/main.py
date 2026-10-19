@@ -14,6 +14,7 @@ from app import middleware
 from app.api import (
     audit,
     auth,
+    charts,
     competencies,
     curriculum,
     imports,
@@ -75,6 +76,7 @@ for module in (
     audit,
     system,
     teacher,
+    charts,
 ):
     app.include_router(module.router)
 

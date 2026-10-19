@@ -202,3 +202,17 @@ code { font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; 
 /* Прогресс преподавателя */
 .progress-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
 progress { width: 100%; max-width: 420px; height: 10px; accent-color: var(--accent); }
+
+/* Печать одной карточки «розы»: остальная страница скрыта (PDF – «Сохранить как PDF»). */
+@media print {
+  body.print-one * { visibility: hidden; }
+  body.print-one .print-target, body.print-one .print-target * { visibility: visible; }
+  body.print-one .print-target { position: absolute; left: 0; top: 0; width: 100%; border: none; box-shadow: none; }
+  body.print-one .print-target .no-print, body.print-one .print-target .no-print * { display: none; }
+}
+
+/* Вывод студенту по компетенциям */
+.verdict { display: grid; gap: 10px; }
+.verdict-item { display: flex; gap: 12px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--border); }
+.verdict-item:first-child { border-top: none; }
+.verdict-item .what { flex: 1 1 320px; min-width: 0; }

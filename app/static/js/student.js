@@ -1,6 +1,6 @@
 // Кабинет студента: назначенные тесты, прохождение, результаты.
 
-import { api, errorBox, go, h, masteryBadge } from "./core.js";
+import { api, errorBox, go, h } from "./core.js";
 import { profileCharts } from "./radar.js";
 import { laborFunctionsView } from "./reports.js";
 
@@ -52,13 +52,17 @@ async function takeTest(assignmentId, render) {
             method: "POST",
             body: { answers },
           });
+          const labor = await api("/me/reports/labor-functions").catch(() => []);
           render(
             h("h1", {}, attempt.title),
             h("div", { class: "card" },
-              h("div", { class: "score" }, `${result.score} / ${result.max_score}`),
-              h("p", { class: "muted" }, "Тест сдан"),
-              h("button", { class: "primary", onclick: () => go(studentResults) }, "Мои результаты"),
+              h("p", { class: "muted", style: "margin:0" }, "Тест сдан"),
+              h("div", { class: "score" }, `Верно ${result.score} из ${result.max_score}`),
+              h("h2", {}, "Вывод по компетенциям"),
+              verdictView(result.competencies),
             ),
+            laborSummary(labor),
+            h("button", { class: "primary", onclick: () => go(studentResults) }, "Мои результаты"),
           );
         } catch (e) {
           err.show(e);
@@ -129,29 +133,65 @@ function questionInput(q) {
   ];
 }
 
+// Уровень компетенции: до 40% – «требует внимания», 40–79% – «в процессе формирования»,
+// от 80% – «хорошо развита».
+const LEVELS = {
+  attention: ["bad", "требует внимания", "Стоит повторить материал по этой компетенции."],
+  forming: ["warn", "в процессе формирования", "Основа есть, но часть заданий вызвала затруднения."],
+  good: ["ok", "хорошо развита", "Вы уверенно справляетесь с заданиями по этой компетенции."],
+};
+
+const percent = (c) => Math.round(c.ratio * 100);
+
+function verdictView(competencies) {
+  if (!competencies.length) return h("p", { class: "muted" }, "Пока нет пройденных тестов");
+  return h("div", { class: "verdict" },
+    competencies.map((c) => {
+      const [tone, label, advice] = LEVELS[c.level];
+      return h("div", { class: "verdict-item" },
+        h("div", { class: "what" },
+          h("strong", {}, c.code), c.name ? ` – ${c.name}` : "",
+          h("div", { class: "muted small" }, `Верно ${c.correct} из ${c.total} (${percent(c)}%). ${advice}`),
+        ),
+        h("span", { class: `badge ${tone}` }, label),
+      );
+    }),
+  );
+}
+
+// Трудовые функции профстандарта, которые студент может выполнять: все их компетенции
+// сформированы.
+function laborSummary(labor) {
+  const covered = labor.flatMap((g) => g.functions.filter((f) => f.covered).map((f) => ({ ...f, standard: g.standard_code })));
+  return h("div", { class: "card" },
+    h("h2", { style: "margin-top:0" }, "Трудовые функции, которые вы можете выполнять"),
+    covered.length
+      ? h("ul", {}, covered.map((f) => h("li", {}, h("strong", {}, f.code), ` ${f.name} `,
+          h("span", { class: "muted small" }, `(профстандарт ${f.standard})`))))
+      : h("p", { class: "muted", style: "margin-bottom:0" },
+          labor.length
+            ? "Пока ни одна трудовая функция не подтверждена полностью: для этого нужны сформированными все её компетенции."
+            : "Профстандарты не загружены."),
+  );
+}
+
 export async function studentResults(render) {
   const [report, labor, profile] = await Promise.all([
     api("/me/reports/competencies"),
     api("/me/reports/labor-functions"),
     api("/me/reports/profile"),
   ]);
+  const correct = report.competencies.reduce((sum, c) => sum + c.correct, 0);
+  const total = report.competencies.reduce((sum, c) => sum + c.total, 0);
   render(
     h("h1", {}, "Мои результаты"),
-    h("h2", {}, "Компетенции"),
-    report.competencies.length
-      ? h("div", { class: "card table-wrap" },
-          h("table", {},
-            h("tr", {}, h("th", {}, "Компетенция"), h("th", {}, "Результат"), h("th", {}, "")),
-            report.competencies.map((c) =>
-              h("tr", {},
-                h("td", {}, c.code),
-                h("td", {}, masteryBadge(c)),
-                h("td", {}, c.mastered ? "сформирована" : "не сформирована"),
-              ),
-            ),
-          ),
-        )
-      : h("p", { class: "muted" }, "Пока нет пройденных тестов"),
+    h("div", { class: "card" },
+      total ? h("div", { class: "score" }, `Верно ${correct} из ${total}`) : null,
+      total ? h("p", { class: "muted", style: "margin-top:0" }, "по всем пройденным тестам") : null,
+      h("h2", {}, "Вывод по компетенциям"),
+      verdictView(report.competencies),
+    ),
+    report.competencies.length ? laborSummary(labor) : null,
     report.competencies.length ? profileCharts(profile, "мои результаты") : null,
     h("h2", {}, "Трудовые функции профстандарта"),
     laborFunctionsView(labor),

@@ -490,24 +490,31 @@ class AttemptSubmit(BaseModel):
     answers: list[AnswerIn]
 
 
-class AttemptResult(BaseModel):
-    attempt_id: int
-    score: int
-    max_score: int
-    finished_at: datetime
-
-
 # --- Отчёты ----------------------------------------------------------------
+
+# Уровень развития компетенции для вывода студенту: до 40% верных – «требует внимания»,
+# 40–79% – «в процессе формирования», от 80% – «хорошо развита».
+CompetencyLevel = Literal["attention", "forming", "good"]
 
 
 class CompetencyResult(BaseModel):
     competency_id: int
     code: str
+    name: str
     kind: CompetencyKind
     correct: int
     total: int
     ratio: float
     mastered: bool
+    level: CompetencyLevel
+
+
+class AttemptResult(BaseModel):
+    attempt_id: int
+    score: int
+    max_score: int
+    finished_at: datetime
+    competencies: list[CompetencyResult] = []  # разбор этой попытки по компетенциям
 
 
 class LaborFunctionResult(BaseModel):
@@ -551,8 +558,20 @@ class ProfileAxis(BaseModel):
 
 class Profile(BaseModel):
     students: int  # у скольких студентов есть результаты
+    legend: list[str] = []  # подпись к диаграмме: группа, курс, направление, кто прошёл
     competencies: list[ProfileAxis]
     labor_functions: list[ProfileAxis]
+
+
+class ChartExport(BaseModel):
+    """«Роза ветров» для выгрузки в Word: картинка PNG (base64) с подписью и таблицей осей."""
+
+    title: str = Field(min_length=1, max_length=200)
+    legend: list[Annotated[str, Field(max_length=300)]] = Field(default=[], max_length=10)
+    rows: list[Annotated[list[Annotated[str, Field(max_length=500)]], Field(max_length=3)]] = Field(
+        default=[], max_length=100
+    )
+    image: str = Field(max_length=4_000_000)
 
 
 # --- Импорт компетенций ----------------------------------------------------

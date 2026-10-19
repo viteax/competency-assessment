@@ -83,4 +83,4 @@ def test_student_answers_every_kind(admin_page: Page, new_page):
         select.select_option(label=label)
 
     student.click("text=Сдать тест")
-    expect(student.locator(".score")).to_have_text("3 / 20")  # три новых задания — верно
+    expect(student.locator(".score")).to_have_text("Верно 3 из 20")  # три новых задания — верно

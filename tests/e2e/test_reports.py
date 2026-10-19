@@ -4,6 +4,7 @@ import io
 import re
 
 import pytest
+from docx import Document
 from openpyxl import load_workbook
 from playwright.sync_api import Page, expect
 
@@ -31,8 +32,10 @@ def test_excel_and_radars(new_page):
 
     # Студент видит свои «розы».
     page.click("text=Мои результаты")
-    expect(page.locator("h2:has-text('Компетенции — мои результаты')")).to_be_visible()
+    expect(page.locator("h2:has-text('Компетенции – мои результаты')")).to_be_visible()
     expect(page.locator(".radar-wrap svg").first).to_be_visible()
+    expect(page.locator(".radar-legend").first).to_contain_text("Группа ПИ-21")
+    expect(page.locator("h2:text-is('Вывод по компетенциям')")).to_be_visible()
     logout(page)
 
     login(page, "admin", "admin123")
@@ -49,19 +52,30 @@ def test_excel_and_radars(new_page):
     assert header == ["ФИО", "Группа", "Дата тестирования", "ОПК-1", "ОПК-5", "ПК-1"]
 
     # Три компетенции — лепестковая диаграмма для группы и для студента.
-    expect(page.locator("h2:has-text('Компетенции — группа ПИ-21, среднее')")).to_be_visible()
+    expect(page.locator("h2:has-text('Компетенции – группа ПИ-21, среднее')")).to_be_visible()
     competencies = page.locator(".radar-card").first
     expect(competencies.locator("svg text", has_text=re.compile("^ПК-1$"))).to_be_visible()
+    expect(competencies.locator(".radar-legend")).to_contain_text("Прошли тест: 1 из 3 студентов")
     competencies.locator("circle[tabindex]").last.hover()  # при нулях точки совпадают
     expect(competencies.locator(".radar-tip")).to_contain_text("из 5")
     page.get_by_label("Чья роза").select_option(label="Иванов Иван Иванович")
-    expect(page.locator("h2:has-text('Компетенции — Иванов Иван Иванович')")).to_be_visible()
+    expect(page.locator("h2:has-text('Компетенции – Иванов Иван Иванович')")).to_be_visible()
 
+    competencies = page.locator(".radar-card").first
+    expect(competencies.locator(".radar-legend")).to_contain_text("Иванов Иван Иванович")
     with page.expect_download() as png:
-        competencies = page.locator(".radar-card").first
-        competencies.locator("text=Скачать PNG").click()
-    assert png.value.suggested_filename == "Компетенции — Иванов Иван Иванович.png"
+        competencies.locator("button:text-is('PNG')").click()
+    assert png.value.suggested_filename == "Компетенции – Иванов Иван Иванович.png"
     assert open(png.value.path(), "rb").read(8) == b"\x89PNG\r\n\x1a\n"
+    with page.expect_download() as jpeg:
+        competencies.locator("button:text-is('JPEG')").click()
+    assert jpeg.value.suggested_filename.endswith(".jpg")
+    assert open(jpeg.value.path(), "rb").read(3) == b"\xff\xd8\xff"
+    with page.expect_download() as word:
+        competencies.locator("button:text-is('Word')").click()
+    assert word.value.suggested_filename == "Компетенции – Иванов Иван Иванович.docx"
+    text = "\n".join(p.text for p in Document(word.value.path()).paragraphs)
+    assert "Иванов Иван Иванович" in text and "Группа ПИ-21" in text
 
 
 def test_too_few_axes_explained(admin_page: Page, new_page):

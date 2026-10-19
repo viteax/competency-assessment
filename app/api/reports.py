@@ -50,5 +50,10 @@ def group_profile(
     if student_id is not None:
         if student_id not in ids:
             raise NotFound(f"студента {student_id} нет в группе {group.name}")
-        ids = [student_id]
-    return reports.profile(session, ids, test_id)
+        result = reports.profile(session, [student_id], test_id)
+        result.legend = reports.student_legend(session.get(models.Student, student_id))
+        return result
+    result = reports.profile(session, ids, test_id)
+    test = get_or_404(session, models.Test, test_id) if test_id is not None else None
+    result.legend = reports.group_profile_legend(group, result.students, test)
+    return result

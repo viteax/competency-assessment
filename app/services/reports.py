@@ -23,6 +23,29 @@ def _finished_attempts(student_ids: list[int], test_id: int | None):
     return conditions
 
 
+def level_of(ratio: float) -> schemas.CompetencyLevel:
+    if ratio >= 0.8:
+        return "good"
+    return "forming" if ratio >= 0.4 else "attention"
+
+
+def _result(
+    competency: models.Competency, correct: int, total: int, threshold: float
+) -> schemas.CompetencyResult:
+    ratio = correct / total
+    return schemas.CompetencyResult(
+        competency_id=competency.id,
+        code=competency.code,
+        name=competency.description,
+        kind=competency.kind,
+        correct=correct,
+        total=total,
+        ratio=round(ratio, 3),
+        mastered=ratio >= threshold,
+        level=level_of(ratio),
+    )
+
+
 def _results_by_student(
     session: Session, student_ids: list[int], test_id: int | None = None
 ) -> dict[int, list[schemas.CompetencyResult]]:
@@ -45,19 +68,48 @@ def _results_by_student(
     )
     results: dict[int, list[schemas.CompetencyResult]] = {sid: [] for sid in student_ids}
     for student_id, competency, correct, total in session.execute(stmt):
-        ratio = correct / total
-        results[student_id].append(
-            schemas.CompetencyResult(
-                competency_id=competency.id,
-                code=competency.code,
-                kind=competency.kind,
-                correct=correct,
-                total=total,
-                ratio=round(ratio, 3),
-                mastered=ratio >= threshold,
-            )
-        )
+        results[student_id].append(_result(competency, correct, total, threshold))
     return results
+
+
+def attempt_results(session: Session, attempt: models.Attempt) -> list[schemas.CompetencyResult]:
+    """Разбор одной сданной попытки по компетенциям – для вывода студенту сразу после теста."""
+    threshold = app_settings.mastery_threshold(session)
+    counts: dict[int, list[int]] = defaultdict(lambda: [0, 0])
+    competencies: dict[int, models.Competency] = {}
+    for answer in attempt.answers:
+        competency = answer.question.competency
+        competencies[competency.id] = competency
+        counts[competency.id][0] += answer.is_correct
+        counts[competency.id][1] += 1
+    return [
+        _result(competencies[cid], correct, total, threshold)
+        for cid, (correct, total) in sorted(counts.items(), key=lambda kv: competencies[kv[0]].code)
+    ]
+
+
+def _course(group: models.Group) -> str:
+    semester = group.current_semester
+    return f" · {(semester + 1) // 2} курс" if semester else ""
+
+
+def group_legend(group: models.Group) -> str:
+    direction = group.direction
+    return f"Группа {group.name}{_course(group)} · {direction.code} {direction.name}"
+
+
+def student_legend(student: models.Student) -> list[str]:
+    return [student.full_name, group_legend(student.group)]
+
+
+def group_profile_legend(
+    group: models.Group, passed: int, test: models.Test | None = None
+) -> list[str]:
+    legend = [group_legend(group)]
+    if test is not None:
+        legend.append(f"Тест: {test.title}")
+    legend.append(f"Прошли тест: {passed} из {len(group.students)} студентов")
+    return legend
 
 
 def competency_results(session: Session, student_id: int) -> list[schemas.CompetencyResult]:

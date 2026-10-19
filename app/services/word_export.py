@@ -334,3 +334,25 @@ def build(parts: Iterable[tuple[FundHeader, list[Section], str]], key: bool) -> 
     buffer = io.BytesIO()
     doc.save(buffer)
     return buffer.getvalue()
+
+
+# --- «роза ветров» ----------------------------------------------------------------
+
+
+def chart_document(title: str, image_png: bytes, legend: list[str], rows: list[list[str]]) -> bytes:
+    """Диаграмма для отчёта: заголовок, картинка, подпись и таблица значений по осям."""
+    doc = _new_document()
+    _para(doc, title, bold=True, center=True)
+    doc.add_paragraph().alignment = WD_ALIGN_PARAGRAPH.CENTER
+    doc.paragraphs[-1].add_run().add_picture(io.BytesIO(image_png), width=Mm(140))
+    for line in legend:
+        _para(doc, line, center=True)
+    if rows:
+        _para(doc)
+        table = _table(doc, len(rows), [25, 117, 25])
+        for row, values in zip(table.rows, rows, strict=True):
+            for cell, value in zip(row.cells, [*values, "", ""][:3], strict=True):
+                _write(cell, value)
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    return buffer.getvalue()
