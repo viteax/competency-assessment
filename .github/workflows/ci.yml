@@ -35,6 +35,19 @@ jobs:
       - run: uv run playwright install --with-deps chromium
       - run: uv run pytest -m e2e -q
 
+  frontend:
+    # ESLint для веб-интерфейса (app/static); сборки нет, node нужен только для проверки.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint -- --max-warnings 0
+      - run: npm audit --audit-level=high
+
   audit:
     # Известные уязвимости в зависимостях (база OSV/PyPI), по точным версиям из uv.lock.
     runs-on: ubuntu-24.04
@@ -78,7 +91,7 @@ jobs:
     # Собирает образ на каждом пуше и проверяет, что он запускается. На тегах v* публикует
     # его в GitHub Container Registry: ghcr.io/<владелец>/competency-assessment.
     runs-on: ubuntu-24.04
-    needs: [test, e2e, migrations]
+    needs: [test, e2e, frontend, migrations]
     permissions:
       contents: read
       packages: write
