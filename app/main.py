@@ -5,12 +5,13 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from app import middleware
+from app import middleware, validation_messages
 from app.api import (
     audit,
     auth,
@@ -86,6 +87,13 @@ middleware.install(app)
 @app.exception_handler(DomainError)
 def handle_domain_error(_: Request, exc: DomainError) -> JSONResponse:
     return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
+
+
+@app.exception_handler(RequestValidationError)
+def handle_validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
+    return JSONResponse(
+        {"detail": validation_messages.translate(list(exc.errors()))}, status_code=422
+    )
 
 
 @app.exception_handler(IntegrityError)

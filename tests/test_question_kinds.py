@@ -58,7 +58,7 @@ def test_create_each_kind(admin: TestClient):
 @pytest.mark.parametrize(
     ("kind", "options", "message"),
     [
-        ("single", [{"text": "a"}, {"text": "b"}], "'matching', 'sequence' or 'open'"),
+        ("single", [{"text": "a"}, {"text": "b"}], "Тип задания: допустимые значения"),
         ("sequence", [{"text": "a"}], "не меньше двух"),
         ("matching", [{"text": "a", "match_index": 1}, {"text": "1"}], "не меньше двух пар"),
         (
@@ -67,7 +67,7 @@ def test_create_each_kind(admin: TestClient):
             "свой элемент",
         ),
         ("open", [{"text": "x", "match_index": 0}], "только в задании на соответствие"),
-        ("open", [{"text": "   "}], "at least 1"),
+        ("open", [{"text": "   "}], "Текст: не заполнено"),
     ],
 )
 def test_validation(admin: TestClient, kind, options, message):
