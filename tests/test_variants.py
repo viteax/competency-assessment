@@ -219,3 +219,45 @@ def test_curriculum_crud(admin: TestClient):
     listed = admin.get("/curriculum", params={"direction_id": direction["id"]}).json()
     assert entry_id in {e["id"] for e in listed}
     assert admin.delete(f"/curriculum/{entry_id}").status_code == 204
+
+
+def test_variants_by_group_size_overlap_evenly(admin: TestClient):
+    """Вариантов — по числу студентов: 10 вариантов по 5 из 20 вопросов ОПК-5 — варианты
+    частично пересекаются, но все разные, а каждый вопрос используется 2–3 раза."""
+    test = create(admin, ["ОПК-5"], variant_count=10).json()
+    assert test["variant_count"] == 10
+    detail = admin.get(f"/tests/{test['id']}").json()
+    sets = [frozenset(q["id"] for q in v["questions"]) for v in detail["variants"]]
+    assert all(len(s) == 5 for s in sets) and len(set(sets)) == 10
+    uses = [sum(qid in s for s in sets) for qid in set().union(*sets)]
+    assert len(uses) == 20 and set(uses) <= {2, 3}
+
+
+def test_few_variants_do_not_overlap(admin: TestClient):
+    test = create(admin, ["ОПК-5"], variant_count=3).json()
+    detail = admin.get(f"/tests/{test['id']}").json()
+    sets = [frozenset(q["id"] for q in v["questions"]) for v in detail["variants"]]
+    assert len(set().union(*sets)) == 15  # 3 × 5 без повторов
+
+
+def test_variants_capped_by_possible_combinations(admin: TestClient):
+    # 12 вопросов ПК-2 в «Технологиях программирования» по 12 — возможен единственный набор.
+    response = create(
+        admin, ["ПК-2"], k=12, disciplines=["Технологии программирования"], variant_count=5
+    )
+    assert response.json()["variant_count"] == 1
+
+
+def test_each_student_gets_own_variant(admin: TestClient, login):
+    test = create(admin, ["ОПК-5"], variant_count=3).json()
+    g = group(admin)
+    assignment = admin.post("/assignments", json={"test_id": test["id"], "group_id": g["id"]})
+    seen = set()
+    for name in ["student1", "student2", "student3"]:
+        body = (
+            login(name, "student123")
+            .post("/me/attempts", json={"assignment_id": assignment.json()["id"]})
+            .json()
+        )
+        seen.add(frozenset(q["id"] for q in body["questions"]))
+    assert len(seen) == 3

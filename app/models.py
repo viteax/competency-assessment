@@ -426,7 +426,8 @@ class Test(Base):
 
     @property
     def question_ids(self) -> list[int]:
-        return [tq.question_id for tq in self.test_questions]
+        """Все вопросы теста без повторов (один вопрос может быть в нескольких вариантах)."""
+        return list(dict.fromkeys(tq.question_id for tq in self.test_questions))
 
     @property
     def discipline_ids(self) -> list[int]:
@@ -453,9 +454,9 @@ class TestQuestion(Base):
     test_id: Mapped[int] = mapped_column(
         ForeignKey("test.id", ondelete="CASCADE"), primary_key=True
     )
+    # Номер варианта (с 1). Вопрос может входить в несколько вариантов одного теста.
+    variant: Mapped[int] = mapped_column(Integer, primary_key=True, default=1, server_default="1")
     question_id: Mapped[int] = mapped_column(ForeignKey("question.id"), primary_key=True)
-    # Номер варианта (с 1): варианты одного теста не пересекаются по вопросам.
-    variant: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     position: Mapped[int] = mapped_column(Integer)
 
     test: Mapped[Test] = relationship(back_populates="test_questions")

@@ -181,7 +181,8 @@ def test_unused_question_can_be_fully_edited_and_deleted(admin: TestClient):
 def test_question_used_in_test_allows_only_wording(admin: TestClient):
     ctx = assign(admin, ["ПК-1"])
     questions = {q["id"]: q for q in admin.get("/questions").json()}
-    q = questions[ctx["test"]["question_ids"][0]]
+    # Вопрос с выбором ответа (в тесте бывают и задания других типов — порядок случайный).
+    q = next(questions[i] for i in ctx["test"]["question_ids"] if questions[i]["kind"] == "single")
     assert q["in_use"] is True
 
     payload = {

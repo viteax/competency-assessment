@@ -348,6 +348,9 @@ class TestCreate(BaseModel):
     discipline_ids: list[int] = []
     questions_per_competency: int = Field(default=5, ge=1, le=50)
     semester: int | None = Field(default=None, ge=1, le=12)
+    # Сколько вариантов собрать (обычно — по числу студентов группы). Не задано — столько
+    # непересекающихся вариантов, на сколько хватает вопросов.
+    variant_count: int | None = Field(default=None, ge=1, le=300)
 
 
 class TestOut(ORM):

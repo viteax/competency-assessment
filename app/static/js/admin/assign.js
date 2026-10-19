@@ -1,6 +1,6 @@
 // Назначение теста группе. Новый тест собирается так, как проводят оценку остаточных знаний:
 // группа → семестр → дисциплины, завершённые до него → компетенции этих дисциплин →
-// вопросы только из завершённых дисциплин, в нескольких непересекающихся вариантах.
+// вопросы только из завершённых дисциплин, в вариантах — по числу студентов группы.
 
 import { api, errorBox, fill, h } from "../core.js";
 
@@ -14,12 +14,13 @@ const plural = (n, one, few, many) => {
 };
 
 export async function adminAssign(render) {
-  const [groups, competencies, disciplines, questions, tests] = await Promise.all([
+  const [groups, competencies, disciplines, questions, tests, students] = await Promise.all([
     api("/groups"),
     api("/competencies"),
     api("/disciplines"),
     api("/questions"),
     api("/tests"),
+    api("/students"),
   ]);
   const groupsById = new Map(groups.map((g) => [g.id, g]));
   const err = errorBox();
@@ -41,6 +42,14 @@ export async function adminAssign(render) {
     titleHint.textContent = taken ? "Тест с таким названием уже есть — назовите иначе или выберите «Назначить готовый тест»" : "";
   });
   const perCompetency = h("input", { type: "number", min: 1, max: 50, value: 5, style: "max-width:110px", "aria-label": "Вопросов на компетенцию" });
+  const variantsInput = h("input", { type: "number", min: 1, max: 300, style: "max-width:110px", "aria-label": "Вариантов" });
+  const variantsHint = h("span", { class: "muted small" });
+  const studentsInGroup = (id) => students.filter((st) => st.group_id === id).length;
+  function resetVariants() {
+    const n = studentsInGroup(Number(group.value));
+    variantsInput.value = Math.max(n, 1);
+    variantsHint.textContent = n ? `по числу студентов группы (${n})` : "в группе пока нет студентов";
+  }
 
   let plan = null; // ответ /tests/plan или null, если учебный план не учитывается
   const disciplineChecks = new Map(); // id дисциплины → чекбокс
@@ -82,7 +91,16 @@ export async function adminAssign(render) {
     }
     const counts = selected.map((c) => [c, countFor(c.id, allowed && pool(selected, allowed))]);
     const short = counts.filter(([, n]) => n < k);
-    const variants = Math.min(...counts.map(([, n]) => Math.floor(n / k)));
+    const disjoint = Math.min(...counts.map(([, n]) => Math.floor(n / k)));
+    const wanted = Math.max(Number(variantsInput.value) || 1, 1);
+    // Сколько различных вариантов вообще можно составить (считаем до wanted, чтобы не переполниться).
+    let possible = 1;
+    for (const [, n] of counts) {
+      let c = 1;
+      for (let i = 0; i < k && c <= wanted; i++) c = (c * (n - i)) / (i + 1);
+      possible = Math.min(possible * Math.round(c), wanted + 1);
+    }
+    const variants = Math.min(wanted, possible);
     const disciplinesLine = allowed
       ? h("div", {}, h("strong", {}, "Вопросы из дисциплин: "), pool(selected, allowed).map((d) => d.name).join(", ") || "—")
       : h("div", {}, h("strong", {}, "Вопросы из любых дисциплин банка"));
@@ -98,7 +116,12 @@ export async function adminAssign(render) {
         h("div", { style: "margin-top:6px" },
           h("strong", {}, `${variants} ${plural(variants, "вариант", "варианта", "вариантов")}`),
           ` по ${k * selected.length} ${plural(k * selected.length, "вопросу", "вопроса", "вопросов")}`,
-          ` (${k} на компетенцию). Варианты не пересекаются, каждому студенту достаётся случайный.`));
+          ` (${k} на компетенцию). `,
+          variants <= disjoint
+            ? "Варианты не пересекаются."
+            : `Вопросов на непересекающиеся хватает на ${disjoint}, поэтому варианты частично пересекаются (как «3 вопроса из одного, 2 из другого»), но все разные.`,
+          variants < wanted ? ` Различных сочетаний вопросов меньше, чем вариантов: будет ${variants}.` : "",
+          " Каждому студенту — свой вариант, пока они не закончатся."));
     }
     summary.hidden = false;
   }
@@ -195,6 +218,7 @@ export async function adminAssign(render) {
     loadPlan();
   });
   perCompetency.addEventListener("input", drawSummary);
+  variantsInput.addEventListener("input", drawSummary);
 
   const newSection = h("div", {},
     h("div", { class: "row" },
@@ -208,7 +232,9 @@ export async function adminAssign(render) {
     h("div", { class: "row" },
       h("div", { style: "flex:1;min-width:240px" }, h("label", {}, "Название теста"), title, titleHint),
       h("div", {}, h("label", {}, "Вопросов на компетенцию"), perCompetency),
+      h("div", {}, h("label", {}, "Вариантов"), variantsInput),
     ),
+    h("p", { class: "muted small", style: "margin:4px 0 0" }, variantsHint),
     summary,
   );
 
@@ -235,6 +261,7 @@ export async function adminAssign(render) {
 
   group.addEventListener("change", () => {
     resetSemester();
+    resetVariants();
     drawExisting();
     loadPlan();
   });
@@ -276,6 +303,7 @@ export async function adminAssign(render) {
                   competency_ids: selected.map((c) => c.id),
                   discipline_ids: allowed ? pool(selected, allowed).map((d) => d.id) : [],
                   questions_per_competency: Number(perCompetency.value),
+                  variant_count: Number(variantsInput.value) || null,
                   semester: plan ? plan.semester : null,
                 },
               });
@@ -314,6 +342,7 @@ export async function adminAssign(render) {
     ),
   );
   resetSemester();
+  resetVariants();
   drawExisting();
   switchMode();
   await loadPlan();

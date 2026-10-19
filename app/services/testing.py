@@ -1,7 +1,7 @@
 import json
 import random
 from collections import Counter, defaultdict
-from itertools import zip_longest
+from math import comb, prod
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
@@ -9,22 +9,6 @@ from sqlalchemy.orm import Session, selectinload
 from app import models, schemas
 from app.errors import Conflict, DomainError, NotFound
 from app.services.common import get_many_or_404, get_or_404, save
-
-
-def pick_questions(
-    questions: list[models.Question], count: int, rng: random.Random
-) -> list[models.Question]:
-    """Выбирает `count` вопросов, равномерно распределяя их по индикаторам компетенции."""
-    by_indicator: dict[int | None, list[models.Question]] = defaultdict(list)
-    for q in questions:
-        by_indicator[q.indicator_id].append(q)
-    buckets = list(by_indicator.values())
-    for bucket in buckets:
-        rng.shuffle(bucket)
-    rng.shuffle(buckets)
-    # По одному вопросу из каждого индикатора по кругу: 1.1, 1.2, 1.3, 1.1, 1.2, ...
-    interleaved = [q for round_ in zip_longest(*buckets) for q in round_ if q is not None]
-    return interleaved[:count]
 
 
 def title_key(title: str) -> str:
@@ -44,14 +28,42 @@ def ensure_unique_title(session: Session, title: str) -> None:
         )
 
 
+def _variant_chunks(
+    pool: list[models.Question], k: int, count: int, rng: random.Random
+) -> list[list[models.Question]]:
+    """`count` наборов по k разных вопросов из пула, вопросы расходуются равномерно.
+
+    Пул идёт по кругу в случайном порядке, каждый новый круг перемешивается заново. Пока
+    вопросов хватает, наборы не пересекаются (20 вопросов по 5 — 4 непересекающихся набора);
+    дальше вопросы повторяются в разных наборах, но каждый используется примерно одинаково часто.
+    """
+    stream: list[models.Question] = []
+    chunks = []
+    for _ in range(count):
+        chunk: list[models.Question] = []
+        postponed: list[models.Question] = []
+        while len(chunk) < k:
+            if not stream:
+                stream = pool[:]
+                rng.shuffle(stream)
+            question = stream.pop()
+            (postponed if question in chunk else chunk).append(question)
+        stream.extend(postponed)  # повторы откладываем на следующие наборы
+        chunks.append(chunk)
+    return chunks
+
+
 def create_test(
     session: Session, data: schemas.TestCreate, rng: random.Random | None = None
 ) -> models.Test:
-    """Собирает тест в нескольких вариантах, которые не пересекаются по вопросам.
+    """Собирает тест в нескольких вариантах.
 
-    По каждой компетенции нужно k = questions_per_competency вопросов на вариант; вариантов
-    столько, на сколько хватает вопросов самой «бедной» компетенции: 20 вопросов при k = 5 —
-    4 варианта. Внутри варианта вопросы распределены по индикаторам компетенции.
+    По каждой компетенции нужно k = questions_per_competency вопросов на вариант. Вариантов —
+    сколько попросили (обычно по числу студентов группы, чтобы у каждого был свой); пока
+    вопросов хватает, варианты не пересекаются, дальше частично пересекаются (3 вопроса из
+    одного набора, 2 из другого). Одинаковых вариантов не бывает: если различных сочетаний
+    вопросов меньше, чем попросили, вариантов будет столько, сколько сочетаний возможно.
+    Без variant_count — столько непересекающихся вариантов, на сколько хватает вопросов.
     """
     rng = rng or random.Random()
     ensure_unique_title(session, data.title)
@@ -64,7 +76,7 @@ def create_test(
         stmt = select(models.Question).where(models.Question.competency_id == competency.id)
         if disciplines:
             stmt = stmt.where(models.Question.discipline_id.in_([d.id for d in disciplines]))
-        pools.append(list(session.scalars(stmt)))
+        pools.append(list(session.scalars(stmt.order_by(models.Question.id))))
     short = [
         f"{c.code} — {len(pool)} из {k}"
         for c, pool in zip(competencies, pools, strict=True)
@@ -74,12 +86,24 @@ def create_test(
         where = " в выбранных дисциплинах" if disciplines else ""
         raise DomainError(f"не хватает вопросов{where}: {', '.join(short)}")
 
-    variant_count = min(len(pool) // k for pool in pools)
-    variants: list[list[models.Question]] = [[] for _ in range(variant_count)]
-    for pool in pools:
-        ordered = pick_questions(pool, variant_count * k, rng)
-        for v in range(variant_count):
-            variants[v].extend(ordered[v * k : (v + 1) * k])
+    possible = prod(comb(len(pool), k) for pool in pools)  # различных вариантов всего
+    wanted = data.variant_count or min(len(pool) // k for pool in pools)
+    count = min(wanted, possible)
+    per_competency = [_variant_chunks(pool, k, count, rng) for pool in pools]
+
+    variants: list[list[models.Question]] = []
+    seen: set[frozenset[int]] = set()
+    for chunks in zip(*per_competency, strict=True):
+        questions = [q for chunk in chunks for q in chunk]
+        key = frozenset(q.id for q in questions)
+        attempts = 0
+        while key in seen and attempts < 50:  # такой вариант уже есть — собираем заново
+            questions = [q for pool in pools for q in rng.sample(pool, k)]
+            key = frozenset(q.id for q in questions)
+            attempts += 1
+        if key not in seen:
+            seen.add(key)
+            variants.append(questions)
 
     test = models.Test(title=data.title, semester=data.semester, disciplines=disciplines)
     test.test_questions = [
