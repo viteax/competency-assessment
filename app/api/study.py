@@ -1,11 +1,11 @@
 """Направления, группы, студенты."""
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from app import models, schemas
 from app.api.deps import SessionDep, require_admin
-from app.errors import Conflict
+from app.services import students
 from app.services.common import delete_or_conflict, get_or_404, save, update_fields
 
 router = APIRouter(tags=["Учебная часть"], dependencies=[Depends(require_admin)])
@@ -83,13 +83,8 @@ def update_student(student_id: int, data: schemas.StudentIn, session: SessionDep
 
 @router.delete("/students/{student_id}", status_code=204)
 def delete_student(student_id: int, session: SessionDep):
-    """Удаляет студента вместе с его учётной записью. Студента с результатами тестов удалить
-    нельзя – пропали бы данные отчётов; его можно перевести в другую группу."""
-    student = get_or_404(session, models.Student, student_id)
-    if session.scalar(select(models.Attempt.id).where(models.Attempt.student_id == student.id)):
-        raise Conflict("у студента есть результаты тестов – удалить нельзя")
-    session.execute(delete(models.User).where(models.User.student_id == student.id))
-    delete_or_conflict(session, student, "на студента есть ссылки")
+    """Удаляет студента вместе с учётной записью, если у него нет результатов тестов."""
+    students.delete_student(session, get_or_404(session, models.Student, student_id))
 
 
 @router.get("/students/{student_id}/assignments", response_model=list[schemas.AssignmentOut])

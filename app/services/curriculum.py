@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app import models, schemas
 from app.errors import DomainError
-from app.services.common import get_or_404
+from app.services.common import get_or_404, save
 
 
 def assembly_plan(
@@ -69,3 +69,31 @@ def assembly_plan(
             schemas.QuestionCount(competency_id=c, discipline_id=d, count=n) for c, d, n in counts
         ],
     )
+
+
+def save_entry(
+    session: Session, entry: models.CurriculumEntry, data: schemas.CurriculumEntryIn
+) -> models.CurriculumEntry:
+    """Сохраняет строку учебного плана: преподаватель – только с ролью «преподаватель», квоты –
+    только по компетенциям дисциплины, по одной на компетенцию."""
+    get_or_404(session, models.Direction, data.direction_id)
+    discipline = get_or_404(session, models.Discipline, data.discipline_id)
+    if data.teacher_id is not None:
+        teacher = get_or_404(session, models.User, data.teacher_id)
+        if teacher.role != models.Role.TEACHER:
+            raise DomainError("закрепить дисциплину можно только за преподавателем")
+    allowed = set(discipline.competency_ids)
+    if any(q.competency_id not in allowed for q in data.quotas):
+        raise DomainError(f"квота задана для компетенции, которую «{discipline.name}» не формирует")
+    if len({q.competency_id for q in data.quotas}) != len(data.quotas):
+        raise DomainError("у одной компетенции может быть только одна квота")
+    if entry.id is not None:
+        entry.quotas = []
+        session.flush()  # старые квоты удаляются до вставки новых с тем же ключом
+    for field in ("direction_id", "discipline_id", "first_semester", "last_semester", "teacher_id"):
+        setattr(entry, field, getattr(data, field))
+    entry.quotas = [
+        models.CurriculumQuota(competency_id=q.competency_id, questions=q.questions)
+        for q in data.quotas
+    ]
+    return save(session, entry)

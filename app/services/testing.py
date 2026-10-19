@@ -371,3 +371,34 @@ def test_detail(session: Session, test_id: int) -> schemas.TestDetail:
             ],
         }
     )
+
+
+def student_assignments(
+    session: Session, student: models.Student
+) -> list[schemas.StudentAssignmentOut]:
+    """Назначенные группе студента тесты и состояние его попытки по каждому."""
+    assignments = session.scalars(
+        select(models.Assignment)
+        .where(models.Assignment.group_id == student.group_id)
+        .order_by(models.Assignment.created_at.desc())
+        .options(selectinload(models.Assignment.test).selectinload(models.Test.test_questions))
+    ).all()
+    attempts = {
+        a.assignment_id: a
+        for a in session.scalars(
+            select(models.Attempt).where(
+                models.Attempt.student_id == student.id,
+                models.Attempt.assignment_id.in_([a.id for a in assignments]),
+            )
+        )
+    }
+    return [
+        schemas.StudentAssignmentOut(
+            id=a.id,
+            title=a.test.title,
+            question_count=a.test.questions_per_variant,
+            created_at=a.created_at,
+            attempt=attempts.get(a.id),
+        )
+        for a in assignments
+    ]

@@ -1,10 +1,8 @@
 """Личный кабинет студента: назначенные тесты, прохождение, свои результаты."""
 
 from fastapi import APIRouter
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
-from app import models, schemas
+from app import schemas
 from app.api.deps import CurrentStudent, SessionDep
 from app.services import reports, testing
 
@@ -14,31 +12,7 @@ router = APIRouter(prefix="/me", tags=["Студент"])
 @router.get("/assignments", response_model=list[schemas.StudentAssignmentOut])
 def my_assignments(student: CurrentStudent, session: SessionDep):
     """Назначенные группе тесты и состояние моей попытки по каждому."""
-    assignments = session.scalars(
-        select(models.Assignment)
-        .where(models.Assignment.group_id == student.group_id)
-        .order_by(models.Assignment.created_at.desc())
-        .options(selectinload(models.Assignment.test).selectinload(models.Test.test_questions))
-    ).all()
-    attempts = {
-        a.assignment_id: a
-        for a in session.scalars(
-            select(models.Attempt).where(
-                models.Attempt.student_id == student.id,
-                models.Attempt.assignment_id.in_([a.id for a in assignments]),
-            )
-        )
-    }
-    return [
-        schemas.StudentAssignmentOut(
-            id=a.id,
-            title=a.test.title,
-            question_count=a.test.questions_per_variant,
-            created_at=a.created_at,
-            attempt=attempts.get(a.id),
-        )
-        for a in assignments
-    ]
+    return testing.student_assignments(session, student)
 
 
 @router.post("/attempts", response_model=schemas.AttemptStarted, status_code=201)
