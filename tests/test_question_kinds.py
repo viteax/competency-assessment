@@ -58,8 +58,7 @@ def test_create_each_kind(admin: TestClient):
 @pytest.mark.parametrize(
     ("kind", "options", "message"),
     [
-        ("single", [{"text": "a", "is_correct": True}], "не меньше двух"),
-        ("single", [{"text": "a"}, {"text": "b"}], "ровно один"),
+        ("single", [{"text": "a"}, {"text": "b"}], "'matching', 'sequence' or 'open'"),
         ("sequence", [{"text": "a"}], "не меньше двух"),
         ("matching", [{"text": "a", "match_index": 1}, {"text": "1"}], "не меньше двух пар"),
         (
@@ -206,7 +205,7 @@ def test_used_matching_keeps_pairs(admin, lone):
 
 
 def test_unused_question_can_change_kind(admin: TestClient):
-    question = create(admin, "single", [{"text": "a", "is_correct": True}, {"text": "b"}])
+    question = create(admin, "sequence", [{"text": "a"}, {"text": "b"}])
     response = admin.put(
         f"/questions/{question['id']}",
         json={

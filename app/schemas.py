@@ -276,7 +276,6 @@ Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 class AnswerOptionIn(BaseModel):
     text: Text
-    is_correct: bool = False
     # Задание на соответствие: у элемента левого столбца — номер его пары в списке options
     # (у элементов правого столбца пусто).
     match_index: int | None = None
@@ -297,7 +296,6 @@ class AnswerOptionUpdate(AnswerOptionIn):
 class QuestionIn(BaseModel):
     """Вопрос. Что означают options, зависит от типа (kind):
 
-    - single — варианты ответа, ровно один is_correct;
     - open — допустимые ответы (слово или фраза), регистр не важен;
     - sequence — элементы в правильном порядке;
     - matching — левый столбец (у каждого match_index — его пара) и правый столбец
@@ -308,7 +306,7 @@ class QuestionIn(BaseModel):
     indicator_id: int | None = None
     discipline_id: int | None = None
     text: Text
-    kind: QuestionKind = QuestionKind.SINGLE
+    kind: QuestionKind
     difficulty: Difficulty = Difficulty.BASIC
     options: list[AnswerOptionIn] = Field(min_length=1)
 
@@ -317,10 +315,7 @@ class QuestionIn(BaseModel):
         options = self.options
         if self.kind != QuestionKind.MATCHING and any(o.match_index is not None for o in options):
             raise ValueError("пары задаются только в задании на соответствие")
-        if self.kind == QuestionKind.SINGLE:
-            if len(options) < 2 or sum(o.is_correct for o in options) != 1:
-                raise ValueError("нужно не меньше двух вариантов, ровно один правильный")
-        elif self.kind == QuestionKind.SEQUENCE:
+        if self.kind == QuestionKind.SEQUENCE:
             if len(options) < 2:
                 raise ValueError("в последовательности нужно не меньше двух элементов")
         elif self.kind == QuestionKind.MATCHING:
@@ -480,7 +475,6 @@ class AnswerIn(BaseModel):
     """Ответ на вопрос; заполняется поле, соответствующее типу задания."""
 
     question_id: int
-    option_id: int | None = None  # single
     text: str | None = Field(default=None, max_length=500)  # open
     order: list[int] | None = None  # sequence: id элементов по порядку
     pairs: dict[int, int] | None = None  # matching: id левого → id правого

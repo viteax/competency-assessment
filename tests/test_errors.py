@@ -77,29 +77,31 @@ def test_cannot_submit_someone_elses_attempt(admin: TestClient, student: TestCli
 
 
 def test_option_from_another_question(admin: TestClient, student: TestClient):
-    ctx = assign(admin, ["ПК-1"])
+    ctx = assign(admin, ["ПК-1"], per_competency=19)  # все задания ПК-1, в т.ч. на соответствие
     started = student.post("/me/attempts", json={"assignment_id": ctx["assignment"]["id"]}).json()
-    q1 = next(q for q in started["questions"] if q["kind"] == "single")
+    q1 = next(q for q in started["questions"] if q["kind"] == "matching")
     foreign = next(
         o["id"]
         for q in admin.get("/questions").json()
-        if q["kind"] == "single" and q["id"] != q1["id"]
+        if q["kind"] == "matching" and q["id"] != q1["id"]
         for o in q["options"]
     )
     response = student.post(
         f"/me/attempts/{started['attempt_id']}/submit",
-        json={"answers": [{"question_id": q1["id"], "option_id": foreign}]},
+        json={"answers": [{"question_id": q1["id"], "pairs": {q1["options"][0]["id"]: foreign}}]},
     )
     assert response.status_code == 400
 
 
-def test_question_needs_exactly_one_correct_option(admin: TestClient):
+def test_single_choice_is_not_accepted(admin: TestClient):
+    """Кафедра использует три типа заданий: соответствие, последовательность, открытый."""
     response = admin.post(
         "/questions",
         json={
             "competency_id": by_code(admin, "ПК-1")["id"],
             "text": "?",
-            "options": [{"text": "a", "is_correct": True}, {"text": "b", "is_correct": True}],
+            "kind": "single",
+            "options": [{"text": "a"}, {"text": "b"}],
         },
     )
     assert response.status_code == 422
@@ -113,7 +115,8 @@ def test_indicator_must_belong_to_competency(admin: TestClient):
             "competency_id": pk1["id"],
             "indicator_id": pk2["indicators"][0]["id"],
             "text": "?",
-            "options": [{"text": "a", "is_correct": True}, {"text": "b"}],
+            "kind": "open",
+            "options": [{"text": "a"}],
         },
     )
     assert response.status_code == 400

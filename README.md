@@ -274,7 +274,7 @@ IP, — жёсткой блокировки нет, иначе любой сту
 | admin | `POST/GET/PUT/DELETE` | `/curriculum` | Учебный план: семестры дисциплины по направлению |
 | admin | `POST/GET/PUT/DELETE` | `/standards`, `/general-functions` | Профстандарты и ОТФ |
 | admin | `POST/GET/PUT/DELETE` | `/labor-functions` | ТФ и связь ТФ ⇒ компетенции |
-| admin | `POST/GET/PUT/DELETE` | `/questions` | Банк вопросов: выбор ответа, соответствие, последовательность, открытый ответ |
+| admin | `POST/GET/PUT/DELETE` | `/questions` | Банк вопросов: соответствие, последовательность, открытый ответ |
 | admin | `GET` | `/tests/plan?group_id=&semester=` | Завершённые к семестру дисциплины и вопросы по ним |
 | admin | `POST/GET` | `/tests` | Собрать тест в вариантах (название уникально) / список тестов |
 | admin | `GET` | `/tests/{id}/document.docx?key=&variant=` | Тест в Word по образцу ФОМ: бланк или ключ |

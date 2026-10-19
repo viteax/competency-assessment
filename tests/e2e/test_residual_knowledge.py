@@ -52,8 +52,10 @@ def test_semester_variants_and_tests_tab(admin_page: Page, new_page):
         student.click("text=Пройти")
         questions = student.locator(".question")
         expect(questions).to_have_count(5)
-        texts = questions.locator("p").all_inner_texts()
-        seen.append({re.sub(r"^\d+\. ", "", t) for t in texts})  # без номера вопроса
+        # Вопрос узнаём по всему содержимому без номера и порядка строк: у заданий на
+        # соответствие формулировка общая, а элементы показываются вперемешку.
+        texts = questions.all_inner_texts()
+        seen.append({"\n".join(sorted(re.sub(r"^\d+\. ", "", t).splitlines())) for t in texts})
     assert not seen[0] & seen[1]
 
     login(page, "admin", "admin123")

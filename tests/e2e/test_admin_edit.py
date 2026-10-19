@@ -56,12 +56,19 @@ def test_edit_questions(admin_page: Page):
     page.click("button:text-is('Новый вопрос')")
     form = page.locator("form.edit-form")
     select_prefix(form.get_by_label("Компетенция"), "ПК-2 ")
+    kinds = form.get_by_label("Тип задания").locator("option").all_inner_texts()
+    assert kinds == [
+        "На установление соответствия",
+        "На установление последовательности",
+        "Открытого типа",
+    ]  # выбора одного ответа нет: кафедра использует три типа заданий
+    form.get_by_label("Тип задания").select_option(label="Открытого типа")
     form.locator("textarea").fill("Какая диаграмма UML описывает классы?")
+    form.locator("button:text-is('+ ещё вариант ответа')").click()
     options = form.locator(".option-row")
-    expect(options).to_have_count(4)
-    for i, text in enumerate(["Диаграмма классов", "Диаграмма состояний", "Диаграмма потоков"]):
-        options.nth(i).locator("input[type=text]").fill(text)
-    options.nth(3).locator("button").click()  # лишний пустой вариант
+    expect(options).to_have_count(2)
+    options.nth(0).locator("input[type=text]").fill("Диаграмма классов")
+    options.nth(1).locator("button").click()  # лишний пустой вариант
     form.locator("button:text-is('Сохранить')").click()
 
     question = page.locator("tr", has=page.locator("td:has-text('Какая диаграмма UML')"))

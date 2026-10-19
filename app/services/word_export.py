@@ -32,7 +32,6 @@ TITLES = {
     models.QuestionKind.MATCHING: "Задание на установление соответствия",
     models.QuestionKind.SEQUENCE: "Задание на установление последовательности",
     models.QuestionKind.OPEN: "Задание открытого типа",
-    models.QuestionKind.SINGLE: "Задание закрытого типа",
 }
 SCORING = (
     "Полное совпадение с верным ответом – 1 балл;\nневерный ответ или его отсутствие – 0 баллов."
@@ -184,16 +183,11 @@ def _scenario(question: models.Question) -> str:
             "Прочитайте задание и установите правильную последовательность элементов.\n"
             "Запишите ответ в нужной последовательности без пробелов и знаков препинания."
         )
-    if kind == models.QuestionKind.OPEN:
-        one_word = all(" " not in o.text.strip() for o in question.options)
-        what = "одно слово" if one_word else "слово или словосочетание"
-        return (
-            "Прочитайте задание и запишите ответ.\n"
-            f"Ответом является {what}. Ответ может быть записан любым регистром."
-        )
+    one_word = all(" " not in o.text.strip() for o in question.options)
+    what = "одно слово" if one_word else "слово или словосочетание"
     return (
-        "Прочитайте задание и выберите один правильный ответ из предложенных.\n"
-        "Запишите номер выбранного варианта."
+        "Прочитайте задание и запишите ответ.\n"
+        f"Ответом является {what}. Ответ может быть записан любым регистром."
     )
 
 
@@ -236,14 +230,6 @@ def _sequence(doc: Document, question: models.Question, rng: random.Random, key:
     _answer_grid(doc, None, [str(number[o.id]) if key else "" for o in items])
 
 
-def _single(doc: Document, question: models.Question, key: bool) -> None:
-    for i, o in enumerate(question.options, start=1):
-        _para(doc, f"{i}. {o.text}")
-    _para(doc)
-    correct = next((i for i, o in enumerate(question.options, start=1) if o.is_correct), "")
-    _para(doc, f"Ответ: {correct}." if key else "Ответ: ________.")
-
-
 def _task(doc: Document, number: int, question: models.Question, key: bool) -> None:
     _para(doc)
     _para(doc, f"{number}. {TITLES[question.kind]}", bold=True)
@@ -260,11 +246,9 @@ def _task(doc: Document, number: int, question: models.Question, key: bool) -> N
         _matching(doc, question, rng, key)
     elif question.kind == models.QuestionKind.SEQUENCE:
         _sequence(doc, question, rng, key)
-    elif question.kind == models.QuestionKind.OPEN:
+    else:
         answer = " / ".join(o.text for o in question.options)
         _para(doc, f"Ответ: {answer}." if key else "Ответ: ________________.")
-    else:
-        _single(doc, question, key)
 
 
 def _merge_runs(table: Table, column: int, values: list[str]) -> None:

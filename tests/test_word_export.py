@@ -40,8 +40,33 @@ def answer_grids(doc: Document) -> list[list[str]]:
     return grids
 
 
+TITLES = {
+    "matching": "Задание на установление соответствия",
+    "sequence": "Задание на установление последовательности",
+    "open": "Задание открытого типа",
+}
+
+
+def answer_grid_after(doc: Document, question_text: str) -> list[str]:
+    """Таблица «Ответ:» задания с этим текстом (соответствие или последовательность)."""
+    paragraphs = {p._p: p for p in doc.paragraphs}
+    tables = {t._tbl: t for t in doc.tables}
+    seen, previous = False, None
+    for child in doc.element.body.iterchildren():
+        paragraph = paragraphs.get(child)
+        seen = seen or (paragraph is not None and paragraph.text == question_text)
+        if seen and child in tables and previous is not None and previous.text.startswith("Ответ:"):
+            return [c.text for c in tables[child].rows[-1].cells]
+        previous = paragraph
+    raise AssertionError(f"нет таблицы ответа после «{question_text}»")
+
+
 def test_discipline_fund_blank_and_key(admin: TestClient):
     os_id = discipline_id(admin, "Операционные системы")
+    bank = sorted(
+        (q for q in admin.get("/questions").json() if q["discipline_id"] == os_id),
+        key=lambda q: q["id"],
+    )
     blank = load(admin.get(f"/disciplines/{os_id}/fund.docx"))
     assert header_values(blank) == {
         "Направления (специальности)": "09.03.04 Программная инженерия",
@@ -52,17 +77,16 @@ def test_discipline_fund_blank_and_key(admin: TestClient):
     }
     lines = texts(blank)
     headings = [t for t in lines if TASK.match(t)]
-    assert len(headings) == 20
-    assert "18. Задание на установление последовательности" in lines
-    assert "19. Задание на установление соответствия" in lines
-    assert "20. Задание открытого типа" in lines
+    assert headings == [f"{i}. {TITLES[q['kind']]}" for i, q in enumerate(bank, start=1)]
+    assert {q["kind"] for q in bank} == set(TITLES)  # в демо-ФОМ есть все три типа
     assert "Распределение тестовых заданий по видам и уровням сложности" in lines
     assert all(cell == "" for grid in answer_grids(blank) for cell in grid)
     assert "Ответ: ________________." in lines
 
     key = load(admin.get(f"/disciplines/{os_id}/fund.docx", params={"key": True}))
     grids = answer_grids(key)
-    assert len(grids) == 2 and all(cell.isdigit() for grid in grids for cell in grid)
+    assert len(grids) == sum(q["kind"] != "open" for q in bank)
+    assert all(cell.isdigit() for grid in grids for cell in grid)
     assert "Ответ: root." in texts(key)
 
     distribution = key.tables[-1]
@@ -75,8 +99,9 @@ def test_discipline_fund_blank_and_key(admin: TestClient):
         "Уровень сложности",
         "Время выполнения",
     ]
-    assert [c.text for c in distribution.rows[18].cells[3:]] == [
-        "18",
+    nginx = next(i for i, q in enumerate(bank, start=1) if "nginx в Ubuntu" in q["text"])
+    assert [c.text for c in distribution.rows[nginx].cells[3:]] == [
+        str(nginx),
         "Задание на установление последовательности",
         "повышенный",
         "3-5",
@@ -84,13 +109,14 @@ def test_discipline_fund_blank_and_key(admin: TestClient):
 
 
 def test_sequence_key_matches_blank_numbering(admin: TestClient):
-    """В ключе — номера элементов бланка в правильном порядке."""
+    """В ключе – номера элементов бланка в правильном порядке."""
     os_id = discipline_id(admin, "Операционные системы")
     key = load(admin.get(f"/disciplines/{os_id}/fund.docx", params={"key": True}))
     lines = texts(key)
-    start = lines.index(
+    question = (
         "Расположите команды установки и запуска веб-сервера nginx в Ubuntu в правильном порядке:"
     )
+    start = lines.index(question)
     shown = {}
     for line in lines[start + 1 : start + 8]:
         if line[:1].isdigit():
@@ -102,7 +128,7 @@ def test_sequence_key_matches_blank_numbering(admin: TestClient):
         "sudo systemctl enable --now nginx",
         "systemctl status nginx",
     ]
-    sequence_grid = answer_grids(key)[0]
+    sequence_grid = answer_grid_after(key, question)
     assert sequence_grid == [shown[t] for t in correct]
     assert sequence_grid != ["1", "2", "3", "4"]  # показ не совпадает с ответом
 

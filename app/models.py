@@ -43,7 +43,6 @@ class Role(enum.StrEnum):
 class QuestionKind(enum.StrEnum):
     """Тип задания (названия — как в фонде оценочных материалов)."""
 
-    SINGLE = "single"  # закрытого типа: выбор одного ответа
     MATCHING = "matching"  # на установление соответствия
     SEQUENCE = "sequence"  # на установление последовательности
     OPEN = "open"  # открытого типа: ответ словом
@@ -358,9 +357,7 @@ class Question(Base):
     discipline_id: Mapped[int | None] = mapped_column(ForeignKey("discipline.id"))
     text: Mapped[str] = mapped_column(Text)
     kind: Mapped[QuestionKind] = mapped_column(
-        Enum(QuestionKind, values_callable=lambda e: [m.value for m in e]),
-        default=QuestionKind.SINGLE,
-        server_default=QuestionKind.SINGLE.value,
+        Enum(QuestionKind, values_callable=lambda e: [m.value for m in e])
     )
     difficulty: Mapped[Difficulty] = mapped_column(
         Enum(Difficulty, values_callable=lambda e: [m.value for m in e]),
@@ -372,7 +369,6 @@ class Question(Base):
     indicator: Mapped[Indicator | None] = relationship()
     discipline: Mapped[Discipline | None] = relationship()
     # Смысл вариантов зависит от типа задания:
-    #   single   — варианты, ровно один is_correct;
     #   open     — допустимые ответы (сравниваются без учёта регистра);
     #   sequence — элементы в правильном порядке (position);
     #   matching — левый столбец (match — пара из правого) и правый столбец (match пуст;
@@ -511,8 +507,7 @@ class AttemptAnswer(Base):
         ForeignKey("attempt.id", ondelete="CASCADE"), primary_key=True
     )
     question_id: Mapped[int] = mapped_column(ForeignKey("question.id"), primary_key=True)
-    option_id: Mapped[int | None] = mapped_column(ForeignKey("answer_option.id"))
-    # Ответ на задания других типов (JSON): текст, порядок элементов или пары.
+    # Ответ студента (JSON): текст, порядок элементов или пары.
     response: Mapped[str | None] = mapped_column(Text)
     is_correct: Mapped[bool] = mapped_column(default=False)
 

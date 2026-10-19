@@ -149,7 +149,6 @@ export function tabbedPage(title, tabs, initial = Object.keys(tabs)[0]) {
 // --- типы заданий ----------------------------------------------------------------
 
 export const QUESTION_KINDS = {
-  single: "Выбор одного ответа",
   matching: "На установление соответствия",
   sequence: "На установление последовательности",
   open: "Открытого типа",

@@ -209,24 +209,6 @@ function optionsEditor(locked) {
   }
 
   const drawers = {
-    single(q) {
-      const name = `correct-${Date.now()}`;
-      const row = (o = {}) => {
-        const r = h("div", { class: "option-row" },
-          h("input", { type: "radio", name, checked: o.is_correct, disabled: locked, title: "Правильный ответ" }),
-          textInput(o.text, "Вариант ответа"));
-        r.append(removeButton(r) || "");
-        return withId(r, o);
-      };
-      const initial = q ? q.options : [{ is_correct: true }, {}, {}, {}];
-      const { box, nodes } = list("Варианты ответа (отметьте правильный)", null, row, initial, "+ вариант");
-      read = () => {
-        const options = [...box.children].map((r) => ({ ...idOf(r), text: r.querySelector("input[type=text]").value.trim(), is_correct: r.querySelector("input[type=radio]").checked }));
-        if (!options.some((o) => o.is_correct)) throw new Error("отметьте правильный вариант");
-        return options;
-      };
-      return nodes;
-    },
     open(q) {
       const row = (o = {}) => { const r = h("div", { class: "option-row" }, textInput(o.text, "Правильный ответ")); r.append(removeButton(r) || ""); return withId(r, o); };
       const { box, nodes } = list("Допустимые ответы",

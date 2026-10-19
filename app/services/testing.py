@@ -235,12 +235,6 @@ def _grade(question: models.Question, answer: schemas.AnswerIn | None) -> tuple[
         return False, None
     kind = question.kind
     ids = {o.id for o in question.options}
-    if kind == models.QuestionKind.SINGLE:
-        if answer.option_id is None:
-            return False, None
-        if answer.option_id not in ids:
-            raise DomainError(f"вариант {answer.option_id} не относится к вопросу {question.id}")
-        return any(o.id == answer.option_id and o.is_correct for o in question.options), None
     if kind == models.QuestionKind.OPEN:
         given = normalize_answer(answer.text or "")
         accepted = {normalize_answer(o.text) for o in question.options}
@@ -317,9 +311,6 @@ def submit_attempt(
         attempt.answers.append(
             models.AttemptAnswer(
                 question_id=question.id,
-                option_id=answer.option_id
-                if answer and question.kind == models.QuestionKind.SINGLE
-                else None,
                 response=response,
                 is_correct=correct,
             )

@@ -85,7 +85,7 @@ function questionInput(q) {
   if (q.kind === "open") {
     const input = h("input", { type: "text", maxlength: 500, autocomplete: "off", "aria-label": "Ответ" });
     return [
-      [h("p", { class: "hint" }, "Впишите ответ — слово или словосочетание; регистр не важен."), input],
+      [h("p", { class: "hint" }, "Впишите ответ – слово или словосочетание; регистр не важен."), input],
       () => (input.value.trim() ? { question_id: q.id, text: input.value.trim() } : null),
     ];
   }
@@ -104,31 +104,22 @@ function questionInput(q) {
       () => ({ question_id: q.id, order: [...list.children].map((li) => Number(li.dataset.id)) }),
     ];
   }
-  if (q.kind === "matching") {
-    const selects = q.options.map((left) => {
-      const select = h("select", { "aria-label": `Пара для «${left.text}»` },
-        h("option", { value: "" }, "— выберите —"),
-        q.right.map((r, i) => h("option", { value: r.id }, `${i + 1}. ${r.text}`)));
-      select.dataset.left = left.id;
-      return [left, select];
-    });
-    return [
-      [
-        h("p", { class: "hint" }, "Для каждого элемента выберите пару из списка. Каждый вариант используется не больше одного раза, некоторые могут остаться лишними."),
-        h("div", { class: "match-grid" }, selects.map(([left, select]) => [h("div", {}, left.text), select])),
-      ],
-      () => {
-        const pairs = Object.fromEntries(selects.filter(([, s]) => s.value).map(([left, s]) => [left.id, Number(s.value)]));
-        return Object.keys(pairs).length === selects.length ? { question_id: q.id, pairs } : null;
-      },
-    ];
-  }
-  const name = `q${q.id}`;
+  // matching
+  const selects = q.options.map((left) => {
+    const select = h("select", { "aria-label": `Пара для «${left.text}»` },
+      h("option", { value: "" }, "– выберите –"),
+      q.right.map((r, i) => h("option", { value: r.id }, `${i + 1}. ${r.text}`)));
+    select.dataset.left = left.id;
+    return [left, select];
+  });
   return [
-    q.options.map((o) => h("label", {}, h("input", { type: "radio", name, value: o.id }), o.text)),
+    [
+      h("p", { class: "hint" }, "Для каждого элемента выберите пару из списка. Каждый вариант используется не больше одного раза, некоторые могут остаться лишними."),
+      h("div", { class: "match-grid" }, selects.map(([left, select]) => [h("div", {}, left.text), select])),
+    ],
     () => {
-      const checked = document.querySelector(`input[name="${name}"]:checked`);
-      return checked ? { question_id: q.id, option_id: Number(checked.value) } : null;
+      const pairs = Object.fromEntries(selects.filter(([, s]) => s.value).map(([left, s]) => [left.id, Number(s.value)]));
+      return Object.keys(pairs).length === selects.length ? { question_id: q.id, pairs } : null;
     },
   ];
 }

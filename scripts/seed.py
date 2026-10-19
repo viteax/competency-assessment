@@ -17,7 +17,7 @@ from app.db import SessionLocal
 from app.demo import DEMO_ADMIN, DEMO_STUDENT_COUNT, DEMO_STUDENT_PASSWORD, DEMO_TEACHER
 from app.models import CompetencyKind as K
 from app.security import hash_password
-from scripts.demo_questions import QUESTIONS, TYPED_QUESTIONS
+from scripts.demo_questions import QUESTIONS
 from scripts.init_db import migrate
 
 COMPETENCIES = [
@@ -240,23 +240,8 @@ def seed(session: Session) -> None:
         standard.general_functions.append(general)
     session.add(standard)
 
-    rng = random.Random(0)  # правильный ответ — на разных местах, но одинаково при каждой загрузке
-    for icode, discipline, text, (correct, *wrong) in QUESTIONS:
-        indicator = indicators[icode]
-        options = [models.AnswerOption(text=correct, is_correct=True)] + [
-            models.AnswerOption(text=o) for o in wrong
-        ]
-        rng.shuffle(options)
-        session.add(
-            models.Question(
-                competency=indicator.competency,
-                indicator=indicator,
-                discipline=disciplines[discipline],
-                text=text,
-                options=options,
-            )
-        )
-    for spec in TYPED_QUESTIONS:
+    rng = random.Random(0)  # порядок правого столбца – одинаковый при каждой загрузке
+    for spec in QUESTIONS:
         indicator = indicators[spec["indicator"]]
         session.add(
             models.Question(
@@ -272,7 +257,7 @@ def seed(session: Session) -> None:
     session.commit()
     print(
         f"добавлено: {len(competencies)} компетенций, "
-        f"{len(QUESTIONS) + len(TYPED_QUESTIONS)} вопросов, "
+        f"{len(QUESTIONS)} вопросов, "
         f"{len(STUDENTS)} студентов\n"
         f"демо-логины: {ADMIN_LOGIN[0]}/{ADMIN_LOGIN[1]}, "
         f"{DEMO_TEACHER[0]}/{DEMO_TEACHER[1]} (преподаватель), "

@@ -18,11 +18,8 @@ def _check_links(session: Session, data: schemas.QuestionIn) -> None:
 def _build_options(data: schemas.QuestionIn) -> list[models.AnswerOption]:
     """Варианты в порядке списка (для последовательности это правильный порядок)."""
     open_kind = data.kind == models.QuestionKind.OPEN
-    single = data.kind == models.QuestionKind.SINGLE
     options = [
-        models.AnswerOption(
-            text=o.text, is_correct=open_kind or (single and o.is_correct), position=i
-        )
+        models.AnswerOption(text=o.text, is_correct=open_kind, position=i)
         for i, o in enumerate(data.options)
     ]
     for option, o in zip(options, data.options, strict=True):
@@ -59,8 +56,6 @@ def _same_answers(question: models.Question, data: schemas.QuestionUpdate) -> bo
         option = current[o.id]
         match_id = data.options[o.match_index].id if o.match_index is not None else None
         if option.match_id != match_id:
-            return False
-        if data.kind == models.QuestionKind.SINGLE and option.is_correct != o.is_correct:
             return False
     return True
 

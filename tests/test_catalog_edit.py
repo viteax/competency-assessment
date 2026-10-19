@@ -148,7 +148,8 @@ def _new_question(admin: TestClient) -> dict:
             "competency_id": pk1["id"],
             "indicator_id": pk1["indicators"][0]["id"],
             "text": "Черновик",
-            "options": [{"text": "a", "is_correct": True}, {"text": "b"}],
+            "kind": "open",
+            "options": [{"text": "a"}, {"text": "b"}],
         },
     )
     assert response.status_code == 201
@@ -163,8 +164,9 @@ def test_unused_question_can_be_fully_edited_and_deleted(admin: TestClient):
         f"/questions/{q['id']}",
         json={
             "competency_id": pk2["id"],
-            "text": "Что такое рефакторинг?",
-            "options": [{"text": "x"}, {"text": "y"}, {"text": "z", "is_correct": True}],
+            "text": "Расположите шаги рефакторинга по порядку",
+            "kind": "sequence",
+            "options": [{"text": "x"}, {"text": "y"}, {"text": "z"}],
         },
     )
     assert updated.status_code == 200, updated.text
@@ -174,15 +176,16 @@ def test_unused_question_can_be_fully_edited_and_deleted(admin: TestClient):
         None,
         3,
     )
-    assert [o["is_correct"] for o in body["options"]] == [False, False, True]
+    assert body["kind"] == "sequence"
+    assert [o["text"] for o in body["options"]] == ["x", "y", "z"]
     assert admin.delete(f"/questions/{q['id']}").status_code == 204
 
 
 def test_question_used_in_test_allows_only_wording(admin: TestClient):
     ctx = assign(admin, ["ПК-1"])
     questions = {q["id"]: q for q in admin.get("/questions").json()}
-    # Вопрос с выбором ответа (в тесте бывают и задания других типов — порядок случайный).
-    q = next(questions[i] for i in ctx["test"]["question_ids"] if questions[i]["kind"] == "single")
+    # Задание открытого типа (в тесте бывают и задания других типов – порядок случайный).
+    q = next(questions[i] for i in ctx["test"]["question_ids"] if questions[i]["kind"] == "open")
     assert q["in_use"] is True
 
     payload = {
@@ -190,6 +193,7 @@ def test_question_used_in_test_allows_only_wording(admin: TestClient):
         "indicator_id": q["indicator_id"],
         "discipline_id": q["discipline_id"],
         "text": q["text"] + " (уточнено)",
+        "kind": q["kind"],
         "options": [{**o, "text": o["text"] + "!"} for o in q["options"]],
     }
     ok = admin.put(f"/questions/{q['id']}", json=payload)
@@ -197,14 +201,12 @@ def test_question_used_in_test_allows_only_wording(admin: TestClient):
     assert ok.json()["text"].endswith("(уточнено)")
     assert [o["id"] for o in ok.json()["options"]] == [o["id"] for o in q["options"]]
 
-    # Сменить правильный ответ нельзя.
-    correct = next(i for i, o in enumerate(q["options"]) if o["is_correct"])
-    moved = (correct + 1) % len(q["options"])
-    flipped = [{**o, "is_correct": i == moved} for i, o in enumerate(payload["options"])]
-    response = admin.put(f"/questions/{q['id']}", json={**payload, "options": flipped})
+    # Сменить тип нельзя.
+    as_sequence = {**payload, "kind": "sequence", "options": [{"text": "а"}, {"text": "б"}]}
+    response = admin.put(f"/questions/{q['id']}", json=as_sequence)
     assert response.status_code == 409
 
-    # Добавить вариант нельзя.
+    # Добавить принимаемый ответ нельзя.
     more = [*payload["options"], {"text": "новый"}]
     assert admin.put(f"/questions/{q['id']}", json={**payload, "options": more}).status_code == 409
 
