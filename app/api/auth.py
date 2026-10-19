@@ -25,7 +25,7 @@ from app.security import (
     device_token_username,
     hash_password,
 )
-from app.services import auth
+from app.services import auth, registration
 from app.services.common import delete_or_conflict, get_or_404, save
 
 router = APIRouter(tags=["Пользователи"])
@@ -46,6 +46,21 @@ def login(
     set_session_cookie(response, token)
     set_device_cookie(response, create_device_token(user.username))
     return schemas.Token(access_token=token)
+
+
+@router.get("/auth/groups", response_model=list[schemas.RegistrationGroup])
+def registration_groups(session: SessionDep):
+    """Группы для формы регистрации студента (без входа)."""
+    return session.scalars(select(models.Group).order_by(models.Group.name)).all()
+
+
+@router.post("/auth/register", response_model=schemas.Registered, status_code=201)
+def register(data: schemas.StudentRegistration, request: Request, session: SessionDep):
+    """Студент регистрируется сам: ФИО сверяется со списком группы, пароль свой."""
+    user = registration.register_student(
+        session, data.group_id, data.full_name, data.password, client_ip(request)
+    )
+    return schemas.Registered(username=user.username)
 
 
 @router.post("/auth/logout", status_code=204)

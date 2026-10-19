@@ -80,6 +80,9 @@ export async function adminStudents(render) {
                 h("td", {},
                   account ? account.username : h("span", { class: "muted" }, "нет учётки"),
                   account?.must_change_password ? h("span", { class: "badge warn", style: "margin-left:6px" }, "не входил") : null,
+                  account && !account.must_change_password && account.created_at
+                    ? h("div", { class: "muted small" }, `создана ${new Date(account.created_at).toLocaleDateString("ru-RU")}`)
+                    : null,
                 ),
                 h("td", { class: "actions" },
                   h("button", { class: "link", onclick: () => openEdit(s) }, "Изменить"),
@@ -113,7 +116,7 @@ export async function adminStudents(render) {
 
   const fullName = h("input", { type: "text", required: true });
   const email = h("input", { type: "text" });
-  const username = h("input", { type: "text", required: true, minlength: 3, pattern: "[A-Za-z0-9._\\-]+", title: "латиница, цифры, точка, дефис" });
+  const username = h("input", { type: "text", minlength: 3, pattern: "[A-Za-z0-9._\\-]+", title: "латиница, цифры, точка, дефис" });
   const addErr = errorBox();
 
   render(
@@ -135,12 +138,16 @@ export async function adminStudents(render) {
             method: "POST",
             body: { full_name: fullName.value.trim(), group_id: Number(group.value), email: email.value.trim() || null },
           });
-          const password = temporaryPassword();
-          await api("/users", {
-            method: "POST",
-            body: { username: username.value, password, role: "student", student_id: student.id },
-          });
-          fill(notice, passwordNotice(student.full_name, username.value, password));
+          if (username.value) {
+            const password = temporaryPassword();
+            await api("/users", {
+              method: "POST",
+              body: { username: username.value, password, role: "student", student_id: student.id },
+            });
+            fill(notice, passwordNotice(student.full_name, username.value, password));
+          } else {
+            fill(notice, h("div", { class: "notice" }, `${student.full_name} добавлен(а) без учётной записи: студент зарегистрируется сам по ФИО.`));
+          }
           fullName.value = email.value = username.value = "";
           await drawStudents();
         } catch (e) {
@@ -149,10 +156,10 @@ export async function adminStudents(render) {
       },
     },
       h("h2", { style: "margin-top:0" }, "Добавить студента в выбранную группу"),
-      h("p", { class: "muted small", style: "margin-top:0" }, "Временный пароль сгенерируется автоматически; список группы удобнее загрузить во вкладке «Импорт»."),
+      h("p", { class: "muted small", style: "margin-top:0" }, "Если указать логин, сгенерируется временный пароль. Без логина студент зарегистрируется сам: выберет группу и введёт ФИО. Список группы удобнее загрузить во вкладке «Импорт»."),
       h("label", {}, "ФИО"), fullName,
       h("div", { class: "row" },
-        h("div", {}, h("label", {}, "Логин"), username),
+        h("div", {}, h("label", {}, "Логин (необязательно)"), username),
         h("div", {}, h("label", {}, "E-mail (необязательно)"), email),
       ),
       h("div", { style: "margin-top:16px" }, h("button", { class: "primary" }, "Добавить")),

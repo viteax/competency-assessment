@@ -41,6 +41,22 @@ class UserOut(ORM):
     role: Role
     student_id: int | None
     must_change_password: bool
+    created_at: datetime
+
+
+class RegistrationGroup(ORM):
+    id: int
+    name: str
+
+
+class StudentRegistration(BaseModel):
+    group_id: int
+    full_name: str = Field(min_length=3, max_length=255)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class Registered(BaseModel):
+    username: str  # логин для входа (ФИО, у полных тёзок — ФИО и группа)
 
 
 class PasswordChange(BaseModel):
@@ -612,6 +628,7 @@ class StudentImportRowIn(BaseModel):
     external_id: str | None = Field(default=None, max_length=64)
     login: str | None = None
     group: str | None = None
+    program: str | None = None  # образовательная программа — направление для новой группы
 
 
 class StudentImportRow(StudentImportRowIn):

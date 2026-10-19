@@ -38,7 +38,7 @@ def _aware(moment: datetime) -> datetime:
     return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
-def _throttle(session: Session, username: str, ip: str, trusted_device: bool) -> None:
+def throttle(session: Session, username: str, ip: str, trusted_device: bool = False) -> None:
     """Защита от подбора пароля, рассчитанная на вуз, где все выходят в интернет с одного IP.
 
     Жёсткой блокировки нет — иначе студент мог бы закрыть вход одногруппнику или всему
@@ -81,19 +81,37 @@ def _throttle(session: Session, username: str, ip: str, trusted_device: bool) ->
 def authenticate(
     session: Session, username: str, password: str, ip: str, trusted_device: bool = False
 ) -> models.User:
-    """Проверяет логин и пароль с учётом защиты от подбора (см. _throttle)."""
-    _throttle(session, username, ip, trusted_device)
-    user = session.scalar(select(models.User).where(models.User.username == username))
+    """Проверяет логин и пароль с учётом защиты от подбора (см. throttle)."""
+    throttle(session, username, ip, trusted_device)
+    user = find_user(session, username)
     if not verify_password(password, user.password_hash if user else _DUMMY_HASH) or user is None:
-        session.add(models.LoginFailure(username=username[:64], ip=ip))
-        # Заодно чистим записи старше окна — таблица не растёт бесконечно.
-        horizon = models.utcnow() - timedelta(minutes=settings.login_window_minutes)
-        session.execute(delete(models.LoginFailure).where(models.LoginFailure.created_at < horizon))
-        session.commit()
+        record_failure(session, username, ip)
         raise Unauthorized("неверный логин или пароль")
     session.execute(delete(models.LoginFailure).where(models.LoginFailure.username == username))
     session.commit()
     return user
+
+
+def record_failure(session: Session, username: str, ip: str) -> None:
+    session.add(models.LoginFailure(username=username[:64], ip=ip))
+    # Заодно чистим записи старше окна — таблица не растёт бесконечно.
+    horizon = models.utcnow() - timedelta(minutes=settings.login_window_minutes)
+    session.execute(delete(models.LoginFailure).where(models.LoginFailure.created_at < horizon))
+    session.commit()
+
+
+def find_user(session: Session, login: str) -> models.User | None:
+    """Учётка по логину. Студенты входят по ФИО — его сравниваем без учёта регистра, «ё/е»
+    и лишних пробелов (в Python: lower() в SQLite не работает с кириллицей)."""
+    user = session.scalar(select(models.User).where(models.User.username == login))
+    if user is not None or " " not in login.strip():
+        return user
+    key = " ".join(login.casefold().replace("ё", "е").split())
+    candidates = session.scalars(select(models.User).where(models.User.role == models.Role.STUDENT))
+    return next(
+        (u for u in candidates if " ".join(u.username.casefold().replace("ё", "е").split()) == key),
+        None,
+    )
 
 
 def demo_passwords_in_use(session: Session) -> list[str]:

@@ -67,6 +67,7 @@ def test_guess_mapping():
         "external_id": None,
         "login": None,
         "group": 3,
+        "program": None,
         "role": 2,
     }
     m = guess_mapping(["Фамилия", "Имя", "Отчество", "Имя пользователя", "Номер зачётной книжки"])
@@ -219,3 +220,24 @@ def test_name_key():
 
     assert name_key("Фёдоров Олег Петрович") == name_key("олег петрович ФЕДОРОВ")
     assert name_key("Иванов Иван") != name_key("Иванов Иван Иванович")
+
+
+def test_program_column_sets_direction_of_new_groups(admin: TestClient):
+    other = admin.post(
+        "/directions", json={"code": "27.03.04", "name": "Управление в технических системах"}
+    )
+    assert other.status_code == 201, other.text
+    csv = (
+        "ФИО,Группа,Образовательная программа\n"
+        "Орлов Олег Олегович,УТС-24,27.03.04 Управление в технических системах\n"
+        "Белова Вера Павловна,ПИ-24,Программная инженерия\n"
+    )
+    p = upload(admin, "students.csv", csv.encode())
+    assert p["mapping"]["program"] == 2
+    rows = [{k: r[k] for k in ("full_name", "group", "program")} for r in p["rows"]]
+    result = admin.post("/import/students/apply", json={"students": rows, "create_accounts": False})
+    assert result.status_code == 200, result.text
+    groups = {g["name"]: g["direction_id"] for g in admin.get("/groups").json()}
+    directions = {d["code"]: d["id"] for d in admin.get("/directions").json()}
+    assert groups["УТС-24"] == directions["27.03.04"]
+    assert groups["ПИ-24"] == directions["09.03.04"]

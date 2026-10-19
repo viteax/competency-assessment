@@ -71,12 +71,60 @@ function showLogin(message) {
         },
       },
       h("h1", {}, "Вход"),
-      h("label", {}, "Логин"),
+      h("label", {}, "Логин или ФИО"),
       username,
       h("label", {}, "Пароль"),
       password,
       h("div", { style: "margin-top:16px" }, h("button", { class: "primary" }, "Войти")),
       err.el,
+      h("p", { class: "muted small", style: "margin-top:16px" },
+        "Студент и ещё нет учётной записи? ",
+        h("button", { type: "button", class: "link", style: "padding:0", onclick: showRegistration }, "Зарегистрироваться")),
+    ),
+  );
+}
+
+// Регистрация студента: ФИО сверяется со списком группы, пароль – свой.
+async function showRegistration() {
+  clearHeader();
+  const err = errorBox();
+  const groups = await api("/auth/groups").catch(() => []);
+  const group = h("select", { required: true, "aria-label": "Группа" },
+    h("option", { value: "" }, "– выберите группу –"),
+    groups.map((g) => h("option", { value: g.id }, g.name)));
+  const fullName = h("input", { type: "text", required: true, autocomplete: "name", "aria-label": "ФИО полностью" });
+  const field = () => h("input", { type: "password", autocomplete: "new-password", required: true, minlength: 8 });
+  const password = field();
+  const repeat = field();
+  render(
+    h("form", {
+      class: "card login",
+      onsubmit: async (event) => {
+        event.preventDefault();
+        err.clear();
+        if (password.value !== repeat.value) return err.show(new Error("пароли не совпадают"));
+        try {
+          const { username } = await api("/auth/register", {
+            method: "POST",
+            body: { group_id: Number(group.value), full_name: fullName.value, password: password.value },
+          });
+          await login(username, password.value);
+          await start();
+        } catch (e) {
+          err.show(e);
+        }
+      },
+    },
+      h("h1", {}, "Регистрация студента"),
+      h("p", { class: "muted small", style: "margin-top:0" }, "Выберите свою группу и введите ФИО полностью, как в списке группы. Потом входите по ФИО и этому паролю."),
+      h("label", {}, "Группа"), group,
+      h("label", {}, "ФИО полностью"), fullName,
+      h("label", {}, "Пароль (не короче 8 символов)"), password,
+      h("label", {}, "Пароль ещё раз"), repeat,
+      h("div", { style: "margin-top:16px" }, h("button", { class: "primary" }, "Зарегистрироваться")),
+      err.el,
+      h("p", { class: "muted small", style: "margin-top:16px" },
+        h("button", { type: "button", class: "link", style: "padding:0", onclick: () => showLogin() }, "← Уже есть учётная запись – войти")),
     ),
   );
 }

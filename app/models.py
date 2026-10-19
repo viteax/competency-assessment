@@ -22,6 +22,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     false,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -146,6 +147,10 @@ class User(Base):
     must_change_password: Mapped[bool] = mapped_column(default=False, server_default=false())
     # Увеличивается при смене/сбросе пароля — все ранее выданные токены перестают действовать.
     token_version: Mapped[int] = mapped_column(default=0, server_default="0")
+    # Когда создана учётка: студент мог зарегистрироваться сам — администратору видно, когда.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, server_default=func.now()
+    )
 
     student: Mapped[Student | None] = relationship()
 

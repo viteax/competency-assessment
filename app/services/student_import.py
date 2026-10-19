@@ -4,6 +4,8 @@
 Студент узнаётся по идентификатору СДО, затем по e-mail, затем по ФИО в той же группе.
 """
 
+import re
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -77,6 +79,7 @@ def preview(
             external_id=parsed.external_id or None,
             login=parsed.login or None,
             group=parsed.group or None,
+            program=parsed.program or None,
         )
         existing = find_existing(session, item) if parsed.full_name else None
         rows.append(
@@ -116,6 +119,21 @@ def _update_student(
     return changed
 
 
+def direction_for_program(
+    program: str | None, directions: list[models.Direction]
+) -> models.Direction | None:
+    """Направление по колонке «Образовательная программа»: по коду (09.03.04) или по
+    названию («Программная инженерия»)."""
+    if not program:
+        return None
+    code = re.search(r"\d{2}\.\d{2}\.\d{2}", program)
+    for d in directions:
+        if code and d.code == code.group(0):
+            return d
+    text = program.casefold()
+    return next((d for d in directions if d.name.casefold() in text), None)
+
+
 def apply(session: Session, data: schemas.StudentImportApply) -> schemas.StudentImportResult:
     """Создаёт и обновляет студентов, недостающие группы и (по желанию) учётные записи.
     Ничего не удаляет: студенты, которых нет в файле, остаются как есть."""
@@ -126,6 +144,7 @@ def apply(session: Session, data: schemas.StudentImportApply) -> schemas.Student
         get_or_404(session, models.Direction, data.direction_id) if data.direction_id else None
     )
     groups = {g.name: g for g in session.scalars(select(models.Group))}
+    directions = list(session.scalars(select(models.Direction)))
     result = schemas.StudentImportResult()
     taken_usernames: set[str] = set()
     seen_students: set[int] = set()
@@ -138,11 +157,12 @@ def apply(session: Session, data: schemas.StudentImportApply) -> schemas.Student
                 )
             return default_group
         if row.group not in groups:
-            if direction is None:
+            target = direction_for_program(row.program, directions) or direction
+            if target is None:
                 raise DomainError(
                     f"группы «{row.group}» нет — выберите направление для новых групп"
                 )
-            groups[row.group] = models.Group(name=row.group, direction=direction)
+            groups[row.group] = models.Group(name=row.group, direction=target)
             session.add(groups[row.group])
             result.created_groups.append(row.group)
         return groups[row.group]

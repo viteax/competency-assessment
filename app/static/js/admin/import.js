@@ -153,6 +153,7 @@ const STUDENT_FIELDS = [
   ["first_name", "Имя"],
   ["middle_name", "Отчество"],
   ["group", "Группа"],
+  ["program", "Образовательная программа"],
   ["email", "E-mail"],
   ["external_id", "Идентификатор в СДО"],
   ["login", "Логин в СДО"],
@@ -247,7 +248,7 @@ export async function studentImportView() {
             onclick: async () => {
               applyErr.clear();
               const students = rows.filter((x) => x.include.checked).map(({ r }) => ({
-                full_name: r.full_name, email: r.email, external_id: r.external_id, login: r.login, group: r.group,
+                full_name: r.full_name, email: r.email, external_id: r.external_id, login: r.login, group: r.group, program: r.program,
               }));
               if (!students.length) return applyErr.show(new Error("не выбрано ни одного студента"));
               try {

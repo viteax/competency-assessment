@@ -20,6 +20,7 @@ FIELDS = (
     "external_id",
     "login",
     "group",
+    "program",
     "role",
 )
 
@@ -45,6 +46,7 @@ _HEADER_RULES: list[tuple[str, re.Pattern[str]]] = [
     ("last_name", re.compile(r"(фамилия|last ?name|surname)")),
     ("first_name", re.compile(r"(^имя|first ?name)")),
     ("group", re.compile(r"(групп|group|^отдел|department)")),
+    ("program", re.compile(r"(образовательн|программ|направлен|специальност|профил)")),
     ("role", re.compile(r"(^рол|^role)")),
 ]
 
@@ -66,6 +68,7 @@ class ParsedRow:
     external_id: str
     login: str
     group: str
+    program: str  # образовательная программа (направление): «09.03.04 Программная инженерия»
     role: str
 
     @property
@@ -115,5 +118,6 @@ def parse_row(row: list[str], m: Mapping) -> ParsedRow:
         login=cell("login"),
         # В Moodle в колонке «Группы» может быть несколько групп через запятую — берём первую.
         group=re.split(r"[,;]", cell("group"))[0].strip(),
+        program=cell("program"),
         role=cell("role"),
     )
