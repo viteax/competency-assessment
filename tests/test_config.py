@@ -45,7 +45,13 @@ def test_seed_refuses_in_prod(monkeypatch):
 
 def test_demo_passwords_detected(session):
     # После seed у всех демо-учёток публичные пароли — prod с такой базой не стартует.
-    assert demo_passwords_in_use(session) == ["admin", "teacher", "student1", "student2", "student3"]
+    assert demo_passwords_in_use(session) == [
+        "admin",
+        "teacher",
+        "student1",
+        "student2",
+        "student3",
+    ]
     from app import models
 
     admin = session.query(models.User).filter_by(username="admin").one()
