@@ -155,3 +155,21 @@ export const QUESTION_KINDS = {
   open: "Открытого типа",
 };
 export const DIFFICULTIES = { basic: "Базовый (1–3 мин)", advanced: "Повышенный (3–5 мин)" };
+
+// --- учётные записи ------------------------------------------------------------
+
+// Временный пароль для новой учётки: без похожих символов, владелец сменит его при входе.
+export function temporaryPassword(length = 10) {
+  const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint32Array(length));
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+}
+
+// Плашка с выданным паролем — показывается один раз.
+export function passwordNotice(fullName, username, password) {
+  return h("div", { class: "notice" },
+    h("strong", {}, fullName), ": логин ", h("code", {}, username), ", временный пароль ",
+    h("code", {}, password),
+    h("div", { class: "muted small" }, "Пароль показывается один раз; при первом входе нужно задать свой."),
+  );
+}

@@ -39,14 +39,7 @@ def test_edit_catalogs(admin_page: Page):
     row(page, "ПК-1").locator("text=Удалить").click()
     expect(page.locator(".error:has-text('нельзя удалить')")).to_be_visible()
 
-    page.click(".subnav >> text=Индикаторы")
-    page.click(".card >> button:text-is('Добавить')")
-    form = page.locator("form.edit-form")
-    select_prefix(form.locator("select"), "ПК-3 ")
-    form.locator("input").nth(0).fill("ПК-3.1")
-    form.locator("textarea").fill("Знает UML")
-    form.locator("button:text-is('Сохранить')").click()
-    expect(page.locator("td:text-is('ПК-3.1')")).to_be_visible()
+    expect(page.locator(".subnav >> text=Индикаторы")).to_have_count(0)  # не используются
 
     page.click(".subnav >> text=ТФ ⇒ компетенции")
     row(page, "A/01.3").locator("text=Изменить").click()

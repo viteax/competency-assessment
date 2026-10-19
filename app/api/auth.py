@@ -86,6 +86,7 @@ def create_user(data: schemas.UserCreate, session: SessionDep, _: AdminUser):
             password_hash=hash_password(data.password),
             role=data.role,
             student_id=data.student_id,
+            full_name=data.full_name.strip() if data.full_name else None,
             must_change_password=True,
         ),
     )

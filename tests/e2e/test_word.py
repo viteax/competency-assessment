@@ -23,11 +23,11 @@ def test_fund_and_test_documents(new_page):
     login(page, "admin", "admin123")
     page.click("nav >> text=Банк вопросов")
     expect(page.locator("text=Выберите дисциплину, чтобы выгрузить")).to_be_visible()
-    page.locator("select").nth(1).select_option(label="Операционные системы")
+    page.get_by_label("Дисциплина", exact=True).select_option(label="Операционные системы")
     name, doc = downloaded(page, "ФОМ дисциплины (Word)")
     assert name == "ФОМ — Операционные системы.docx"
     assert doc.paragraphs[0].text == "Фонд оценочных материалов дисциплины"
-    name, _ = downloaded(page, "Ключ к ФОМ")
+    name, _ = downloaded(page, "ФОМ с ответами (Word)")
     assert name == "ФОМ — Операционные системы — ключ.docx"
 
     page.click("nav >> text=Назначить тест")
@@ -35,6 +35,6 @@ def test_fund_and_test_documents(new_page):
     page.click("nav >> text=Тесты")
     page.click("text=Открыть")
     page.get_by_label("Вариант для Word").select_option(label="Вариант 3")
-    name, doc = downloaded(page, "Ключ с ответами")
+    name, doc = downloaded(page, "Тест с ответами (Word)")
     assert name == "Контрольная, вариант 3 — ключ.docx"
     assert "«Контрольная», вариант 3" in [p.text for p in doc.paragraphs]

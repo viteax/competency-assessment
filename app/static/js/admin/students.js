@@ -1,22 +1,6 @@
 // Студенты группы и их учётные записи: добавление, правка, сброс пароля, удаление.
 
-import { api, errorBox, fill, h } from "../core.js";
-
-// Временный пароль для новой учётки: без похожих символов, студент сменит его при входе.
-function temporaryPassword(length = 10) {
-  const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = crypto.getRandomValues(new Uint32Array(length));
-  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
-}
-
-// Плашка с выданным паролем — показывается один раз.
-function passwordNotice(fullName, username, password) {
-  return h("div", { class: "notice" },
-    h("strong", {}, fullName), ": логин ", h("code", {}, username), ", временный пароль ",
-    h("code", {}, password),
-    h("div", { class: "muted small" }, "Пароль показывается один раз; при входе студент задаст свой."),
-  );
-}
+import { api, errorBox, fill, h, passwordNotice, temporaryPassword } from "../core.js";
 
 export async function adminStudents(render) {
   const groups = await api("/groups");

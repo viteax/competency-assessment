@@ -35,6 +35,7 @@ def utcnow() -> datetime:
 
 class Role(enum.StrEnum):
     ADMIN = "admin"
+    TEACHER = "teacher"  # ППС или сотрудник кафедры: составляет вопросы по своим дисциплинам
     STUDENT = "student"
 
 
@@ -136,6 +137,8 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(64), unique=True)
+    # ФИО преподавателя (у студента ФИО — в записи Student).
+    full_name: Mapped[str | None] = mapped_column(String(255))
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[Role] = mapped_column(Enum(Role, values_callable=lambda e: [m.value for m in e]))
     student_id: Mapped[int | None] = mapped_column(ForeignKey("student.id"), unique=True)
@@ -250,9 +253,34 @@ class CurriculumEntry(Base):
     discipline_id: Mapped[int] = mapped_column(ForeignKey("discipline.id", ondelete="CASCADE"))
     first_semester: Mapped[int] = mapped_column(Integer)
     last_semester: Mapped[int] = mapped_column(Integer)
+    # Преподаватель, который разрабатывает вопросы по дисциплине.
+    teacher_id: Mapped[int | None] = mapped_column(ForeignKey("app_user.id", ondelete="SET NULL"))
 
     direction: Mapped[Direction] = relationship()
     discipline: Mapped[Discipline] = relationship()
+    teacher: Mapped["User | None"] = relationship()
+    quotas: Mapped[list["CurriculumQuota"]] = relationship(
+        back_populates="entry", cascade="all, delete-orphan"
+    )
+
+
+class CurriculumQuota(Base):
+    """Сколько тестовых вопросов нужно разработать по компетенции дисциплины
+    (по локальному нормативному акту: обычно 5, у практик 2–3)."""
+
+    __tablename__ = "curriculum_quota"
+    __table_args__ = (CheckConstraint("questions >= 1", name="ck_curriculum_quota_positive"),)
+
+    entry_id: Mapped[int] = mapped_column(
+        ForeignKey("curriculum_entry.id", ondelete="CASCADE"), primary_key=True
+    )
+    competency_id: Mapped[int] = mapped_column(
+        ForeignKey("competency.id", ondelete="CASCADE"), primary_key=True
+    )
+    questions: Mapped[int] = mapped_column(Integer)
+
+    entry: Mapped[CurriculumEntry] = relationship(back_populates="quotas")
+    competency: Mapped["Competency"] = relationship()
 
 
 # --- Профстандарт ----------------------------------------------------------

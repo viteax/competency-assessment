@@ -1,6 +1,6 @@
 // Справочники: универсальная таблица с формой и описания всех справочников.
 
-import { api, byId, errorBox, fill, h, tabbedPage } from "../core.js";
+import { api, byId, errorBox, fill, h, passwordNotice, tabbedPage, temporaryPassword } from "../core.js";
 
 // Поле формы → элемент ввода. Значение читается через readField.
 function fieldInput(field, value) {
@@ -17,6 +17,12 @@ function fieldInput(field, value) {
       field.options.map(([v, label]) => h("option", { value: v }, label)),
     );
     if (value !== null && value !== undefined) el.value = String(value);
+    return el;
+  }
+  if (field.type === "quotas") {
+    // Поля «сколько вопросов» для компетенций дисциплины; рисует cfg.onForm.
+    const el = h("div", { class: "quota-grid" });
+    el.initial = new Map((value || []).map((q) => [q.competency_id, q.questions]));
     return el;
   }
   if (field.type === "checkboxes") {
@@ -40,6 +46,11 @@ function fieldInput(field, value) {
 }
 
 function readField(field, el) {
+  if (field.type === "quotas") {
+    return [...el.querySelectorAll("input[data-competency]")]
+      .filter((input) => Number(input.value) > 0)
+      .map((input) => ({ competency_id: Number(input.dataset.competency), questions: Number(input.value) }));
+  }
   if (field.type === "checkboxes") {
     return [...el.querySelectorAll("input:checked")].map((box) => Number(box.value));
   }
@@ -65,6 +76,7 @@ async function crudSection(cfg) {
     err.clear();
     const values = row ? cfg.toForm(row) : {};
     const inputs = cfg.fields.map((f) => [f, fieldInput(f, values[f.name])]);
+    cfg.onForm?.(Object.fromEntries(inputs.map(([f, el]) => [f.name, el])));
     const formErr = errorBox();
     fill(formSlot,
       h(
@@ -142,7 +154,6 @@ async function crudSection(cfg) {
 }
 
 const codes = (ids, map) => ids.map((id) => map.get(id)?.code).filter(Boolean).sort().join(", ") || "—";
-const competencyOptions = (list) => list.map((c) => [c.id, `${c.code} — ${c.description}`]);
 
 const CATALOGS = {
   async "Направления"() {
@@ -191,7 +202,6 @@ const CATALOGS = {
         ["Код", (r) => r.code],
         ["Вид", (r) => r.kind],
         ["Формулировка", (r) => r.description],
-        ["Индикаторы", (r) => r.indicators.map((i) => i.code).join(", ") || "—"],
       ],
       fields: [
         { name: "code", label: "Код, например ОПК-5" },
@@ -202,31 +212,6 @@ const CATALOGS = {
       create: (d) => api("/competencies", { method: "POST", body: d }),
       update: (r, d) => api(`/competencies/${r.id}`, { method: "PUT", body: d }),
       remove: (r) => api(`/competencies/${r.id}`, { method: "DELETE" }),
-    });
-  },
-
-  async "Индикаторы"() {
-    const competencies = await api("/competencies");
-    const comps = byId(competencies);
-    return crudSection({
-      hint: "Индикаторы достижения компетенций (например, ОПК-5.1). Вопросы распределяются по ним равномерно.",
-      load: () => api("/indicators"),
-      label: (r) => r.code,
-      columns: [
-        ["Код", (r) => r.code],
-        ["Компетенция", (r) => comps.get(r.competency_id)?.code || "—"],
-        ["Формулировка", (r) => r.description],
-      ],
-      fields: [
-        { name: "competency_id", label: "Компетенция", type: "select", options: competencyOptions(competencies) },
-        { name: "code", label: "Код" },
-        { name: "description", label: "Формулировка", type: "textarea" },
-      ],
-      toForm: (r) => r,
-      create: (d) => api("/indicators", { method: "POST", body: d }),
-      // Компетенцию у существующего индикатора не меняем: к нему могут быть привязаны вопросы.
-      update: (r, d) => api(`/indicators/${r.id}`, { method: "PUT", body: { code: d.code, description: d.description } }),
-      remove: (r) => api(`/indicators/${r.id}`, { method: "DELETE" }),
     });
   },
 
@@ -249,10 +234,93 @@ const CATALOGS = {
     });
   },
 
+  async "Преподаватели"() {
+    const notice = h("div");
+    const err = errorBox();
+    const list = h("div", { class: "table-wrap" });
+    const fullName = h("input", { type: "text", required: true, "aria-label": "ФИО преподавателя" });
+    const username = h("input", { type: "text", required: true, minlength: 3, pattern: "[A-Za-z0-9._\\-]+", title: "латиница, цифры, точка, дефис", "aria-label": "Логин преподавателя" });
+
+    async function draw() {
+      const [users, curriculum, disciplines] = await Promise.all([api("/users"), api("/curriculum"), api("/disciplines")]);
+      const discs = byId(disciplines);
+      const teachers = users.filter((u) => u.role === "teacher");
+      const assigned = (t) => curriculum.filter((e) => e.teacher_id === t.id).map((e) => discs.get(e.discipline_id)?.name).join(", ");
+      fill(list, teachers.length
+        ? h("table", {},
+            h("tr", {}, ["ФИО", "Логин", "Дисциплины", ""].map((x) => h("th", {}, x))),
+            teachers.map((t) => h("tr", {},
+              h("td", {}, t.full_name || "—", t.must_change_password ? [" ", h("span", { class: "badge warn" }, "временный пароль")] : null),
+              h("td", {}, t.username),
+              h("td", { class: "wrap" }, assigned(t) || h("span", { class: "muted" }, "не закреплены")),
+              h("td", { class: "actions" },
+                h("button", {
+                  class: "link",
+                  onclick: async () => {
+                    err.clear();
+                    try {
+                      const reset = await api(`/users/${t.id}/reset-password`, { method: "POST" });
+                      fill(notice, passwordNotice(t.full_name || t.username, reset.username, reset.password));
+                      await draw();
+                    } catch (e) {
+                      err.show(e);
+                    }
+                  },
+                }, "Сбросить пароль"),
+                h("button", {
+                  class: "link danger",
+                  onclick: async () => {
+                    if (!confirm(`Удалить учётную запись «${t.full_name || t.username}»? Закреплённые дисциплины освободятся.`)) return;
+                    err.clear();
+                    try {
+                      await api(`/users/${t.id}`, { method: "DELETE" });
+                      await draw();
+                    } catch (e) {
+                      err.show(e);
+                    }
+                  },
+                }, "Удалить"),
+              ),
+            )))
+        : h("p", { class: "muted" }, "Преподавателей пока нет"));
+    }
+    await draw();
+    return h("div", {},
+      h("p", { class: "muted" }, "Преподаватели (ППС и сотрудники кафедры) входят под своим логином и составляют тестовые вопросы по закреплённым за ними дисциплинам. Дисциплины закрепляются в «Учебном плане»."),
+      h("div", { class: "card" }, notice, err.el, list),
+      h("form", {
+        class: "card",
+        onsubmit: async (event) => {
+          event.preventDefault();
+          err.clear();
+          const password = temporaryPassword();
+          try {
+            await api("/users", { method: "POST", body: { username: username.value, password, role: "teacher", full_name: fullName.value.trim() } });
+            fill(notice, passwordNotice(fullName.value.trim(), username.value, password));
+            fullName.value = username.value = "";
+            await draw();
+          } catch (e) {
+            err.show(e);
+          }
+        },
+      },
+        h("h2", { style: "margin-top:0" }, "Добавить преподавателя"),
+        h("label", {}, "ФИО"), fullName,
+        h("label", {}, "Логин"), username,
+        h("div", { style: "margin-top:16px" }, h("button", { class: "primary" }, "Добавить")),
+      ),
+    );
+  },
+
   async "Учебный план"() {
-    const [directions, disciplines] = await Promise.all([api("/directions"), api("/disciplines")]);
+    const [directions, disciplines, competencies, users] = await Promise.all([
+      api("/directions"), api("/disciplines"), api("/competencies"), api("/users"),
+    ]);
     const dirs = byId(directions);
     const discs = byId(disciplines);
+    const comps = byId(competencies);
+    const teachers = users.filter((u) => u.role === "teacher");
+    const teacherNames = new Map(teachers.map((t) => [t.id, t.full_name || t.username]));
     const semesters = (r) => (r.first_semester === r.last_semester ? `${r.first_semester}` : `${r.first_semester}–${r.last_semester}`);
     return crudSection({
       hint: "В каких семестрах изучается дисциплина. В тест на остаточные знания попадают только дисциплины, завершённые до текущего семестра группы: во 2-м семестре нельзя проверять математику, которая идёт в 1–2 семестрах.",
@@ -262,13 +330,38 @@ const CATALOGS = {
         ["Направление", (r) => dirs.get(r.direction_id)?.code || "—"],
         ["Дисциплина", (r) => discs.get(r.discipline_id)?.name || "—"],
         ["Семестры", semesters],
+        ["Преподаватель", (r) => teacherNames.get(r.teacher_id) || "—"],
+        ["Вопросов по компетенциям", (r) => r.quotas
+          .map((q) => [comps.get(q.competency_id)?.code || "?", q.questions])
+          .sort(([a], [b]) => a.localeCompare(b, "ru"))
+          .map(([code, n]) => `${code}: ${n}`).join(", ") || "—"],
       ],
       fields: [
         { name: "direction_id", label: "Направление", type: "select", options: directions.map((d) => [d.id, `${d.code} ${d.name}`]) },
         { name: "discipline_id", label: "Дисциплина", type: "select", options: disciplines.map((d) => [d.id, d.name]) },
         { name: "first_semester", label: "Первый семестр", type: "number", min: 1, max: 12 },
         { name: "last_semester", label: "Последний семестр", type: "number", min: 1, max: 12 },
+        { name: "teacher_id", label: "Преподаватель — разрабатывает тестовые вопросы", type: "select", required: false, empty: "— не закреплена —", options: teachers.map((t) => [t.id, t.full_name || t.username]) },
+        { name: "quotas", label: "Сколько тестовых вопросов разработать по каждой компетенции", type: "quotas" },
       ],
+      onForm(inputs) {
+        const box = inputs.quotas;
+        function draw() {
+          const d = discs.get(Number(inputs.discipline_id.value));
+          const current = new Map([...box.querySelectorAll("input[data-competency]")].map((i) => [Number(i.dataset.competency), i.value]));
+          fill(box, !d?.competency_ids.length
+            ? h("p", { class: "muted small" }, "У дисциплины нет компетенций — укажите их в «Дисциплинах».")
+            : d.competency_ids.map((id) => {
+                const c = comps.get(id);
+                const value = current.get(id) ?? box.initial.get(id) ?? "";
+                return h("label", { class: "quota-row" },
+                  h("span", {}, h("strong", {}, c.code), ` — ${c.description}`),
+                  h("input", { type: "number", min: 0, max: 200, value, "data-competency": id, "aria-label": `Вопросов по ${c.code}`, placeholder: "0" }));
+              }));
+        }
+        inputs.discipline_id.addEventListener("change", draw);
+        draw();
+      },
       toForm: (r) => r,
       create: (d) => api("/curriculum", { method: "POST", body: d }),
       update: (r, d) => api(`/curriculum/${r.id}`, { method: "PUT", body: d }),

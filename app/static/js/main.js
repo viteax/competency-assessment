@@ -10,6 +10,7 @@ import { adminStudents } from "./admin/students.js";
 import { adminTests } from "./admin/tests.js";
 import { api, errorBox, fill, go, h, render, setMenu, setUnauthorizedHandler } from "./core.js";
 import { studentResults, studentTests } from "./student.js";
+import { teacherDisciplines } from "./teacher.js";
 
 const ADMIN_MENU = [
   ["Назначить тест", adminAssign],
@@ -22,6 +23,9 @@ const ADMIN_MENU = [
   ["Импорт", adminImport],
   ["Журнал", adminAudit],
 ];
+
+const TEACHER_MENU = [["Мои дисциплины", teacherDisciplines]];
+const ROLE_NAMES = { admin: "администратор", teacher: "преподаватель", student: "студент" };
 
 const STUDENT_MENU = [
   ["Мои тесты", studentTests],
@@ -131,11 +135,11 @@ async function start() {
   if (!me) return showLogin();
   if (me.must_change_password) return showPasswordChange(me, { forced: true });
   fill(who,
-    `${me.username} (${me.role === "admin" ? "администратор" : "студент"}) `,
+    `${me.full_name || me.username} (${ROLE_NAMES[me.role]}) `,
     h("button", { class: "link", onclick: () => showPasswordChange(me, { forced: false }) }, "Сменить пароль"),
     h("button", { class: "link", onclick: logout }, "Выйти"),
   );
-  const menu = me.role === "admin" ? ADMIN_MENU : STUDENT_MENU;
+  const menu = { admin: ADMIN_MENU, teacher: TEACHER_MENU, student: STUDENT_MENU }[me.role];
   setMenu(menu);
   await go(menu[0][1]);
 }

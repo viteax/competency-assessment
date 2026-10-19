@@ -76,5 +76,20 @@ def require_student(user: ActiveUser) -> models.Student:
     return user.student
 
 
+def require_teacher(user: ActiveUser) -> models.User:
+    if user.role != models.Role.TEACHER:
+        raise Forbidden("доступно только преподавателям")
+    return user
+
+
+def require_staff(user: ActiveUser) -> models.User:
+    """Администратор или преподаватель (банк вопросов)."""
+    if user.role not in (models.Role.ADMIN, models.Role.TEACHER):
+        raise Forbidden("нужны права администратора или преподавателя")
+    return user
+
+
 AdminUser = Annotated[models.User, Depends(require_admin)]
+TeacherUser = Annotated[models.User, Depends(require_teacher)]
+StaffUser = Annotated[models.User, Depends(require_staff)]
 CurrentStudent = Annotated[models.Student, Depends(require_student)]

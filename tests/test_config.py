@@ -45,7 +45,7 @@ def test_seed_refuses_in_prod(monkeypatch):
 
 def test_demo_passwords_detected(session):
     # После seed у всех демо-учёток публичные пароли — prod с такой базой не стартует.
-    assert demo_passwords_in_use(session) == ["admin", "student1", "student2", "student3"]
+    assert demo_passwords_in_use(session) == ["admin", "teacher", "student1", "student2", "student3"]
     from app import models
 
     admin = session.query(models.User).filter_by(username="admin").one()
@@ -62,6 +62,6 @@ def test_prod_refuses_to_start_with_demo_passwords(session, monkeypatch):
 
     monkeypatch.setattr(main.settings, "environment", "prod")
     monkeypatch.setattr(main, "SessionLocal", sessionmaker(bind=session.get_bind()))
-    with pytest.raises(RuntimeError, match="admin, student1"):
+    with pytest.raises(RuntimeError, match="admin, teacher, student1"):
         with TestClient(main.app):
             pass

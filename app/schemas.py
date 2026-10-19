@@ -23,17 +23,21 @@ class UserCreate(BaseModel):
     password: str = Field(min_length=8)
     role: Role
     student_id: int | None = None
+    full_name: str | None = Field(default=None, max_length=255)
 
     @model_validator(mode="after")
     def student_link(self) -> "UserCreate":
         if (self.role == Role.STUDENT) != (self.student_id is not None):
             raise ValueError("student_id указывается только и обязательно для роли student")
+        if self.role == Role.TEACHER and not (self.full_name or "").strip():
+            raise ValueError("у преподавателя должно быть ФИО")
         return self
 
 
 class UserOut(ORM):
     id: int
     username: str
+    full_name: str | None
     role: Role
     student_id: int | None
     must_change_password: bool
@@ -132,11 +136,22 @@ class DisciplineOut(ORM):
     competency_ids: list[int]
 
 
+class QuotaIn(BaseModel):
+    competency_id: int
+    questions: int = Field(ge=1, le=200)
+
+
+class QuotaOut(ORM, QuotaIn):
+    pass
+
+
 class CurriculumEntryIn(BaseModel):
     direction_id: int
     discipline_id: int
     first_semester: int = Field(ge=1, le=12)
     last_semester: int = Field(ge=1, le=12)
+    teacher_id: int | None = None  # кто разрабатывает вопросы по дисциплине
+    quotas: list[QuotaIn] = []  # сколько вопросов на каждую компетенцию дисциплины
 
     @model_validator(mode="after")
     def ordered(self) -> "CurriculumEntryIn":
@@ -147,6 +162,29 @@ class CurriculumEntryIn(BaseModel):
 
 class CurriculumEntryOut(ORM, CurriculumEntryIn):
     id: int
+    quotas: list[QuotaOut]
+
+
+class QuotaProgress(BaseModel):
+    competency_id: int
+    code: str
+    description: str
+    required: int  # сколько вопросов нужно (0 — квота не задана)
+    done: int  # сколько уже в банке
+
+
+class TeacherDiscipline(BaseModel):
+    """Дисциплина в кабинете преподавателя: что и сколько разработать."""
+
+    entry_id: int
+    discipline_id: int
+    discipline: str
+    direction: str
+    first_semester: int
+    last_semester: int
+    competencies: list[QuotaProgress]
+    required: int
+    done: int  # засчитываются не больше квоты по каждой компетенции
 
 
 # --- Профстандарт ----------------------------------------------------------

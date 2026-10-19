@@ -42,8 +42,8 @@ export async function adminTests(render) {
     const variant = h("select", { "aria-label": "Вариант для Word" },
       h("option", { value: "" }, t.variant_count > 1 ? "Все варианты" : "Тест"),
       t.variant_count > 1 ? t.variants.map((v) => h("option", { value: v.variant }, `Вариант ${v.variant}`)) : null);
-    const blank = h("a", { class: "button", download: "" }, "Скачать в Word");
-    const key = h("a", { class: "button", download: "" }, "Ключ с ответами");
+    const blank = h("a", { class: "button", download: "" }, "Тест без ответов (Word)");
+    const key = h("a", { class: "button", download: "" }, "Тест с ответами (Word)");
     const setLinks = () => {
       const params = new URLSearchParams(variant.value ? { variant: variant.value } : {});
       blank.href = `/tests/${t.id}/document.docx?${params}`;
@@ -56,7 +56,7 @@ export async function adminTests(render) {
       h("h2", { style: "margin-top:0" }, t.title),
       h("div", { class: "row", style: "margin-bottom:8px" },
         t.variant_count > 1 ? h("div", {}, variant) : null, blank, key),
-      h("p", { class: "muted small", style: "margin-top:0" }, "Документ оформлен по образцу фонда оценочных материалов: бланк с пустыми полями «Ответ» и отдельно ключ с правильными ответами."),
+      h("p", { class: "muted small", style: "margin-top:0" }, "Документ оформлен по образцу фонда оценочных материалов: без ответов (поля «Ответ» пустые) и с заполненными правильными ответами."),
       h("p", { class: "muted" },
         t.semester ? `Для ${t.semester}-го семестра. ` : "",
         t.discipline_ids.length

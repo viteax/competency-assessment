@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app import models
 from app.config import settings
 from app.db import SessionLocal
-from app.demo import DEMO_ADMIN, DEMO_STUDENT_COUNT, DEMO_STUDENT_PASSWORD
+from app.demo import DEMO_ADMIN, DEMO_STUDENT_COUNT, DEMO_STUDENT_PASSWORD, DEMO_TEACHER
 from app.models import CompetencyKind as K
 from app.security import hash_password
 from scripts.demo_questions import QUESTIONS, TYPED_QUESTIONS
@@ -80,6 +80,12 @@ DISCIPLINES = {
     "Операционные системы": (["ОПК-5"], 3, 3),
     "Технологии программирования": (["ПК-1", "ПК-2"], 3, 4),
     "Тестирование программного обеспечения": (["ПК-2"], 5, 6),
+}
+# Демо-преподаватель и закреплённые за ним дисциплины с квотами вопросов по компетенциям.
+TEACHER_NAME = "Морозов Сергей Николаевич"
+TEACHER_QUOTAS = {
+    "Операционные системы": {"ОПК-5": 20},
+    "Технологии программирования": {"ПК-1": 10, "ПК-2": 15},
 }
 # Группа третьего курса: осенью 2026 года — 5-й семестр, и «Тестирование ПО» ещё изучается.
 GROUP_START_YEAR = 2024
@@ -173,6 +179,13 @@ def seed(session: Session) -> None:
             role=models.Role.ADMIN,
         )
     )
+    teacher = models.User(
+        username=DEMO_TEACHER[0],
+        full_name=TEACHER_NAME,
+        password_hash=hash_password(DEMO_TEACHER[1]),
+        role=models.Role.TEACHER,
+    )
+    session.add(teacher)
     student_hash = hash_password(STUDENT_PASSWORD)
     for i, student in enumerate(group.students, start=1):
         session.add(
@@ -205,6 +218,11 @@ def seed(session: Session) -> None:
             discipline=disciplines[name],
             first_semester=first,
             last_semester=last,
+            teacher=teacher if name in TEACHER_QUOTAS else None,
+            quotas=[
+                models.CurriculumQuota(competency=competencies[code], questions=n)
+                for code, n in TEACHER_QUOTAS.get(name, {}).items()
+            ],
         )
         for name, (_, first, last) in DISCIPLINES.items()
     )
@@ -257,6 +275,7 @@ def seed(session: Session) -> None:
         f"{len(QUESTIONS) + len(TYPED_QUESTIONS)} вопросов, "
         f"{len(STUDENTS)} студентов\n"
         f"демо-логины: {ADMIN_LOGIN[0]}/{ADMIN_LOGIN[1]}, "
+        f"{DEMO_TEACHER[0]}/{DEMO_TEACHER[1]} (преподаватель), "
         f"student1..{len(STUDENTS)}/{STUDENT_PASSWORD}"
     )
 

@@ -192,3 +192,13 @@ code { font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; 
   background: var(--text); color: var(--card); padding: 6px 10px; border-radius: 6px;
   font-size: 13px; max-width: 260px; width: max-content;
 }
+
+/* Квоты вопросов по компетенциям (учебный план) */
+.quota-grid { display: grid; gap: 6px; }
+.quota-row { display: flex; align-items: center; gap: 10px; font-weight: 400; margin: 0; }
+.quota-row span { flex: 1; }
+.quota-row input { max-width: 90px; }
+
+/* Прогресс преподавателя */
+.progress-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+progress { width: 100%; max-width: 420px; height: 10px; accent-color: var(--accent); }
