@@ -18,7 +18,7 @@ from tests.helpers import assign, by_code, correct_answers, discipline_id
         (date(2025, 7, 1), 2),  # лето: только что завершился 2-й
         (date(2025, 9, 1), 3),
         (date(2026, 10, 15), 5),
-        (date(2023, 5, 1), 1),  # до набора — не меньше первого
+        (date(2023, 5, 1), 1),  # до набора – не меньше первого
     ],
 )
 def test_current_semester(today: date, expected: int):
@@ -37,7 +37,7 @@ def plan(admin: TestClient, semester: int | None = None) -> dict:
 
 
 def test_plan_shows_only_disciplines_finished_before_semester(admin: TestClient):
-    # Математика и программирование — 1–2 семестры: во 2-м их ещё изучают.
+    # Математика и программирование – 1–2 семестры: во 2-м их ещё изучают.
     assert plan(admin, 2)["finished"] == []
     third = plan(admin, 3)
     assert [d["name"] for d in third["finished"]] == ["Математика", "Программирование"]
@@ -93,7 +93,7 @@ def test_variants_do_not_overlap(admin: TestClient):
     response = create(admin, ["ОПК-1", "ОПК-5"], semester=5)
     assert response.status_code == 201, response.text
     test = response.json()
-    # По 20 вопросов на компетенцию, по 5 на вариант — 4 варианта по 10 вопросов.
+    # По 20 вопросов на компетенцию, по 5 на вариант – 4 варианта по 10 вопросов.
     assert (test["variant_count"], test["questions_per_variant"], test["semester"]) == (4, 10, 5)
     detail = admin.get(f"/tests/{test['id']}").json()
     variants = [{q["id"] for q in v["questions"]} for v in detail["variants"]]
@@ -105,7 +105,7 @@ def test_variants_do_not_overlap(admin: TestClient):
 
 
 def test_variant_count_limited_by_poorest_competency(admin: TestClient):
-    # ПК-1 в «Программировании» — 12 вопросов, ОПК-1 в «Математике» — 20: хватает на 2 варианта.
+    # ПК-1 в «Программировании» – 12 вопросов, ОПК-1 в «Математике» – 20: хватает на 2 варианта.
     response = create(admin, ["ПК-1", "ОПК-1"], disciplines=["Программирование", "Математика"])
     assert response.json()["variant_count"] == 2
 
@@ -123,7 +123,7 @@ def test_shortage_lists_every_competency(admin: TestClient):
     assert response.status_code == 400
     detail = response.json()["detail"]
     assert "в выбранных дисциплинах" in detail
-    assert "ПК-1 — 8 из 10" in detail
+    assert "ПК-1 – 8 из 10" in detail
     assert "ПК-2" not in detail  # их 12, хватает
 
 
@@ -141,7 +141,7 @@ def test_students_get_different_variants_that_persist(admin: TestClient, login):
         assert body.status_code == 201, body.text
         starts[name] = (client, body.json())
     question_sets = [frozenset(q["id"] for q in b["questions"]) for _, b in starts.values()]
-    assert len(set(question_sets)) == 3  # три студента — три разных варианта
+    assert len(set(question_sets)) == 3  # три студента – три разных варианта
     assert all(len(s) == 5 for s in question_sets)
 
     client, first = starts["student1"]
@@ -222,7 +222,7 @@ def test_curriculum_crud(admin: TestClient):
 
 
 def test_variants_by_group_size_overlap_evenly(admin: TestClient):
-    """Вариантов — по числу студентов: 10 вариантов по 5 из 20 вопросов ОПК-5 — варианты
+    """Вариантов – по числу студентов: 10 вариантов по 5 из 20 вопросов ОПК-5 – варианты
     частично пересекаются, но все разные, а каждый вопрос используется 2–3 раза."""
     test = create(admin, ["ОПК-5"], variant_count=10).json()
     assert test["variant_count"] == 10
@@ -241,7 +241,7 @@ def test_few_variants_do_not_overlap(admin: TestClient):
 
 
 def test_variants_capped_by_possible_combinations(admin: TestClient):
-    # 12 вопросов ПК-2 в «Технологиях программирования» по 12 — возможен единственный набор.
+    # 12 вопросов ПК-2 в «Технологиях программирования» по 12 – возможен единственный набор.
     response = create(
         admin, ["ПК-2"], k=12, disciplines=["Технологии программирования"], variant_count=5
     )

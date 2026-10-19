@@ -75,7 +75,7 @@ export function downloadCsv(filename, rows) {
 
 // Сессия живёт в httpOnly-cookie, которую ставит сервер при входе: JavaScript её не видит,
 // поэтому украсть токен через внедрённый скрипт нельзя. Заголовок X-Requested-With
-// сервер требует для изменяющих запросов — чужой сайт выставить его не может.
+// сервер требует для изменяющих запросов – чужой сайт выставить его не может.
 let onUnauthorized = () => {};
 
 export function setUnauthorizedHandler(handler) {
@@ -108,7 +108,7 @@ export async function api(path, { method = "GET", body, form, multipart } = {}) 
 
 // --- навигация ----------------------------------------------------------------
 
-// Экран — асинхронная функция, которая рисует себя через переданный ей render. Меню задаёт
+// Экран – асинхронная функция, которая рисует себя через переданный ей render. Меню задаёт
 // main.js; экраны переходят друг к другу через go() и ничего не знают о меню.
 let menu = [];
 
@@ -116,12 +116,12 @@ export function setMenu(items) {
   menu = items;
 }
 
-// menuItem — какой пункт меню подсветить, если экран открыт не из меню.
+// menuItem – какой пункт меню подсветить, если экран открыт не из меню.
 export function go(view, menuItem = view) {
   fill(nav, menu.map(([title, v]) =>
     h("button", { class: `link ${v === menuItem ? "active" : ""}`, onclick: () => go(v) }, title)));
   const current = (screen += 1);
-  // Пока экран ждал ответа сервера, пользователь мог уйти на другой — тогда запоздавшая
+  // Пока экран ждал ответа сервера, пользователь мог уйти на другой – тогда запоздавшая
   // отрисовка не должна закрыть новый экран.
   return view((...nodes) => {
     if (current === screen) fill(app, ...nodes);
@@ -164,7 +164,7 @@ export function temporaryPassword(length = 10) {
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
 }
 
-// Плашка с выданным паролем — показывается один раз.
+// Плашка с выданным паролем – показывается один раз.
 export function passwordNotice(fullName, username, password) {
   return h("div", { class: "notice" },
     h("strong", {}, fullName), ": логин ", h("code", {}, username), ", временный пароль ",

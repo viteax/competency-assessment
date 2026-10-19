@@ -39,7 +39,7 @@ def login(
     session: SessionDep,
 ):
     """Вход. Токен возвращается в ответе (для API и Swagger) и ставится в httpOnly-cookie
-    (для веб-интерфейса — JavaScript его не видит)."""
+    (для веб-интерфейса – JavaScript его не видит)."""
     trusted = device_token_username(request.cookies.get(DEVICE_COOKIE)) == form.username
     user = auth.authenticate(session, form.username, form.password, client_ip(request), trusted)
     token = create_access_token(user.id, user.token_version)
@@ -70,7 +70,7 @@ def logout(response: Response):
 
 @router.get("/auth/session", response_model=schemas.UserOut | None)
 def current_session(request: Request, session: SessionDep):
-    """Кто вошёл, или null — без 401, чтобы интерфейс мог проверить сессию при загрузке."""
+    """Кто вошёл, или null – без 401, чтобы интерфейс мог проверить сессию при загрузке."""
     try:
         return get_current_user(request, session, bearer=None)
     except Unauthorized:

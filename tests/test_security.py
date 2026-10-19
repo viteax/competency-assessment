@@ -27,7 +27,7 @@ def fail_logins(client: TestClient, username: str, times: int) -> None:
 
 def test_login_slows_down_after_failures(client: TestClient):
     fail_logins(client, "student2", settings.login_slowdown_after)
-    blocked = token_login(client, "student2", "student123")  # даже верный пароль — подождать
+    blocked = token_login(client, "student2", "student123")  # даже верный пароль – подождать
     assert blocked.status_code == 429
     assert 0 < int(blocked.headers["Retry-After"]) <= settings.login_slowdown_seconds
 
@@ -36,7 +36,7 @@ def test_slowdown_is_a_pause_not_a_lockout(client: TestClient, session):
     from app import models
 
     fail_logins(client, "student2", settings.login_slowdown_after)
-    # Прошло больше паузы — владелец снова может войти, неудачи сбрасываются.
+    # Прошло больше паузы – владелец снова может войти, неудачи сбрасываются.
     for failure in session.query(models.LoginFailure).all():
         failure.created_at = failure.created_at - timedelta(seconds=settings.login_slowdown_seconds)
     session.commit()
@@ -101,7 +101,7 @@ def test_new_account_must_change_password(admin: TestClient, login):
     assert change(client, "nope", "good-pass-1").status_code == 400  # неверный текущий
     assert change(client, "temp-pass", "good-pass-1").status_code == 204
 
-    # Старый токен отозван — нужно войти заново.
+    # Старый токен отозван – нужно войти заново.
     assert client.get("/me").status_code == 401
     fresh = login("petrova", "good-pass-1")
     assert fresh.get("/me/assignments").status_code == 200
@@ -205,7 +205,7 @@ def test_audit_log(admin: TestClient, student: TestClient):
 
 
 def test_session_probe(client: TestClient):
-    assert client.get("/auth/session").json() is None  # гость — 200 и null, а не 401
+    assert client.get("/auth/session").json() is None  # гость – 200 и null, а не 401
     token_login(client, "student1", "student123")
     assert client.get("/auth/session").json()["username"] == "student1"
 
@@ -222,7 +222,7 @@ def test_session_sliding_window(client: TestClient):
     token_login(client, "student1", "student123")
     original = deps.timedelta
     try:
-        # Делаем «половину срока» больше всего срока — любой запрос попадает в окно продления.
+        # Делаем «половину срока» больше всего срока – любой запрос попадает в окно продления.
         deps.timedelta = lambda minutes: original(minutes=minutes * 4)
         response = client.get("/me")
     finally:

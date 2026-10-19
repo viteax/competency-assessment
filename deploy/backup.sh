@@ -1,12 +1,12 @@
 #!/bin/sh
 # Резервные копии PostgreSQL.
 #
-#   backup.sh            — сделать копию сейчас
-#   backup.sh --daemon   — делать копию каждый день в BACKUP_TIME (так запускает compose)
+#   backup.sh            – сделать копию сейчас
+#   backup.sh --daemon   – делать копию каждый день в BACKUP_TIME (так запускает compose)
 #
 # Копии: /backups/competency-ГГГГ-ММ-ДД_ЧЧММ.dump (формат pg_dump -Fc, сжатый). Хранятся
-# BACKUP_KEEP_DAYS дней. Подключение — через стандартные переменные PGHOST, PGUSER, PGPASSWORD,
-# PGDATABASE. Восстановление — deploy/restore.sh.
+# BACKUP_KEEP_DAYS дней. Подключение – через стандартные переменные PGHOST, PGUSER, PGPASSWORD,
+# PGDATABASE. Восстановление – deploy/restore.sh.
 set -eu
 
 BACKUP_DIR="${BACKUP_DIR:-/backups}"

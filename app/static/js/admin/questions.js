@@ -1,4 +1,4 @@
-// Банк вопросов: у администратора — все вопросы, у преподавателя — вопросы одной его
+// Банк вопросов: у администратора – все вопросы, у преподавателя – вопросы одной его
 // дисциплины (questionBank с lockedDiscipline).
 
 import { api, byId, DIFFICULTIES, errorBox, fill, h, QUESTION_KINDS } from "../core.js";
@@ -14,8 +14,8 @@ export async function adminQuestions(render) {
 }
 
 // opts: title, competencies, disciplines, fundUrl(disciplineId, key),
-//       lockedDiscipline (id) — только эта дисциплина, intro — блок над таблицей,
-//       onChange() — после сохранения или удаления вопроса.
+//       lockedDiscipline (id) – только эта дисциплина, intro – блок над таблицей,
+//       onChange() – после сохранения или удаления вопроса.
 export async function questionBank(render, opts) {
   const { competencies, disciplines, lockedDiscipline = null } = opts;
   const comps = byId(competencies);
@@ -55,8 +55,8 @@ export async function questionBank(render, opts) {
               h("tr", {},
                 h("td", { class: "wrap" }, q.text, q.in_use ? [" ", h("span", { class: "badge ok" }, "в тестах")] : null),
                 h("td", { class: "wrap small" }, QUESTION_KINDS[q.kind], q.difficulty === "advanced" ? h("div", { class: "muted" }, "повышенный") : null),
-                h("td", {}, comps.get(q.competency_id)?.code || "—"),
-                lockedDiscipline ? null : h("td", { class: "wrap" }, discs.get(q.discipline_id)?.name || "—"),
+                h("td", {}, comps.get(q.competency_id)?.code || "–"),
+                lockedDiscipline ? null : h("td", { class: "wrap" }, discs.get(q.discipline_id)?.name || "–"),
                 h("td", { class: "actions" },
                   h("button", { class: "link", onclick: () => openForm(q) }, "Изменить"),
                   q.in_use ? null : h("button", {
@@ -86,7 +86,7 @@ export async function questionBank(render, opts) {
     const locked = Boolean(q?.in_use);
     const formErr = errorBox();
     const competency = h("select", { required: true, disabled: locked, "aria-label": "Компетенция" },
-      competencies.map((c) => h("option", { value: c.id }, `${c.code} — ${c.description}`)));
+      competencies.map((c) => h("option", { value: c.id }, `${c.code} – ${c.description}`)));
     const discipline = h("select", { disabled: Boolean(lockedDiscipline), "aria-label": "Дисциплина вопроса" },
       lockedDiscipline ? null : h("option", { value: "" }, "Без дисциплины"),
       disciplines.map((d) => h("option", { value: d.id }, d.name)));
@@ -229,7 +229,7 @@ function optionsEditor(locked) {
         return withId(r, o);
       };
       const { box, nodes } = list("Элементы в правильном порядке",
-        "Студенту они будут показаны вперемешку; в Word — пронумерованы в случайном порядке.",
+        "Студенту они будут показаны вперемешку; в Word – пронумерованы в случайном порядке.",
         row, q ? q.options : [{}, {}, {}, {}], "+ элемент");
       box.classList.add("numbered");
       read = () => [...box.children].map((r) => ({ ...idOf(r), text: r.querySelector("input").value.trim() }));

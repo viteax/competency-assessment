@@ -46,7 +46,7 @@ def test_student_answers_every_kind(admin_page: Page, new_page):
         q["kind"]: q for q in questions if q["kind"] in markers and markers[q["kind"]] in q["text"]
     }
     assert set(typed) == {"sequence", "matching", "open"}
-    # ОПК-5: 20 вопросов в банке, по 20 на вариант — в тест попадут все, включая три новых типа.
+    # ОПК-5: 20 вопросов в банке, по 20 на вариант – в тест попадут все, включая три новых типа.
     assign_new_test(page, "Все типы", ["ОПК-5"], per_competency=20)
 
     student = new_page()
@@ -83,4 +83,4 @@ def test_student_answers_every_kind(admin_page: Page, new_page):
         select.select_option(label=label)
 
     student.click("text=Сдать тест")
-    expect(student.locator(".score")).to_have_text("Верно 3 из 20")  # три новых задания — верно
+    expect(student.locator(".score")).to_have_text("Верно 3 из 20")  # три новых задания – верно

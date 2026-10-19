@@ -17,7 +17,7 @@ def mastery_threshold(session: Session) -> float:
 
 def set_mastery_threshold(session: Session, value: float) -> float:
     if not 0 < value <= 1:
-        raise DomainError("порог — доля верных ответов от 0 до 1, например 0.6")
+        raise DomainError("порог – доля верных ответов от 0 до 1, например 0.6")
     row = session.get(models.AppSetting, MASTERY_THRESHOLD)
     if row is None:
         session.add(models.AppSetting(key=MASTERY_THRESHOLD, value=str(value)))

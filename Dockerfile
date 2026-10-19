@@ -9,7 +9,7 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never
 
 WORKDIR /app
-# Сначала только зависимости — этот слой кэшируется, пока не меняется uv.lock.
+# Сначала только зависимости – этот слой кэшируется, пока не меняется uv.lock.
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
 

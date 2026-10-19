@@ -84,10 +84,10 @@ def update_student(student_id: int, data: schemas.StudentIn, session: SessionDep
 @router.delete("/students/{student_id}", status_code=204)
 def delete_student(student_id: int, session: SessionDep):
     """Удаляет студента вместе с его учётной записью. Студента с результатами тестов удалить
-    нельзя — пропали бы данные отчётов; его можно перевести в другую группу."""
+    нельзя – пропали бы данные отчётов; его можно перевести в другую группу."""
     student = get_or_404(session, models.Student, student_id)
     if session.scalar(select(models.Attempt.id).where(models.Attempt.student_id == student.id)):
-        raise Conflict("у студента есть результаты тестов — удалить нельзя")
+        raise Conflict("у студента есть результаты тестов – удалить нельзя")
     session.execute(delete(models.User).where(models.User.student_id == student.id))
     delete_or_conflict(session, student, "на студента есть ссылки")
 

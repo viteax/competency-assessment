@@ -50,7 +50,7 @@ def _results_by_student(
     session: Session, student_ids: list[int], test_id: int | None = None
 ) -> dict[int, list[schemas.CompetencyResult]]:
     """Доля верных ответов по каждой компетенции в завершённых попытках (всех или одного
-    теста) — для всех переданных студентов одним запросом, а не запросом на каждого."""
+    теста) – для всех переданных студентов одним запросом, а не запросом на каждого."""
     threshold = app_settings.mastery_threshold(session)
     stmt = (
         select(
@@ -170,7 +170,7 @@ def labor_functions(session: Session) -> list[models.LaborFunction]:
 def labor_function_axes(
     functions: list[models.LaborFunction], level: dict[int, float]
 ) -> list[schemas.ProfileAxis]:
-    """Уровень ТФ — среднее уровней её проверенных компетенций (level: id компетенции → 0..1)."""
+    """Уровень ТФ – среднее уровней её проверенных компетенций (level: id компетенции → 0..1)."""
     axes = []
     for lf in functions:
         measured = [level[c.id] for c in lf.competencies if c.id in level]
@@ -191,8 +191,8 @@ def profile(
 ) -> schemas.Profile:
     """Данные для «розы ветров»: уровень по каждой компетенции и трудовой функции (0..1).
 
-    Для группы уровень компетенции — среднее по студентам, у которых она проверялась.
-    Уровень ТФ — среднее по связанным с ней проверенным компетенциям; ТФ, у которой не
+    Для группы уровень компетенции – среднее по студентам, у которых она проверялась.
+    Уровень ТФ – среднее по связанным с ней проверенным компетенциям; ТФ, у которой не
     проверена ни одна компетенция, получает value = None («нет данных»).
     """
     results = _results_by_student(session, student_ids, test_id)

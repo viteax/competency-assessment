@@ -21,7 +21,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     # До этой ревизии названия тестов могли повторяться (по умолчанию подставлялось
     # «Входной контроль»). Дубли переименовываем в «… (2)», «… (3)», иначе ограничение
-    # не применится. Сравнение — без учёта регистра и лишних пробелов, как в приложении.
+    # не применится. Сравнение – без учёта регистра и лишних пробелов, как в приложении.
     bind = op.get_bind()
     test = sa.table("test", sa.column("id", sa.Integer), sa.column("title", sa.String))
     rows = bind.execute(sa.select(test.c.id, test.c.title).order_by(test.c.id)).all()

@@ -38,7 +38,7 @@ def _rebuild(primary_key: tuple[str, ...]) -> None:
     op.drop_table("test_question")
     op.rename_table("test_question_new", "test_question")
     if op.get_bind().dialect.name == "postgresql":
-        # Имена ограничений в PostgreSQL общие на схему — возвращаем привычное имя ключа.
+        # Имена ограничений в PostgreSQL общие на схему – возвращаем привычное имя ключа.
         op.execute(
             "ALTER TABLE test_question RENAME CONSTRAINT test_question_new_pkey "
             "TO test_question_pkey"
@@ -46,12 +46,12 @@ def _rebuild(primary_key: tuple[str, ...]) -> None:
 
 
 def upgrade() -> None:
-    # Один вопрос теперь может входить в несколько вариантов теста: вариант — часть ключа.
+    # Один вопрос теперь может входить в несколько вариантов теста: вариант – часть ключа.
     _rebuild(("test_id", "variant", "question_id"))
 
 
 def downgrade() -> None:
-    # Повторы вопроса в разных вариантах в старой схеме невозможны — оставляем первый.
+    # Повторы вопроса в разных вариантах в старой схеме невозможны – оставляем первый.
     op.execute(
         "DELETE FROM test_question WHERE EXISTS (SELECT 1 FROM test_question t2 "
         "WHERE t2.test_id = test_question.test_id "

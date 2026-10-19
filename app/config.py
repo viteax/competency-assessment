@@ -9,13 +9,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Настройки из переменных окружения (или файла .env).
 
-    По умолчанию — строгий режим prod: забытая настройка не должна оставлять систему открытой.
+    По умолчанию – строгий режим prod: забытая настройка не должна оставлять систему открытой.
     Для разработки нужно явно указать ENVIRONMENT=dev.
     """
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # prod — реальная эксплуатация; dev — локальная разработка и демо (разрешены демо-данные,
+    # prod – реальная эксплуатация; dev – локальная разработка и демо (разрешены демо-данные,
     # cookie без флага Secure, ключ подписи можно не задавать).
     environment: Literal["dev", "prod"] = "prod"
 
@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     # Ключ подписи токенов. В prod обязателен, например:
     #   python -c "import secrets; print(secrets.token_urlsafe(48))"
-    # В dev без ключа генерируется случайный на время работы процесса — публичного ключа
+    # В dev без ключа генерируется случайный на время работы процесса – публичного ключа
     # по умолчанию нет, поэтому токен нельзя подделать, даже если забыть про настройку.
     secret_key: str | None = None
     log_level: str = "INFO"
@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     session_idle_minutes: int = 60
 
     # Защита от подбора паролей (см. services/auth.py).
-    login_slowdown_after: int = 5  # неудачных попыток для логина — дальше пауза между попытками
+    login_slowdown_after: int = 5  # неудачных попыток для логина – дальше пауза между попытками
     login_slowdown_seconds: int = 30
     login_max_failures_per_ip: int = 300  # потолок с одного адреса (кампус выходит с одного IP)
     login_window_minutes: int = 15

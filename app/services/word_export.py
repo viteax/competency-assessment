@@ -1,9 +1,9 @@
 """Выгрузка заданий в Word по образцу фонда оценочных материалов (ФОМ) дисциплины.
 
-Документ: шапка «Информация о дисциплине», задания по компетенциям (у каждого — таблица
-«Сценарий выполнения / Результат оценивания» и поле «Ответ»), в конце — таблица
-«Распределение тестовых заданий по видам и уровням сложности». Бланк — с пустыми полями
-ответа, ключ — тот же документ с заполненными правильными ответами.
+Документ: шапка «Информация о дисциплине», задания по компетенциям (у каждого – таблица
+«Сценарий выполнения / Результат оценивания» и поле «Ответ»), в конце – таблица
+«Распределение тестовых заданий по видам и уровням сложности». Бланк – с пустыми полями
+ответа, ключ – тот же документ с заполненными правильными ответами.
 
 Порядок элементов последовательности и правого столбца соответствия перемешивается,
 но одинаково в бланке и ключе (зависит только от id вопроса).
@@ -108,7 +108,7 @@ def _table(doc: Document, rows: int, widths_mm: list[float]) -> Table:
     table.alignment = WD_TABLE_ALIGNMENT.LEFT
     table.autofit = False
     _borders(table)
-    # Ширину берут из сетки таблицы (LibreOffice) и из ячеек (Word) — задаём и там, и там.
+    # Ширину берут из сетки таблицы (LibreOffice) и из ячеек (Word) – задаём и там, и там.
     for col, width in zip(table._tbl.tblGrid.gridCol_lst, widths_mm, strict=True):
         col.w = Mm(width)
     for row in table.rows:
@@ -118,7 +118,7 @@ def _table(doc: Document, rows: int, widths_mm: list[float]) -> Table:
 
 
 def _write(cell, text: str, bold: bool = False) -> None:
-    """Текст в ячейку; переводы строк — отдельными абзацами."""
+    """Текст в ячейку; переводы строк – отдельными абзацами."""
     lines = text.split("\n")
     cell.paragraphs[0].text = ""
     for i, line in enumerate(lines):
@@ -144,9 +144,9 @@ def _header(doc: Document, header: FundHeader) -> None:
     _para(doc, "Информация о дисциплине", bold=True, center=True)
     table = _table(doc, 5, [42, 125])
     rows = [
-        ("Направления (специальности)", header.directions or "—"),
-        ("Семестр", header.semester or "—"),
-        ("Дисциплина", header.discipline or "—"),
+        ("Направления (специальности)", header.directions or "–"),
+        ("Семестр", header.semester or "–"),
+        ("Дисциплина", header.discipline or "–"),
         ("Код", ", ".join(c.code for c in header.competencies) + "."),
         (
             "Наименование компетенции",
@@ -278,9 +278,9 @@ def _distribution(doc: Document, semester: str, numbered: list[tuple[int, models
     table = _table(doc, len(numbered) + 1, [16, 22, 33, 15, 41, 22, 18])
     for cell, head in zip(table.rows[0].cells, heads, strict=True):
         _write(cell, head, bold=True)
-    _merge_runs(table, 0, [semester or "—"] * len(numbered))
+    _merge_runs(table, 0, [semester or "–"] * len(numbered))
     _merge_runs(table, 1, [q.competency.code for _, q in numbered])
-    _merge_runs(table, 2, [q.discipline.name if q.discipline else "—" for _, q in numbered])
+    _merge_runs(table, 2, [q.discipline.name if q.discipline else "–" for _, q in numbered])
     for row, (number, q) in zip(table.rows[1:], numbered, strict=True):
         level, minutes = DIFFICULTY[q.difficulty]
         _write(row.cells[3], str(number))
@@ -308,7 +308,7 @@ def _fund(doc: Document, header: FundHeader, sections: list[Section], key: bool,
 
 
 def build(parts: Iterable[tuple[FundHeader, list[Section], str]], key: bool) -> bytes:
-    """Документ из одной или нескольких частей (например, вариантов теста); каждая — с
+    """Документ из одной или нескольких частей (например, вариантов теста); каждая – с
     новой страницы: (шапка, разделы по компетенциям, подзаголовок)."""
     doc = _new_document()
     for i, (header, sections, title) in enumerate(parts):

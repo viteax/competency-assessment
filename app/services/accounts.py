@@ -37,7 +37,7 @@ def username_base(login: str | None, email: str | None, full_name: str) -> str:
 
 
 def unique_username(session: Session, base: str, taken: set[str]) -> str:
-    """Свободный логин: base, base2, base3… `taken` — уже выданные в этой операции."""
+    """Свободный логин: base, base2, base3… `taken` – уже выданные в этой операции."""
     base = re.sub(r"[^a-z0-9._-]", "", base.lower())[:48] or "student"
     candidate, n = base, 1
     while candidate in taken or session.scalar(
@@ -52,7 +52,7 @@ def unique_username(session: Session, base: str, taken: set[str]) -> str:
 def create_student_account(
     session: Session, student: models.Student, base: str, taken: set[str]
 ) -> tuple[str, str]:
-    """Создаёт учётку студента и возвращает (логин, пароль) — пароль больше нигде не хранится.
+    """Создаёт учётку студента и возвращает (логин, пароль) – пароль больше нигде не хранится.
     При первом входе студент обязан его сменить."""
     username = unique_username(session, base, taken)
     password = generate_password()

@@ -19,7 +19,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # batch — потому что SQLite не умеет добавлять столбец с default now() через ALTER TABLE.
+    # batch – потому что SQLite не умеет добавлять столбец с default now() через ALTER TABLE.
     with op.batch_alter_table("app_user") as batch:
         batch.add_column(
             sa.Column(

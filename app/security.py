@@ -47,7 +47,7 @@ class SessionToken:
 
 
 def decode_access_token(token: str) -> SessionToken | None:
-    """Разбирает токен сессии; None — если он подделан, истёк или это токен другого типа."""
+    """Разбирает токен сессии; None – если он подделан, истёк или это токен другого типа."""
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[_ALGORITHM])
         if payload.get("typ") != "session":
@@ -63,7 +63,7 @@ DEVICE_TOKEN_DAYS = 180
 
 
 def create_device_token(username: str) -> str:
-    """Отметка «с этого браузера пользователь уже успешно входил» — такие попытки входа
+    """Отметка «с этого браузера пользователь уже успешно входил» – такие попытки входа
     не замедляются защитой от подбора (её нельзя использовать, чтобы закрыть вход владельцу)."""
     expires = datetime.now(UTC) + timedelta(days=DEVICE_TOKEN_DAYS)
     payload = {"sub": username, "typ": "device", "exp": expires}

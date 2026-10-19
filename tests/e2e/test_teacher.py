@@ -22,19 +22,19 @@ def test_teacher_composes_questions(new_page):
 
     with page.expect_download() as download:
         card.locator("a:text-is('ФОМ с ответами (Word)')").click()
-    assert download.value.suggested_filename == "ФОМ — Технологии программирования — ключ.docx"
+    assert download.value.suggested_filename == "ФОМ – Технологии программирования – ключ.docx"
 
     card.locator("button:text-is('Составлять вопросы')").click()
     expect(page.locator("h1")).to_have_text("Технологии программирования")
     page.click("button:text-is('Новый вопрос')")
     form = page.locator("form.edit-form")
     options = [
-        o.split(" — ")[0]
+        o.split(" – ")[0]
         for o in form.get_by_label("Компетенция").locator("option").all_inner_texts()
     ]
     assert options == ["ПК-1", "ПК-2"]  # только компетенции этой дисциплины
     form.get_by_label("Тип задания").select_option("open")
-    form.locator("textarea").fill("Команда Git для просмотра истории коммитов — git ________.")
+    form.locator("textarea").fill("Команда Git для просмотра истории коммитов – git ________.")
     form.locator("input[placeholder='Правильный ответ']").fill("log")
     form.locator("button:text-is('Сохранить')").click()
     expect(page.locator("td:has-text('просмотра истории коммитов')")).to_be_visible()

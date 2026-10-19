@@ -22,10 +22,10 @@ _CSP = (
     "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
     "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 )
-# Swagger UI грузит скрипты с CDN — на документацию CSP не распространяем.
+# Swagger UI грузит скрипты с CDN – на документацию CSP не распространяем.
 _DOCS = ("/docs", "/redoc", "/openapi.json")
 _SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-# Проверки работоспособности дёргаются каждые несколько секунд — в лог их не пишем.
+# Проверки работоспособности дёргаются каждые несколько секунд – в лог их не пишем.
 _QUIET = {"/health", "/ready"}
 
 
@@ -39,7 +39,7 @@ def install(app: FastAPI) -> None:
         try:
             response = await call_next(request)
         except Exception:
-            # Подробности — только в лог; пользователю — id, по которому их найти.
+            # Подробности – только в лог; пользователю – id, по которому их найти.
             log.exception("необработанная ошибка")
             response = JSONResponse(
                 {"detail": f"внутренняя ошибка сервера, код запроса {request_id}"},
@@ -87,7 +87,7 @@ def install(app: FastAPI) -> None:
 
 
 def _record(app: FastAPI, actor: tuple[int, str], request: Request, status_code: int) -> None:
-    # Сессию берём через ту же зависимость, что и обработчики, — в тестах она подменена.
+    # Сессию берём через ту же зависимость, что и обработчики, – в тестах она подменена.
     sessions = app.dependency_overrides.get(get_session, get_session)()
     session = next(sessions)
     try:

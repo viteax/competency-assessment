@@ -80,7 +80,7 @@ async function takeTest(assignmentId, render) {
   render(h("h1", {}, attempt.title), form);
 }
 
-// Поле ответа для вопроса; возвращает [элементы, read], read() — ответ для API или null.
+// Поле ответа для вопроса; возвращает [элементы, read], read() – ответ для API или null.
 function questionInput(q) {
   if (q.kind === "open") {
     const input = h("input", { type: "text", maxlength: 500, autocomplete: "off", "aria-label": "Ответ" });

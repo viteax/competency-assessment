@@ -27,13 +27,13 @@ def test_semester_variants_and_tests_tab(admin_page: Page, new_page):
     )
 
     page.locator("label", has_text=re.compile(r"^ОПК-5 ")).locator("input").check()
-    # Вариантов по умолчанию — по числу студентов группы (3).
+    # Вариантов по умолчанию – по числу студентов группы (3).
     expect(page.get_by_label("Вариантов")).to_have_value("3")
     page.get_by_label("Вопросов на компетенцию").fill("7")
     expect(page.locator(".notice")).to_contain_text("3 варианта")
     expect(page.locator(".notice")).to_contain_text("частично пересекаются")
     page.get_by_label("Вопросов на компетенцию").fill("25")
-    expect(page.locator(".notice")).to_contain_text("ОПК-5 — 20 из 25")
+    expect(page.locator(".notice")).to_contain_text("ОПК-5 – 20 из 25")
     expect(page.locator("button:text-is('Собрать и назначить')")).to_be_disabled()
     page.get_by_label("Вопросов на компетенцию").fill("5")
     page.get_by_label("Вариантов").fill("4")
@@ -44,7 +44,7 @@ def test_semester_variants_and_tests_tab(admin_page: Page, new_page):
     expect(page.locator(".success")).to_contain_text("4 варианта по 5 вопр.")
     logout(page)
 
-    # Двое студентов открывают тест — у них разные варианты.
+    # Двое студентов открывают тест – у них разные варианты.
     seen = []
     for name in ["student1", "student2"]:
         student = new_page()

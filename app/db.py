@@ -11,7 +11,7 @@ class Base(DeclarativeBase):
 
 
 def enforce_sqlite_foreign_keys(engine: Engine) -> None:
-    """SQLite по умолчанию не проверяет внешние ключи — без этого удаление записи, на которую
+    """SQLite по умолчанию не проверяет внешние ключи – без этого удаление записи, на которую
     ссылаются, проходит молча и оставляет «висячие» ссылки (PostgreSQL проверяет всегда)."""
     if engine.dialect.name == "sqlite":
         event.listen(engine, "connect", lambda conn, _: conn.execute("PRAGMA foreign_keys=ON"))

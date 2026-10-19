@@ -21,8 +21,9 @@ def test_parse_code_variants():
         "ИД-1 ОПК-5 Знает основы администрирования\n"
         "ИДК-ПК-2.1: Знает методы тестирования\n"
         "ОПК‑10 – Способен (неразрывный дефис и тире)\n"
+        "ПК-3 \u2014 Способен проектировать (длинное тире из документов вуза)\n"
     )
-    assert list(doc.competencies) == ["УК-1", "ОПК-5", "ОПК-10", "ПК-2"]
+    assert list(doc.competencies) == ["УК-1", "ОПК-5", "ОПК-10", "ПК-2", "ПК-3"]
     uk1 = doc.competencies["УК-1"]
     assert uk1.description == "Способен осуществлять поиск информации"
     assert uk1.indicators == {
@@ -34,6 +35,10 @@ def test_parse_code_variants():
     assert doc.competencies["ОПК-5"].description == ""  # формулировки в тексте нет
     assert doc.competencies["ПК-2"].indicators == {"ПК-2.1": "Знает методы тестирования"}
     assert doc.competencies["ОПК-10"].description == "Способен (неразрывный дефис и тире)"
+    assert (
+        doc.competencies["ПК-3"].description
+        == "Способен проектировать (длинное тире из документов вуза)"
+    )
 
 
 def test_parse_keeps_longest_description_and_ignores_noise():
@@ -168,7 +173,7 @@ def test_xlsx_matrix_without_discipline(admin: TestClient):
 def test_txt_and_new_competency_without_wording(admin: TestClient):
     text = "Формируемые компетенции: ПК-7.\nПК-7.1 Знает основы DevOps".encode()
     p = preview(admin, "list.txt", text, "text/plain")
-    assert p["warnings"] == ["ПК-7: формулировка не найдена — укажите её перед импортом"]
+    assert p["warnings"] == ["ПК-7: формулировка не найдена – укажите её перед импортом"]
     payload = to_apply(p)
     assert admin.post("/import/apply", json=payload).status_code == 400
     payload["competencies"][0]["description"] = "Способен внедрять практики DevOps"

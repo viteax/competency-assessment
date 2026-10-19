@@ -1,6 +1,6 @@
 """Импорт списка студентов из выгрузки СДО: сопоставление с базой, предпросмотр, сохранение.
 
-Чтение файла и распознавание колонок — в student_columns, логины и пароли — в accounts.
+Чтение файла и распознавание колонок – в student_columns, логины и пароли – в accounts.
 Студент узнаётся по идентификатору СДО, затем по e-mail, затем по ФИО в той же группе.
 """
 
@@ -20,7 +20,7 @@ def name_key(full_name: str) -> tuple[str, ...]:
     """Ключ для сравнения ФИО без учёта порядка слов, регистра и ё/е.
 
     Moodle часто выводит «Имя Отчество Фамилия», а в деканатских списках «Фамилия Имя
-    Отчество» — это один и тот же человек.
+    Отчество» – это один и тот же человек.
     """
     return tuple(sorted(full_name.lower().replace("ё", "е").split()))
 
@@ -106,7 +106,7 @@ def preview(
 def _update_student(
     student: models.Student, row: schemas.StudentImportRowIn, group: models.Group
 ) -> bool:
-    """Обновляет поля из файла; пустые значения в файле не затирают данные. True — если менялось."""
+    """Обновляет поля из файла; пустые значения в файле не затирают данные. True – если менялось."""
     changed = False
     # ФИО меняем, только если изменилось само имя, а не порядок слов.
     if name_key(student.full_name) != name_key(row.full_name):
@@ -153,14 +153,14 @@ def apply(session: Session, data: schemas.StudentImportApply) -> schemas.Student
         if not row.group:
             if default_group is None:
                 raise DomainError(
-                    f"{row.full_name}: не указана группа — выберите группу по умолчанию"
+                    f"{row.full_name}: не указана группа – выберите группу по умолчанию"
                 )
             return default_group
         if row.group not in groups:
             target = direction_for_program(row.program, directions) or direction
             if target is None:
                 raise DomainError(
-                    f"группы «{row.group}» нет — выберите направление для новых групп"
+                    f"группы «{row.group}» нет – выберите направление для новых групп"
                 )
             groups[row.group] = models.Group(name=row.group, direction=target)
             session.add(groups[row.group])

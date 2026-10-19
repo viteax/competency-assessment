@@ -13,7 +13,7 @@ def test_not_enough_questions(admin: TestClient):
         },
     )
     assert response.status_code == 400
-    assert "УК-1 — 20 из 21" in response.json()["detail"]
+    assert "УК-1 – 20 из 21" in response.json()["detail"]
 
 
 def test_unknown_competency(admin: TestClient):

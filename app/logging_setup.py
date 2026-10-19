@@ -1,6 +1,6 @@
-"""Логи: в prod — JSON по строке на событие (удобно для docker logs, Loki, ELK), в dev — текст.
+"""Логи: в prod – JSON по строке на событие (удобно для docker logs, Loki, ELK), в dev – текст.
 
-Каждая строка внутри запроса несёт его request_id — по нему находится вся история запроса,
+Каждая строка внутри запроса несёт его request_id – по нему находится вся история запроса,
 а пользователь видит этот же id в ответе с ошибкой и может назвать его администратору.
 """
 
@@ -52,7 +52,7 @@ def setup_logging() -> None:
     root = logging.getLogger()
     root.handlers = [handler]
     root.setLevel(settings.log_level.upper())
-    # Запросы логирует наш middleware (с пользователем и request_id) — встроенный лог доступа
+    # Запросы логирует наш middleware (с пользователем и request_id) – встроенный лог доступа
     # uvicorn дублировал бы его без этих полей.
     logging.getLogger("uvicorn.access").disabled = True
     for name in ("uvicorn", "uvicorn.error"):

@@ -56,7 +56,7 @@ class StudentRegistration(BaseModel):
 
 
 class Registered(BaseModel):
-    username: str  # логин для входа (ФИО, у полных тёзок — ФИО и группа)
+    username: str  # логин для входа (ФИО, у полных тёзок – ФИО и группа)
 
 
 class PasswordChange(BaseModel):
@@ -185,7 +185,7 @@ class QuotaProgress(BaseModel):
     competency_id: int
     code: str
     description: str
-    required: int  # сколько вопросов нужно (0 — квота не задана)
+    required: int  # сколько вопросов нужно (0 – квота не задана)
     done: int  # сколько уже в банке
 
 
@@ -276,7 +276,7 @@ Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 class AnswerOptionIn(BaseModel):
     text: Text
-    # Задание на соответствие: у элемента левого столбца — номер его пары в списке options
+    # Задание на соответствие: у элемента левого столбца – номер его пары в списке options
     # (у элементов правого столбца пусто).
     match_index: int | None = None
 
@@ -290,15 +290,15 @@ class AnswerOptionOut(ORM):
 
 
 class AnswerOptionUpdate(AnswerOptionIn):
-    id: int | None = None  # None — новый вариант
+    id: int | None = None  # None – новый вариант
 
 
 class QuestionIn(BaseModel):
     """Вопрос. Что означают options, зависит от типа (kind):
 
-    - open — допустимые ответы (слово или фраза), регистр не важен;
-    - sequence — элементы в правильном порядке;
-    - matching — левый столбец (у каждого match_index — его пара) и правый столбец
+    - open – допустимые ответы (слово или фраза), регистр не важен;
+    - sequence – элементы в правильном порядке;
+    - matching – левый столбец (у каждого match_index – его пара) и правый столбец
       (match_index пуст; лишние элементы правого столбца допустимы).
     """
 
@@ -355,11 +355,11 @@ class TestCreate(BaseModel):
 
     title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
     competency_ids: list[int] = Field(min_length=1)
-    # Вопросы берутся только из этих дисциплин; пусто — из любых.
+    # Вопросы берутся только из этих дисциплин; пусто – из любых.
     discipline_ids: list[int] = []
     questions_per_competency: int = Field(default=5, ge=1, le=50)
     semester: int | None = Field(default=None, ge=1, le=12)
-    # Сколько вариантов собрать (обычно — по числу студентов группы). Не задано — столько
+    # Сколько вариантов собрать (обычно – по числу студентов группы). Не задано – столько
     # непересекающихся вариантов, на сколько хватает вопросов.
     variant_count: int | None = Field(default=None, ge=1, le=300)
 
@@ -414,7 +414,7 @@ class AssemblyPlan(BaseModel):
 
     group_id: int
     semester: int
-    finished: list[PlanDiscipline]  # завершены до этого семестра — из них берутся вопросы
+    finished: list[PlanDiscipline]  # завершены до этого семестра – из них берутся вопросы
     not_finished: list[PlanDiscipline]  # ещё изучаются или впереди
     unplanned: list[str]  # дисциплины, у которых семестры не указаны ни в одном учебном плане
     question_counts: list[QuestionCount]  # вопросов в банке по завершённым дисциплинам
@@ -545,7 +545,7 @@ class ProfileAxis(BaseModel):
 
     code: str
     name: str
-    value: float | None  # уровень 0..1; None — не проверялась
+    value: float | None  # уровень 0..1; None – не проверялась
     measured: int  # компетенция: сколько студентов проверено; ТФ: сколько её компетенций
     total: int  # компетенция: студентов в выборке; ТФ: всего её компетенций
 
@@ -641,11 +641,11 @@ class StudentImportRowIn(BaseModel):
     external_id: str | None = Field(default=None, max_length=64)
     login: str | None = None
     group: str | None = None
-    program: str | None = None  # образовательная программа — направление для новой группы
+    program: str | None = None  # образовательная программа – направление для новой группы
 
 
 class StudentImportRow(StudentImportRowIn):
-    full_name: str  # в предпросмотре может быть пустым — тогда это проблема строки
+    full_name: str  # в предпросмотре может быть пустым – тогда это проблема строки
     row: int
     role: str | None
     is_student: bool  # роль в СДО похожа на студенческую (или колонки ролей нет)

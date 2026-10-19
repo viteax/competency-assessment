@@ -47,7 +47,7 @@ def test_student_import_and_first_login(new_page):
     page.click(".subnav >> text=Студенты (выгрузка СДО)")
     expect(page.locator("text=Загрузите список студентов")).to_be_visible()
     upload(page, "participants.csv", SDO_PARTICIPANTS.encode(), "text/csv")
-    # Иванов уже есть в группе, преподаватель не студент — новых один
+    # Иванов уже есть в группе, преподаватель не студент – новых один
     expect(page.locator("td:has-text('Новикова')")).to_be_visible()
     page.click("text=Импортировать выбранных")
     expect(page.locator("text=Импорт выполнен")).to_be_visible()

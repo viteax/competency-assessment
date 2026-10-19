@@ -11,17 +11,17 @@ from app.services.common import get_or_404
 def assembly_plan(
     session: Session, group_id: int, semester: int | None = None
 ) -> schemas.AssemblyPlan:
-    """Дисциплины направления группы, завершённые до семестра `semester` (по умолчанию —
+    """Дисциплины направления группы, завершённые до семестра `semester` (по умолчанию –
     текущего), и сколько по ним вопросов в банке.
 
     Остаточные знания проверяют только по завершённым дисциплинам: во 2-м семестре нельзя
-    брать математику, которая идёт в 1–2 семестрах, — её ещё изучают.
+    брать математику, которая идёт в 1–2 семестрах, – её ещё изучают.
     """
     group = get_or_404(session, models.Group, group_id)
     semester = semester or group.current_semester
     if semester is None:
         raise DomainError(
-            f"у группы {group.name} не указан год набора — укажите его или выберите семестр"
+            f"у группы {group.name} не указан год набора – укажите его или выберите семестр"
         )
     entries = session.scalars(
         select(models.CurriculumEntry)

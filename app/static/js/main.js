@@ -164,7 +164,7 @@ function showPasswordChange(me, { forced }) {
     },
       h("h1", {}, forced ? "Задайте свой пароль" : "Смена пароля"),
       forced
-        ? h("p", { class: "muted" }, "Вы вошли с временным паролем, который выдал администратор. Придумайте свой — не короче 8 символов.")
+        ? h("p", { class: "muted" }, "Вы вошли с временным паролем, который выдал администратор. Придумайте свой – не короче 8 символов.")
         : null,
       h("label", {}, forced ? "Временный пароль" : "Текущий пароль"), current,
       h("label", {}, "Новый пароль"), next,
@@ -223,5 +223,5 @@ window.addEventListener("unhandledrejection", (event) => {
   document.getElementById("app").prepend(box.el);
 });
 
-setUnauthorizedHandler(() => showLogin("Сессия завершилась — войдите снова."));
+setUnauthorizedHandler(() => showLogin("Сессия завершилась – войдите снова."));
 start();

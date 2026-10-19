@@ -46,7 +46,7 @@ def test_mastery_threshold_setting(admin: TestClient, student: TestClient):
     ctx = assign(admin, ["ПК-1"])
     started = student.post("/me/attempts", json={"assignment_id": ctx["assignment"]["id"]}).json()
     correct = correct_answers(admin)
-    # 2 верных из 3 — 67 %.
+    # 2 верных из 3 – 67 %.
     answers = [{"question_id": q["id"], **correct[q["id"]]} for q in started["questions"][:2]]
     student.post(f"/me/attempts/{started['attempt_id']}/submit", json={"answers": answers})
 

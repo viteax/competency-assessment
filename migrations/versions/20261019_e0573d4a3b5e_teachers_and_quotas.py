@@ -21,7 +21,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     bind = op.get_bind()
     if bind.dialect.name == "postgresql":
-        # Новое значение перечисления ролей (в SQLite роль — просто строка).
+        # Новое значение перечисления ролей (в SQLite роль – просто строка).
         op.execute("ALTER TYPE role ADD VALUE IF NOT EXISTS 'teacher' BEFORE 'student'")
     op.add_column("app_user", sa.Column("full_name", sa.String(length=255), nullable=True))
     with op.batch_alter_table("curriculum_entry") as batch:

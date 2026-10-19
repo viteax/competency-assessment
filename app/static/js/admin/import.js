@@ -69,7 +69,7 @@ function competencyImportView() {
                     ),
                   ),
                 )
-              : h("span", { class: "muted" }, "—"),
+              : h("span", { class: "muted" }, "–"),
           ),
         );
       }),
@@ -77,13 +77,13 @@ function competencyImportView() {
 
     fill(previewSlot,
       h("div", { class: "card" },
-        h("h2", { style: "margin-top:0" }, `«${p.filename}»: найдено компетенций — ${p.competencies.length}`),
+        h("h2", { style: "margin-top:0" }, `«${p.filename}»: найдено компетенций – ${p.competencies.length}`),
         p.warnings.map((w) => h("p", { class: "error" }, w)),
         p.competencies.length ? [
           h("label", {}, "Дисциплина (компетенции будут к ней привязаны)"),
           discipline,
           p.discipline_name
-            ? h("div", { class: "muted small" }, p.discipline_exists ? "Дисциплина уже есть — компетенции добавятся к ней" : "Дисциплина будет создана")
+            ? h("div", { class: "muted small" }, p.discipline_exists ? "Дисциплина уже есть – компетенции добавятся к ней" : "Дисциплина будет создана")
             : null,
           h("label", { class: "inline" }, overwrite, "Перезаписать формулировки существующих компетенций и индикаторов"),
           h("div", { class: "table-wrap", style: "margin-top:12px" }, table),
@@ -182,16 +182,16 @@ export async function studentImportView() {
 
   function showPreview(p) {
     const applyErr = errorBox();
-    const columnOptions = [["", "—"], ...p.headers.map((hd, i) => [String(i), `${i + 1}: ${hd || "(без заголовка)"}`])];
+    const columnOptions = [["", "–"], ...p.headers.map((hd, i) => [String(i), `${i + 1}: ${hd || "(без заголовка)"}`])];
     const mappingSelects = STUDENT_FIELDS.map(([field, label]) => {
       const select = h("select", {}, columnOptions.map(([v, t]) => h("option", { value: v }, t)));
       select.value = p.mapping[field] === null || p.mapping[field] === undefined ? "" : String(p.mapping[field]);
       return [field, label, select];
     });
 
-    const defaultGroup = h("select", {}, h("option", { value: "" }, "— не задана —"),
+    const defaultGroup = h("select", {}, h("option", { value: "" }, "– не задана –"),
       groups.map((g) => h("option", { value: g.id }, g.name)));
-    const direction = h("select", {}, h("option", { value: "" }, "— выберите —"),
+    const direction = h("select", {}, h("option", { value: "" }, "– выберите –"),
       directions.map((d) => h("option", { value: d.id }, `${d.code} ${d.name}`)));
     const createAccounts = h("input", { type: "checkbox", checked: true });
 
@@ -203,11 +203,11 @@ export async function studentImportView() {
 
     fill(previewSlot,
       h("div", { class: "card" },
-        h("h2", { style: "margin-top:0" }, `«${p.filename}»: строк — ${p.rows.length}`),
+        h("h2", { style: "margin-top:0" }, `«${p.filename}»: строк – ${p.rows.length}`),
         // Если колонку с ФИО не узнали, сразу показываем сопоставление.
         h("details", { open: p.mapping.full_name === null && p.mapping.last_name === null },
           h("summary", {}, "Сопоставление колонок"),
-          h("p", { class: "muted small" }, "Колонки определены по заголовкам. Если что-то не так — выберите нужные и нажмите «Применить»."),
+          h("p", { class: "muted small" }, "Колонки определены по заголовкам. Если что-то не так – выберите нужные и нажмите «Применить»."),
           h("div", { class: "mapping-grid" },
             mappingSelects.map(([, label, select]) => h("div", {}, h("label", {}, label), select)),
           ),
@@ -232,11 +232,11 @@ export async function studentImportView() {
               return h("tr", { class: r.is_student ? "" : "muted" },
                 h("td", {}, include),
                 h("td", {}, r.row),
-                h("td", { class: "wrap" }, r.full_name || "—", r.problems.map((pr) => h("div", { class: "error small", style: "margin:0" }, pr))),
-                h("td", {}, r.existing_group && r.group && r.existing_group !== r.group ? `${r.existing_group} → ${r.group}` : (r.group || r.existing_group || "—")),
-                h("td", {}, r.email || "—"),
-                h("td", {}, r.external_id || "—"),
-                h("td", {}, r.role || "—"),
+                h("td", { class: "wrap" }, r.full_name || "–", r.problems.map((pr) => h("div", { class: "error small", style: "margin:0" }, pr))),
+                h("td", {}, r.existing_group && r.group && r.existing_group !== r.group ? `${r.existing_group} → ${r.group}` : (r.group || r.existing_group || "–")),
+                h("td", {}, r.email || "–"),
+                h("td", {}, r.external_id || "–"),
+                h("td", {}, r.role || "–"),
                 h("td", {}, h("span", { class: `badge ${cls}` }, label)),
               );
             }),
@@ -286,7 +286,7 @@ export async function studentImportView() {
         ),
         result.accounts.length
           ? [
-              h("p", { class: "error" }, "Пароли показываются только сейчас — скачайте список и передайте студентам."),
+              h("p", { class: "error" }, "Пароли показываются только сейчас – скачайте список и передайте студентам."),
               h("button", {
                 class: "primary",
                 onclick: () => downloadCsv("logins.csv", [["ФИО", "Группа", "Логин", "Пароль"], ...accountRows]),

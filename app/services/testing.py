@@ -24,7 +24,7 @@ def ensure_unique_title(session: Session, title: str) -> None:
     key = title_key(title)
     if any(title_key(t) == key for t in session.scalars(select(models.Test.title))):
         raise Conflict(
-            f"тест «{title}» уже есть — выберите другое название или назначьте существующий тест"
+            f"тест «{title}» уже есть – выберите другое название или назначьте существующий тест"
         )
 
 
@@ -34,7 +34,7 @@ def _variant_chunks(
     """`count` наборов по k разных вопросов из пула, вопросы расходуются равномерно.
 
     Пул идёт по кругу в случайном порядке, каждый новый круг перемешивается заново. Пока
-    вопросов хватает, наборы не пересекаются (20 вопросов по 5 — 4 непересекающихся набора);
+    вопросов хватает, наборы не пересекаются (20 вопросов по 5 – 4 непересекающихся набора);
     дальше вопросы повторяются в разных наборах, но каждый используется примерно одинаково часто.
     """
     stream: list[models.Question] = []
@@ -58,12 +58,12 @@ def create_test(
 ) -> models.Test:
     """Собирает тест в нескольких вариантах.
 
-    По каждой компетенции нужно k = questions_per_competency вопросов на вариант. Вариантов —
+    По каждой компетенции нужно k = questions_per_competency вопросов на вариант. Вариантов –
     сколько попросили (обычно по числу студентов группы, чтобы у каждого был свой); пока
     вопросов хватает, варианты не пересекаются, дальше частично пересекаются (3 вопроса из
     одного набора, 2 из другого). Одинаковых вариантов не бывает: если различных сочетаний
     вопросов меньше, чем попросили, вариантов будет столько, сколько сочетаний возможно.
-    Без variant_count — столько непересекающихся вариантов, на сколько хватает вопросов.
+    Без variant_count – столько непересекающихся вариантов, на сколько хватает вопросов.
     """
     rng = rng or random.Random()
     ensure_unique_title(session, data.title)
@@ -78,7 +78,7 @@ def create_test(
             stmt = stmt.where(models.Question.discipline_id.in_([d.id for d in disciplines]))
         pools.append(list(session.scalars(stmt.order_by(models.Question.id))))
     short = [
-        f"{c.code} — {len(pool)} из {k}"
+        f"{c.code} – {len(pool)} из {k}"
         for c, pool in zip(competencies, pools, strict=True)
         if len(pool) < k
     ]
@@ -97,7 +97,7 @@ def create_test(
         questions = [q for chunk in chunks for q in chunk]
         key = frozenset(q.id for q in questions)
         attempts = 0
-        while key in seen and attempts < 50:  # такой вариант уже есть — собираем заново
+        while key in seen and attempts < 50:  # такой вариант уже есть – собираем заново
             questions = [q for pool in pools for q in rng.sample(pool, k)]
             key = frozenset(q.id for q in questions)
             attempts += 1
@@ -123,7 +123,7 @@ def delete_test(session: Session, test_id: int) -> None:
         .where(models.Assignment.test_id == test.id)
         .limit(1)
     ):
-        raise Conflict("тест уже проходили — удалить его нельзя, иначе пропадут результаты")
+        raise Conflict("тест уже проходили – удалить его нельзя, иначе пропадут результаты")
     for assignment in test.assignments:
         session.delete(assignment)
     session.delete(test)
@@ -135,7 +135,7 @@ def delete_assignment(session: Session, assignment_id: int) -> None:
     if session.scalar(
         select(models.Attempt.id).where(models.Attempt.assignment_id == assignment.id).limit(1)
     ):
-        raise Conflict("группа уже проходит этот тест — снять назначение нельзя")
+        raise Conflict("группа уже проходит этот тест – снять назначение нельзя")
     session.delete(assignment)
     session.commit()
 
@@ -184,7 +184,7 @@ def _choose_variant(session: Session, assignment: models.Assignment) -> int:
 
 def shuffle_away(items: list, rng: random.Random) -> None:
     """Перемешивает так, чтобы порядок отличался от исходного: в последовательности
-    исходный порядок — правильный ответ."""
+    исходный порядок – правильный ответ."""
     original = items[:]
     rng.shuffle(items)
     if len(items) > 1 and items == original:
@@ -230,7 +230,7 @@ def normalize_answer(text: str) -> str:
 
 
 def _grade(question: models.Question, answer: schemas.AnswerIn | None) -> tuple[bool, str | None]:
-    """(верно ли, ответ для сохранения в JSON). Нет ответа — неверно."""
+    """(верно ли, ответ для сохранения в JSON). Нет ответа – неверно."""
     if answer is None:
         return False, None
     kind = question.kind
@@ -301,7 +301,7 @@ def submit_attempt(
         given[answer.question_id] = answer
 
     # Вопросы без ответа засчитываются как неверные. Задание засчитывается целиком:
-    # «полное совпадение с верным ответом — 1 балл, иначе 0».
+    # «полное совпадение с верным ответом – 1 балл, иначе 0».
     attempt.answers = []
     score = 0
     for question in questions.values():

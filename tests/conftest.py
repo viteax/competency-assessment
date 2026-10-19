@@ -67,5 +67,5 @@ def admin(login) -> TestClient:
 
 @pytest.fixture
 def student(login) -> TestClient:
-    """student1 — Иванов Иван Иванович из группы ПИ-21."""
+    """student1 – Иванов Иван Иванович из группы ПИ-21."""
     return login("student1", STUDENT_PASSWORD)

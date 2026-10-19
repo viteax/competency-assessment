@@ -25,10 +25,10 @@ def test_fund_and_test_documents(new_page):
     expect(page.locator("text=Выберите дисциплину, чтобы выгрузить")).to_be_visible()
     page.get_by_label("Дисциплина", exact=True).select_option(label="Операционные системы")
     name, doc = downloaded(page, "ФОМ дисциплины (Word)")
-    assert name == "ФОМ — Операционные системы.docx"
+    assert name == "ФОМ – Операционные системы.docx"
     assert doc.paragraphs[0].text == "Фонд оценочных материалов дисциплины"
     name, _ = downloaded(page, "ФОМ с ответами (Word)")
-    assert name == "ФОМ — Операционные системы — ключ.docx"
+    assert name == "ФОМ – Операционные системы – ключ.docx"
 
     page.click("nav >> text=Назначить тест")
     assign_new_test(page, "Контрольная", ["ОПК-5"], per_competency=5)
@@ -36,5 +36,5 @@ def test_fund_and_test_documents(new_page):
     page.click("text=Открыть")
     page.get_by_label("Вариант для Word").select_option(label="Вариант 3")
     name, doc = downloaded(page, "Тест с ответами (Word)")
-    assert name == "Контрольная, вариант 3 — ключ.docx"
+    assert name == "Контрольная, вариант 3 – ключ.docx"
     assert "«Контрольная», вариант 3" in [p.text for p in doc.paragraphs]

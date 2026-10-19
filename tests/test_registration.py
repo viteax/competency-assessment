@@ -32,7 +32,7 @@ def test_register_and_login_by_full_name(admin: TestClient, client: TestClient):
     assert response.status_code == 201, response.text
     assert response.json() == {"username": "Ёлкина Алёна Сергеевна"}
 
-    # Входит по ФИО — без учёта регистра, «ё/е» и лишних пробелов; пароль менять не нужно.
+    # Входит по ФИО – без учёта регистра, «ё/е» и лишних пробелов; пароль менять не нужно.
     token = client.post(
         "/auth/token",
         data={"username": "ЕЛКИНА  АЛЕНА СЕРГЕЕВНА", "password": "Свой-пароль-2026"},

@@ -29,7 +29,7 @@ def list_tests(session: SessionDep):
 
 @router.get("/tests/plan", response_model=schemas.AssemblyPlan)
 def assembly_plan(group_id: int, session: SessionDep, semester: int | None = None):
-    """Завершённые группой к семестру дисциплины (по умолчанию — к текущему) и сколько по ним
+    """Завершённые группой к семестру дисциплины (по умолчанию – к текущему) и сколько по ним
     вопросов в банке: из этого собирается тест на остаточные знания."""
     return curriculum.assembly_plan(session, group_id, semester)
 
@@ -43,7 +43,7 @@ def get_test(test_id: int, session: SessionDep):
 @router.get("/tests/{test_id}/document.docx", response_class=Response)
 def test_document(test_id: int, session: SessionDep, key: bool = False, variant: int | None = None):
     """Тест в Word по образцу ФОМ: бланк (поля «Ответ» пустые) или ключ (key=true).
-    Без variant — все варианты, каждый с новой страницы."""
+    Без variant – все варианты, каждый с новой страницы."""
     content, filename = fund.test_document(session, test_id, key, variant)
     return attachment(content, filename, DOCX)
 

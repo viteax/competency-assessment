@@ -1,6 +1,6 @@
 """Браузерные тесты: настоящий сервер uvicorn + Chromium через Playwright.
 
-Запуск: uv run pytest -m e2e  (в обычный прогон не входят — они медленнее).
+Запуск: uv run pytest -m e2e  (в обычный прогон не входят – они медленнее).
 Браузер: uv run playwright install chromium, либо путь к своему Chromium в E2E_CHROMIUM.
 """
 
@@ -34,7 +34,7 @@ def _env(db: Path) -> dict[str, str]:
 
 @pytest.fixture(scope="session")
 def seeded_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """База с миграциями и демо-данными — готовится один раз, каждому тесту копия."""
+    """База с миграциями и демо-данными – готовится один раз, каждому тесту копия."""
     db = tmp_path_factory.mktemp("template") / "seeded.db"
     subprocess.run([sys.executable, "-m", "scripts.seed"], cwd=ROOT, env=_env(db), check=True)
     return db
@@ -139,7 +139,7 @@ def admin_page(page: Page) -> Page:
 
 def assign_new_test(page: Page, title: str, codes: list[str], per_competency: int = 3) -> None:
     """Вкладка «Назначить тест» администратора: собрать новый тест группе по умолчанию
-    (семестр подставляется текущий, вопросы — из завершённых дисциплин)."""
+    (семестр подставляется текущий, вопросы – из завершённых дисциплин)."""
     page.wait_for_selector("text=Завершены до")
     for code in codes:
         page.locator("label", has_text=re.compile(rf"^{code} ")).locator("input").check()

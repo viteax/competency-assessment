@@ -20,7 +20,7 @@ def file_kind(filename: str, data: bytes, allowed: tuple[str, ...]) -> str:
         raise DomainError("файл больше 10 МБ")
     if ext in _OLD_FORMATS:
         raise DomainError(
-            f"старый формат {ext} не поддерживается — сохраните файл как {_OLD_FORMATS[ext]}"
+            f"старый формат {ext} не поддерживается – сохраните файл как {_OLD_FORMATS[ext]}"
         )
     if ext not in allowed:
         raise DomainError(f"поддерживаются файлы {', '.join(allowed)}")
@@ -44,7 +44,7 @@ def decode_text(data: bytes) -> str:
             return data.decode(encoding)
         except UnicodeDecodeError:
             continue
-    raise DomainError("не удалось определить кодировку — сохраните файл в UTF-8")
+    raise DomainError("не удалось определить кодировку – сохраните файл в UTF-8")
 
 
 def csv_rows(text: str) -> list[list[str]]:

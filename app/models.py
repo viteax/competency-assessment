@@ -41,7 +41,7 @@ class Role(enum.StrEnum):
 
 
 class QuestionKind(enum.StrEnum):
-    """Тип задания (названия — как в фонде оценочных материалов)."""
+    """Тип задания (названия – как в фонде оценочных материалов)."""
 
     MATCHING = "matching"  # на установление соответствия
     SEQUENCE = "sequence"  # на установление последовательности
@@ -66,7 +66,7 @@ discipline_competency = Table(
     Column("competency_id", ForeignKey("competency.id", ondelete="CASCADE"), primary_key=True),
 )
 
-# Дисциплины, из вопросов которых собран тест (пусто — из любых).
+# Дисциплины, из вопросов которых собран тест (пусто – из любых).
 test_discipline = Table(
     "test_discipline",
     Base.metadata,
@@ -137,16 +137,16 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(64), unique=True)
-    # ФИО преподавателя (у студента ФИО — в записи Student).
+    # ФИО преподавателя (у студента ФИО – в записи Student).
     full_name: Mapped[str | None] = mapped_column(String(255))
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[Role] = mapped_column(Enum(Role, values_callable=lambda e: [m.value for m in e]))
     student_id: Mapped[int | None] = mapped_column(ForeignKey("student.id"), unique=True)
     # Выданный администратором пароль нужно сменить при первом входе.
     must_change_password: Mapped[bool] = mapped_column(default=False, server_default=false())
-    # Увеличивается при смене/сбросе пароля — все ранее выданные токены перестают действовать.
+    # Увеличивается при смене/сбросе пароля – все ранее выданные токены перестают действовать.
     token_version: Mapped[int] = mapped_column(default=0, server_default="0")
-    # Когда создана учётка: студент мог зарегистрироваться сам — администратору видно, когда.
+    # Когда создана учётка: студент мог зарегистрироваться сам – администратору видно, когда.
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, server_default=func.now()
     )
@@ -155,7 +155,7 @@ class User(Base):
 
 
 class LoginFailure(Base):
-    """Неудачная попытка входа — для защиты от перебора паролей."""
+    """Неудачная попытка входа – для защиты от перебора паролей."""
 
     __tablename__ = "login_failure"
 
@@ -369,9 +369,9 @@ class Question(Base):
     indicator: Mapped[Indicator | None] = relationship()
     discipline: Mapped[Discipline | None] = relationship()
     # Смысл вариантов зависит от типа задания:
-    #   open     — допустимые ответы (сравниваются без учёта регистра);
-    #   sequence — элементы в правильном порядке (position);
-    #   matching — левый столбец (match — пара из правого) и правый столбец (match пуст;
+    #   open     – допустимые ответы (сравниваются без учёта регистра);
+    #   sequence – элементы в правильном порядке (position);
+    #   matching – левый столбец (match – пара из правого) и правый столбец (match пуст;
     #              в правом могут быть лишние элементы).
     options: Mapped[list["AnswerOption"]] = relationship(
         back_populates="question",

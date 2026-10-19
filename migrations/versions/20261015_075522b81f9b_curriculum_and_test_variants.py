@@ -50,7 +50,7 @@ def upgrade() -> None:
         "test_question", sa.Column("variant", sa.Integer(), server_default="1", nullable=False)
     )
 
-    # Дисциплина теста переезжает в связь «тест — дисциплины»: тест можно собрать из нескольких.
+    # Дисциплина теста переезжает в связь «тест – дисциплины»: тест можно собрать из нескольких.
     op.execute(
         "INSERT INTO test_discipline (test_id, discipline_id) "
         "SELECT id, discipline_id FROM test WHERE discipline_id IS NOT NULL"

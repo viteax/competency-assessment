@@ -21,13 +21,13 @@ export async function adminTests(render) {
           h("tr", {}, ["Тест", "Семестр", "Вариантов", "Вопросов у студента", "Создан", ""].map((t) => h("th", {}, t))),
           tests.map((t) => h("tr", {},
             h("td", { class: "wrap" }, t.title),
-            h("td", {}, t.semester ?? "—"),
+            h("td", {}, t.semester ?? "–"),
             h("td", {}, t.variant_count),
             h("td", {}, t.questions_per_variant),
             h("td", {}, new Date(t.created_at).toLocaleDateString("ru-RU")),
             h("td", { class: "actions" }, h("button", { class: "link", onclick: () => open(t.id) }, "Открыть")),
           )))
-      : h("p", { class: "muted" }, "Тестов пока нет — соберите первый во вкладке «Назначить тест»."));
+      : h("p", { class: "muted" }, "Тестов пока нет – соберите первый во вкладке «Назначить тест»."));
   }
 
   async function open(testId) {
@@ -90,11 +90,11 @@ export async function adminTests(render) {
             )))
         : h("p", { class: "muted" }, "Пока никому не назначен."),
       h("h3", {}, `Варианты (${t.variant_count})`),
-      h("p", { class: "muted small" }, "Варианты не пересекаются по вопросам. Каждому студенту при открытии теста достаётся случайный из тех, что выданы реже, а порядок вопросов и ответов перемешивается. Правильные ответы отмечены ✓, для последовательности — верный порядок."),
+      h("p", { class: "muted small" }, "Варианты не пересекаются по вопросам. Каждому студенту при открытии теста достаётся случайный из тех, что выданы реже, а порядок вопросов и ответов перемешивается. Правильные ответы отмечены ✓, для последовательности – верный порядок."),
       t.variants.map((v) => h("details", { open: t.variant_count === 1 },
-        h("summary", {}, `Вариант ${v.variant} — ${v.questions.length} вопр.`),
+        h("summary", {}, `Вариант ${v.variant} – ${v.questions.length} вопр.`),
         h("ol", {}, v.questions.map((q) => h("li", { style: "margin:8px 0" },
-          h("span", { class: "badge" }, codes.get(q.competency_id) || "—"), " ",
+          h("span", { class: "badge" }, codes.get(q.competency_id) || "–"), " ",
           h("span", { class: "muted small" }, QUESTION_KINDS[q.kind], ". "), q.text,
           answerKey(q),
         ))),
@@ -103,7 +103,7 @@ export async function adminTests(render) {
         h("button", {
           class: "danger",
           disabled: t.assignments.some((a) => a.started),
-          title: t.assignments.some((a) => a.started) ? "Тест уже проходили — удалить нельзя, иначе пропадут результаты" : "",
+          title: t.assignments.some((a) => a.started) ? "Тест уже проходили – удалить нельзя, иначе пропадут результаты" : "",
           onclick: async () => {
             if (!confirm(`Удалить тест «${t.title}»? Назначения группам тоже удалятся.`)) return;
             try {

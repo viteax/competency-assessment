@@ -1,9 +1,9 @@
 """Импорт компетенций и индикаторов из файлов ОПОП / РПД.
 
-Структура таких документов у вузов разная (таблица «код — формулировка — индикаторы»,
+Структура таких документов у вузов разная (таблица «код – формулировка – индикаторы»,
 сплошной текст, матрица компетенций в Excel), поэтому разбор не завязан на вёрстку:
 из файла извлекается текст, а в нём ищутся коды вида УК-1, ОПК-5, ПК-2 и коды
-индикаторов (УК-1.1, ИУК-1.1, ИД-1.УК-1, ИД-1 ОПК-5 …). Формулировка — текст после
+индикаторов (УК-1.1, ИУК-1.1, ИД-1.УК-1, ИД-1 ОПК-5 …). Формулировка – текст после
 кода до следующего кода. Результат показывается администратору для проверки и только
 потом сохраняется.
 """
@@ -20,14 +20,14 @@ from app.services import files
 
 SUPPORTED = (".docx", ".xlsx", ".pdf", ".txt")
 
-_DASH = r"[-‑–—]"
+_DASH = r"[-‑–\u2014]"  # дефис, неразрывный дефис, среднее и длинное тире
 _KIND = r"(?P<{name}>УК|ОПК|ПК)"
 _NOT_LETTER = r"(?<![А-Яа-яЁёA-Za-z])"
 
 _CODE_RE = re.compile(
     "|".join(
         [
-            # ИД-1.УК-1, ИД-1 ОПК-5, ИД1.ПК-2 — номер индикатора перед кодом компетенции
+            # ИД-1.УК-1, ИД-1 ОПК-5, ИД1.ПК-2 – номер индикатора перед кодом компетенции
             rf"{_NOT_LETTER}ИДК?\s?{_DASH}?\s?(?P<a_ind>\d+)\s?[.\s]?\s?"
             rf"{_KIND.format(name='a_kind')}\s?{_DASH}\s?(?P<a_num>\d+)",
             # УК-1.1, ИУК-1.1, ИД-УК-1.1, ИДК-ОПК-5.2
@@ -86,8 +86,8 @@ def extract_text(filename: str, data: bytes) -> str:
 
 def _clean(text: str) -> str:
     text = re.sub(r"\s+", " ", text).strip()
-    text = text.strip(" .:;,–—-|")
-    text = text.removeprefix("– ").removeprefix("— ")
+    text = text.strip(" .:;,–\u2014-|")
+    text = text.removeprefix("– ").removeprefix("\u2014 ")
     if _NOISE_RE.match(text):
         return ""
     return text[:2000]
@@ -179,7 +179,7 @@ def preview(session: Session, filename: str, parsed: ParsedDocument) -> schemas.
         else:
             status = "same"
         if current is None and not pc.description:
-            warnings.append(f"{code}: формулировка не найдена — укажите её перед импортом")
+            warnings.append(f"{code}: формулировка не найдена – укажите её перед импортом")
         items.append(
             schemas.ImportCompetency(
                 code=code,

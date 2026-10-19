@@ -38,7 +38,7 @@ app = ["static/*", "static/js/*", "static/js/admin/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Браузерные тесты (tests/e2e) — отдельно: uv run pytest -m e2e
+# Браузерные тесты (tests/e2e) – отдельно: uv run pytest -m e2e
 addopts = "-m 'not e2e'"
 markers = ["e2e: браузерные тесты через Playwright, нужен Chromium"]
 

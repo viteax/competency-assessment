@@ -43,13 +43,13 @@ def create_question(session: Session, data: schemas.QuestionIn) -> models.Questi
 
 
 def _same_answers(question: models.Question, data: schemas.QuestionUpdate) -> bool:
-    """Те же варианты с тем же правильным ответом, порядком и парами (тексты — любые)."""
+    """Те же варианты с тем же правильным ответом, порядком и парами (тексты – любые)."""
     current = {o.id: o for o in question.options}
     new_ids = [o.id for o in data.options]
     old_ids = [o.id for o in question.options]
     if data.kind != question.kind or sorted(new_ids, key=str) != sorted(old_ids, key=str):
         return False
-    # Порядок важен только в последовательности; в остальных типах — это порядок показа.
+    # Порядок важен только в последовательности; в остальных типах – это порядок показа.
     if data.kind == models.QuestionKind.SEQUENCE and new_ids != old_ids:
         return False
     for o in data.options:

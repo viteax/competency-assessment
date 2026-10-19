@@ -29,7 +29,7 @@ def validate_new_password(password: str, username: str) -> None:
         raise DomainError("пароль не должен содержать логин")
     if is_common_password(password):
         raise DomainError(
-            "этот пароль слишком распространён — его подберут первым, придумайте другой"
+            "этот пароль слишком распространён – его подберут первым, придумайте другой"
         )
 
 
@@ -41,7 +41,7 @@ def _aware(moment: datetime) -> datetime:
 def throttle(session: Session, username: str, ip: str, trusted_device: bool = False) -> None:
     """Защита от подбора пароля, рассчитанная на вуз, где все выходят в интернет с одного IP.
 
-    Жёсткой блокировки нет — иначе студент мог бы закрыть вход одногруппнику или всему
+    Жёсткой блокировки нет – иначе студент мог бы закрыть вход одногруппнику или всему
     кампусу. Вместо этого после нескольких неудач по логину попытки разрешены не чаще раза
     в login_slowdown_seconds: подобрать так пароль нереально, а настоящий владелец просто
     ждёт полминуты. С устройства, где владелец уже входил, замедления нет вовсе. Потолок
@@ -56,7 +56,7 @@ def throttle(session: Session, username: str, ip: str, trusted_device: bool = Fa
     )
     if by_ip >= settings.login_max_failures_per_ip:
         raise TooManyRequests(
-            "слишком много неудачных попыток входа с этого адреса — попробуйте позже",
+            "слишком много неудачных попыток входа с этого адреса – попробуйте позже",
             headers={"Retry-After": str(settings.login_window_minutes * 60)},
         )
     if trusted_device:
@@ -73,7 +73,7 @@ def throttle(session: Session, username: str, ip: str, trusted_device: bool = Fa
     if wait > 0:
         seconds = math.ceil(wait)
         raise TooManyRequests(
-            f"несколько неверных паролей подряд — следующая попытка через {seconds} с",
+            f"несколько неверных паролей подряд – следующая попытка через {seconds} с",
             headers={"Retry-After": str(seconds)},
         )
 
@@ -94,14 +94,14 @@ def authenticate(
 
 def record_failure(session: Session, username: str, ip: str) -> None:
     session.add(models.LoginFailure(username=username[:64], ip=ip))
-    # Заодно чистим записи старше окна — таблица не растёт бесконечно.
+    # Заодно чистим записи старше окна – таблица не растёт бесконечно.
     horizon = models.utcnow() - timedelta(minutes=settings.login_window_minutes)
     session.execute(delete(models.LoginFailure).where(models.LoginFailure.created_at < horizon))
     session.commit()
 
 
 def find_user(session: Session, login: str) -> models.User | None:
-    """Учётка по логину. Студенты входят по ФИО — его сравниваем без учёта регистра, «ё/е»
+    """Учётка по логину. Студенты входят по ФИО – его сравниваем без учёта регистра, «ё/е»
     и лишних пробелов (в Python: lower() в SQLite не работает с кириллицей)."""
     user = session.scalar(select(models.User).where(models.User.username == login))
     if user is not None or " " not in login.strip():

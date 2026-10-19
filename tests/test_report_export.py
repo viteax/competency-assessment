@@ -83,7 +83,7 @@ def test_excel_export(admin: TestClient, student: TestClient):
     rows = {r[0]: r for r in ws.iter_rows(min_row=2, values_only=True) if r[0]}
     ivanov = rows["Иванов Иван Иванович"]
     assert ivanov[1] == "ПИ-21" and ivanov[2]
-    # Порядок вопросов перемешан: сумма верных — 4 из 6, по компетенциям — «N из 3».
+    # Порядок вопросов перемешан: сумма верных – 4 из 6, по компетенциям – «N из 3».
     cells = ivanov[3:5]
     assert all(c.endswith(" из 3") for c in cells)
     assert sum(int(c.split()[0]) for c in cells) == 4

@@ -50,7 +50,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         if exposed:
             raise RuntimeError(
                 "в ENVIRONMENT=prod у демо-учёток публичные пароли: "
-                f"{', '.join(exposed)} — удалите их или смените пароли"
+                f"{', '.join(exposed)} – удалите их или смените пароли"
             )
     yield
 
@@ -106,7 +106,7 @@ def index() -> RedirectResponse:
 
 @app.get("/health", tags=["Служебное"])
 def health() -> dict[str, str]:
-    """Процесс жив (liveness). Базу не трогает — чтобы оркестратор не перезапускал
+    """Процесс жив (liveness). Базу не трогает – чтобы оркестратор не перезапускал
     приложение из-за проблем с БД."""
     return {"status": "ok", "version": VERSION}
 

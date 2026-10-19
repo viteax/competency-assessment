@@ -116,7 +116,7 @@ def parse_row(row: list[str], m: Mapping) -> ParsedRow:
         email=cell("email").lower(),
         external_id=cell("external_id") or cell("login"),
         login=cell("login"),
-        # В Moodle в колонке «Группы» может быть несколько групп через запятую — берём первую.
+        # В Moodle в колонке «Группы» может быть несколько групп через запятую – берём первую.
         group=re.split(r"[,;]", cell("group"))[0].strip(),
         program=cell("program"),
         role=cell("role"),

@@ -32,7 +32,7 @@ def test_ready_checks_database(client: TestClient):
 def test_request_id(client: TestClient):
     generated = client.get("/health").headers["X-Request-ID"]
     assert len(generated) == 16
-    # Id от обратного прокси сохраняется — по нему связываются логи прокси и приложения.
+    # Id от обратного прокси сохраняется – по нему связываются логи прокси и приложения.
     assert (
         client.get("/health", headers={"X-Request-ID": "proxy-42"}).headers["X-Request-ID"]
         == "proxy-42"
@@ -53,7 +53,7 @@ def test_unhandled_error_is_logged_not_leaked(caplog):
     assert response.status_code == 500
     assert request_id in response.json()["detail"]
     assert "секретная" not in response.text
-    assert "секретная деталь реализации" in caplog.text  # стектрейс — в лог
+    assert "секретная деталь реализации" in caplog.text  # стектрейс – в лог
 
 
 def test_json_log_line():

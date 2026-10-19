@@ -88,7 +88,7 @@ def test_moodle_participants_preview(admin: TestClient):
     assert rows["Анна Викторовна Преподавателева"]["is_student"] is False
     # Из «ПИ-22, Подгруппа 1» берётся первая группа.
     assert rows["Пётр Сергеевич Козлов"]["group"] == "ПИ-22"
-    # Иванов уже есть в ПИ-21 как «Иванов Иван Иванович» — порядок слов не важен.
+    # Иванов уже есть в ПИ-21 как «Иванов Иван Иванович» – порядок слов не важен.
     ivanov = rows["Иван Иванович Иванов"]
     assert (ivanov["status"], ivanov["external_id"]) == ("update", None)  # добавится e-mail
     assert {r["status"] for n, r in rows.items() if n != "Иван Иванович Иванов"} == {"new"}
@@ -100,7 +100,7 @@ def test_apply_creates_groups_students_and_accounts(admin: TestClient, login):
     payload = {"students": selected(p), "direction_id": direction_id(admin)}
     result = admin.post("/import/students/apply", json=payload).json()
     assert (result["created"], result["updated"], result["created_groups"]) == (2, 1, ["ПИ-22"])
-    # У Иванова уже есть учётка student1, новые — только у новых студентов.
+    # У Иванова уже есть учётка student1, новые – только у новых студентов.
     accounts = {a["username"]: a for a in result["accounts"]}
     assert set(accounts) == {"novikova", "kozlov"}
     ivanov = next(
@@ -138,7 +138,7 @@ def test_gradebook_matches_by_external_id_and_moves_group(admin: TestClient):
         },
     )
 
-    # Смирнову перевели в другую группу и исправили ФИО — узнаём по индивидуальному номеру.
+    # Смирнову перевели в другую группу и исправили ФИО – узнаём по индивидуальному номеру.
     wb = Workbook()
     ws = wb.active
     ws.append(["Фамилия", "Имя", "Индивидуальный номер", "Группа"])
@@ -185,7 +185,7 @@ def test_existing_student_matched_by_name_and_group(admin: TestClient):
     result = admin.post(
         "/import/students/apply", json={"students": selected({"rows": [row]})}
     ).json()
-    # У Иванова из демо-данных уже есть учётка student1 — новую не создаём.
+    # У Иванова из демо-данных уже есть учётка student1 – новую не создаём.
     assert (result["created"], result["updated"], result["accounts"]) == (0, 1, [])
 
 

@@ -32,7 +32,7 @@ function screenPalette() {
 
 const score = (value) => (value * MAX).toLocaleString("ru-RU", { maximumFractionDigits: 1 });
 const point = (i, n, r) => {
-  const angle = -Math.PI / 2 + (2 * Math.PI * i) / n; // первая ось — вверх, по часовой
+  const angle = -Math.PI / 2 + (2 * Math.PI * i) / n; // первая ось – вверх, по часовой
   return [CENTER + r * Math.cos(angle), CENTER + r * Math.sin(angle)];
 };
 
@@ -59,7 +59,7 @@ function radarSvg(title, axes, palette, onHover, withTitle = false, legend = [])
     }, title));
   }
 
-  // Сетка: кольца 1..5 и лучи — тонкие и бледные, чтобы не спорить с данными.
+  // Сетка: кольца 1..5 и лучи – тонкие и бледные, чтобы не спорить с данными.
   for (let ring = 1; ring <= MAX; ring++) {
     const pts = axes.map((_, i) => point(i, n, (RADIUS * ring) / MAX).join(",")).join(" ");
     svg.append(s("polygon", { points: pts, fill: "none", stroke: palette.grid, "stroke-width": 1 }));

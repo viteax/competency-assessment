@@ -41,7 +41,7 @@ def get_current_user(
     # который чужой сайт выставить не может (защита от CSRF вдобавок к SameSite=Strict).
     if not bearer and request.method not in _SAFE_METHODS and CSRF_HEADER not in request.headers:
         raise Forbidden("запрос отклонён: нет заголовка X-Requested-With")
-    # Для журнала действий — только простые значения: сессия БД к тому времени закрыта.
+    # Для журнала действий – только простые значения: сессия БД к тому времени закрыта.
     request.state.actor = (user.id, user.username)
     # Скользящая сессия: при активности продлеваем cookie (ставит middleware), без активности
     # она истекает через session_idle_minutes.

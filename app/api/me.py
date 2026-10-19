@@ -77,7 +77,7 @@ def my_labor_functions(student: CurrentStudent, session: SessionDep):
 
 @router.get("/reports/profile", response_model=schemas.Profile)
 def my_profile(student: CurrentStudent, session: SessionDep):
-    """Мои уровни по компетенциям и трудовым функциям — для «розы ветров»."""
+    """Мои уровни по компетенциям и трудовым функциям – для «розы ветров»."""
     result = reports.profile(session, [student.id])
     result.legend = reports.student_legend(student)
     return result

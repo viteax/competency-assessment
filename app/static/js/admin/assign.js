@@ -1,6 +1,6 @@
 // Назначение теста группе. Новый тест собирается так, как проводят оценку остаточных знаний:
 // группа → семестр → дисциплины, завершённые до него → компетенции этих дисциплин →
-// вопросы только из завершённых дисциплин, в вариантах — по числу студентов группы.
+// вопросы только из завершённых дисциплин, в вариантах – по числу студентов группы.
 
 import { api, errorBox, fill, h } from "../core.js";
 
@@ -39,7 +39,7 @@ export async function adminAssign(render) {
   const titleHint = h("div", { class: "error small", style: "margin-top:4px" });
   title.addEventListener("input", () => {
     const taken = tests.find((t) => titleKey(t.title) === titleKey(title.value));
-    titleHint.textContent = taken ? "Тест с таким названием уже есть — назовите иначе или выберите «Назначить готовый тест»" : "";
+    titleHint.textContent = taken ? "Тест с таким названием уже есть – назовите иначе или выберите «Назначить готовый тест»" : "";
   });
   const perCompetency = h("input", { type: "number", min: 1, max: 50, value: 5, style: "max-width:110px", "aria-label": "Вопросов на компетенцию" });
   const variantsInput = h("input", { type: "number", min: 1, max: 300, style: "max-width:110px", "aria-label": "Вариантов" });
@@ -102,14 +102,14 @@ export async function adminAssign(render) {
     }
     const variants = Math.min(wanted, possible);
     const disciplinesLine = allowed
-      ? h("div", {}, h("strong", {}, "Вопросы из дисциплин: "), pool(selected, allowed).map((d) => d.name).join(", ") || "—")
+      ? h("div", {}, h("strong", {}, "Вопросы из дисциплин: "), pool(selected, allowed).map((d) => d.name).join(", ") || "–")
       : h("div", {}, h("strong", {}, "Вопросы из любых дисциплин банка"));
     if (short.length) {
       submit.disabled = true;
       fill(summary, disciplinesLine,
         h("div", { class: "error", style: "margin-top:6px" },
           "Не хватает вопросов: ",
-          short.map(([c, n]) => `${c.code} — ${n} из ${k}`).join(", "),
+          short.map(([c, n]) => `${c.code} – ${n} из ${k}`).join(", "),
           ". Уменьшите число вопросов на компетенцию или добавьте вопросы в банк."));
     } else {
       fill(summary, disciplinesLine,
@@ -121,7 +121,7 @@ export async function adminAssign(render) {
             ? "Варианты не пересекаются."
             : `Вопросов на непересекающиеся хватает на ${disjoint}, поэтому варианты частично пересекаются (как «3 вопроса из одного, 2 из другого»), но все разные.`,
           variants < wanted ? ` Различных сочетаний вопросов меньше, чем вариантов: будет ${variants}.` : "",
-          " Каждому студенту — свой вариант, пока они не закончатся."));
+          " Каждому студенту – свой вариант, пока они не закончатся."));
     }
     summary.hidden = false;
   }
@@ -146,7 +146,7 @@ export async function adminAssign(render) {
           items.map((c) => {
             const box = competencyChecks.get(c.id) || h("input", { type: "checkbox", value: c.id, onchange: drawSummary });
             competencyChecks.set(c.id, box);
-            return h("label", {}, box, h("strong", {}, c.code), ` — ${c.description} `,
+            return h("label", {}, box, h("strong", {}, c.code), ` – ${c.description} `,
               h("span", { class: "muted" }, `(вопросов: ${countFor(c.id, allowed && pool([c], allowed))})`));
           }),
         );
@@ -169,7 +169,7 @@ export async function adminAssign(render) {
             disciplineChecks.set(d.id, box);
             return h("label", {}, box, `${d.name} `, h("span", { class: "muted" }, `(${semesters(d)} сем.)`));
           }))
-        : h("p", { class: "muted" }, "Ни одна дисциплина ещё не завершена — проверять остаточные знания пока не по чему."),
+        : h("p", { class: "muted" }, "Ни одна дисциплина ещё не завершена – проверять остаточные знания пока не по чему."),
       plan.not_finished.length
         ? h("p", { class: "muted small" }, "Ещё изучаются или впереди: ",
             plan.not_finished.map((d) => `${d.name} (${semesters(d)})`).join(", "))
@@ -188,7 +188,7 @@ export async function adminAssign(render) {
     const g = groupsById.get(Number(group.value));
     semesterHint.textContent = g?.current_semester
       ? `сейчас у группы ${g.current_semester}-й (по году набора ${g.start_year})`
-      : "год набора группы не указан — введите семестр";
+      : "год набора группы не указан – введите семестр";
     if (ignorePlan.checked) {
       plan = null;
     } else if (!semester.value) {
@@ -246,9 +246,9 @@ export async function adminAssign(render) {
       const assigned = t.group_ids.map((id) => groupsById.get(id)?.name).filter(Boolean);
       const already = t.group_ids.includes(groupId);
       return h("option", { value: t.id, disabled: already },
-        `${t.title} — ${t.questions_per_variant} вопр., вариантов: ${t.variant_count}`,
+        `${t.title} – ${t.questions_per_variant} вопр., вариантов: ${t.variant_count}`,
         assigned.length ? ` (назначен: ${assigned.join(", ")})` : "",
-        already ? " — уже у этой группы" : "");
+        already ? " – уже у этой группы" : "");
     }));
     const firstFree = [...existing.options].find((o) => !o.disabled);
     if (firstFree) existing.value = firstFree.value;
@@ -256,7 +256,7 @@ export async function adminAssign(render) {
   const existingSection = h("div", {},
     h("label", {}, "Тест"),
     existing,
-    h("p", { class: "muted small" }, "Вопросы те же, что у других групп, — результаты можно сравнивать."),
+    h("p", { class: "muted small" }, "Вопросы те же, что у других групп, – результаты можно сравнивать."),
   );
 
   group.addEventListener("change", () => {
@@ -322,7 +322,7 @@ export async function adminAssign(render) {
             modeExisting.disabled = false;
             drawExisting();
             const v = test.variant_count;
-            ok.textContent = `Тест «${test.title}» (${v} ${plural(v, "вариант", "варианта", "вариантов")} по ${test.questions_per_variant} вопр.) назначен группе ${groupName}. Его вопросы — во вкладке «Тесты».`;
+            ok.textContent = `Тест «${test.title}» (${v} ${plural(v, "вариант", "варианта", "вариантов")} по ${test.questions_per_variant} вопр.) назначен группе ${groupName}. Его вопросы – во вкладке «Тесты».`;
           } catch (e) {
             err.show(e);
           }

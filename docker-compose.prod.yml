@@ -3,7 +3,7 @@
 #   cp .env.example .env   # и заполнить
 #   docker compose -f docker-compose.prod.yml up -d
 #
-# Подробно — docs/deploy.md.
+# Подробно – docs/deploy.md.
 
 name: competency
 
@@ -48,7 +48,7 @@ services:
     security_opt:
       - no-new-privileges:true
     logging: *logging
-    # Порт 8000 наружу не открыт — запросы приходят только через Caddy.
+    # Порт 8000 наружу не открыт – запросы приходят только через Caddy.
 
   caddy:
     image: caddy:2.8-alpine

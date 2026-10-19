@@ -44,7 +44,7 @@ def test_seed_refuses_in_prod(monkeypatch):
 
 
 def test_demo_passwords_detected(session):
-    # После seed у всех демо-учёток публичные пароли — prod с такой базой не стартует.
+    # После seed у всех демо-учёток публичные пароли – prod с такой базой не стартует.
     assert demo_passwords_in_use(session) == [
         "admin",
         "teacher",

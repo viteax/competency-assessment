@@ -1,4 +1,4 @@
-# Скрипты и конфиги, которые выполняются в Linux-контейнерах, — всегда с LF, даже при
+# Скрипты и конфиги, которые выполняются в Linux-контейнерах, – всегда с LF, даже при
 # клонировании на Windows (иначе «exec /app/scripts/entrypoint.sh: no such file or directory»).
 *.sh        text eol=lf
 Dockerfile  text eol=lf

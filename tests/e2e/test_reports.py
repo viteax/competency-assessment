@@ -51,7 +51,7 @@ def test_excel_and_radars(new_page):
     header = [c.value for c in wb["Компетенции"][1]]
     assert header == ["ФИО", "Группа", "Дата тестирования", "ОПК-1", "ОПК-5", "ПК-1"]
 
-    # Три компетенции — лепестковая диаграмма для группы и для студента.
+    # Три компетенции – лепестковая диаграмма для группы и для студента.
     expect(page.locator("h2:has-text('Компетенции – группа ПИ-21, среднее')")).to_be_visible()
     competencies = page.locator(".radar-card").first
     expect(competencies.locator("svg text", has_text=re.compile("^ПК-1$"))).to_be_visible()
@@ -84,7 +84,7 @@ def test_too_few_axes_explained(admin_page: Page, new_page):
     student = new_page()
     pass_test(student, "student1")
     page.click("nav >> text=Результаты группы")
-    # Одна компетенция и одна ТФ (B/03.4) — для обеих «роз» объяснение вместо диаграммы.
+    # Одна компетенция и одна ТФ (B/03.4) – для обеих «роз» объяснение вместо диаграммы.
     expect(page.locator("text=Для диаграммы нужно минимум 3 оси, сейчас 1")).to_have_count(2)
 
 

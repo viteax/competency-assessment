@@ -26,7 +26,7 @@ def upgrade() -> None:
     bind = op.get_bind()
     QUESTION_KIND.create(bind, checkfirst=True)
     DIFFICULTY.create(bind, checkfirst=True)
-    # Все существующие вопросы — с выбором одного ответа, базового уровня.
+    # Все существующие вопросы – с выбором одного ответа, базового уровня.
     op.add_column(
         "question", sa.Column("kind", QUESTION_KIND, server_default="single", nullable=False)
     )

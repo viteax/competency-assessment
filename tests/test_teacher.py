@@ -161,7 +161,7 @@ def test_admin_assigns_teacher_and_validates_quotas(admin: TestClient, login):
     )
     assert twice.status_code == 400
 
-    petrov = login("petrov", "temp-pass-123")  # временный пароль — сначала сменить
+    petrov = login("petrov", "temp-pass-123")  # временный пароль – сначала сменить
     assert petrov.get("/teacher/disciplines").status_code == 403
     petrov.post(
         "/me/password",

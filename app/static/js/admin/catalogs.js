@@ -13,7 +13,7 @@ function fieldInput(field, value) {
     const el = h(
       "select",
       { required: field.required !== false },
-      field.required === false ? h("option", { value: "" }, field.empty || "—") : null,
+      field.required === false ? h("option", { value: "" }, field.empty || "–") : null,
       field.options.map(([v, label]) => h("option", { value: v }, label)),
     );
     if (value !== null && value !== undefined) el.value = String(value);
@@ -153,7 +153,7 @@ async function crudSection(cfg) {
   );
 }
 
-const codes = (ids, map) => ids.map((id) => map.get(id)?.code).filter(Boolean).sort().join(", ") || "—";
+const codes = (ids, map) => ids.map((id) => map.get(id)?.code).filter(Boolean).sort().join(", ") || "–";
 
 const CATALOGS = {
   async "Направления"() {
@@ -175,12 +175,12 @@ const CATALOGS = {
     return crudSection({
       load: () => api("/groups"),
       label: (r) => r.name,
-      hint: "По году набора система сама считает текущий семестр группы — от него зависит, какие дисциплины попадут в тест на остаточные знания.",
+      hint: "По году набора система сама считает текущий семестр группы – от него зависит, какие дисциплины попадут в тест на остаточные знания.",
       columns: [
         ["Группа", (r) => r.name],
-        ["Направление", (r) => { const d = dirs.get(r.direction_id); return d ? `${d.code} ${d.name}` : "—"; }],
-        ["Год набора", (r) => r.start_year ?? "—"],
-        ["Семестр сейчас", (r) => r.current_semester ?? "—"],
+        ["Направление", (r) => { const d = dirs.get(r.direction_id); return d ? `${d.code} ${d.name}` : "–"; }],
+        ["Год набора", (r) => r.start_year ?? "–"],
+        ["Семестр сейчас", (r) => r.current_semester ?? "–"],
       ],
       fields: [
         { name: "name", label: "Название" },
@@ -250,7 +250,7 @@ const CATALOGS = {
         ? h("table", {},
             h("tr", {}, ["ФИО", "Логин", "Дисциплины", ""].map((x) => h("th", {}, x))),
             teachers.map((t) => h("tr", {},
-              h("td", {}, t.full_name || "—", t.must_change_password ? [" ", h("span", { class: "badge warn" }, "временный пароль")] : null),
+              h("td", {}, t.full_name || "–", t.must_change_password ? [" ", h("span", { class: "badge warn" }, "временный пароль")] : null),
               h("td", {}, t.username),
               h("td", { class: "wrap" }, assigned(t) || h("span", { class: "muted" }, "не закреплены")),
               h("td", { class: "actions" },
@@ -327,21 +327,21 @@ const CATALOGS = {
       load: () => api("/curriculum"),
       label: (r) => discs.get(r.discipline_id)?.name || "запись",
       columns: [
-        ["Направление", (r) => dirs.get(r.direction_id)?.code || "—"],
-        ["Дисциплина", (r) => discs.get(r.discipline_id)?.name || "—"],
+        ["Направление", (r) => dirs.get(r.direction_id)?.code || "–"],
+        ["Дисциплина", (r) => discs.get(r.discipline_id)?.name || "–"],
         ["Семестры", semesters],
-        ["Преподаватель", (r) => teacherNames.get(r.teacher_id) || "—"],
+        ["Преподаватель", (r) => teacherNames.get(r.teacher_id) || "–"],
         ["Вопросов по компетенциям", (r) => r.quotas
           .map((q) => [comps.get(q.competency_id)?.code || "?", q.questions])
           .sort(([a], [b]) => a.localeCompare(b, "ru"))
-          .map(([code, n]) => `${code}: ${n}`).join(", ") || "—"],
+          .map(([code, n]) => `${code}: ${n}`).join(", ") || "–"],
       ],
       fields: [
         { name: "direction_id", label: "Направление", type: "select", options: directions.map((d) => [d.id, `${d.code} ${d.name}`]) },
         { name: "discipline_id", label: "Дисциплина", type: "select", options: disciplines.map((d) => [d.id, d.name]) },
         { name: "first_semester", label: "Первый семестр", type: "number", min: 1, max: 12 },
         { name: "last_semester", label: "Последний семестр", type: "number", min: 1, max: 12 },
-        { name: "teacher_id", label: "Преподаватель — разрабатывает тестовые вопросы", type: "select", required: false, empty: "— не закреплена —", options: teachers.map((t) => [t.id, t.full_name || t.username]) },
+        { name: "teacher_id", label: "Преподаватель – разрабатывает тестовые вопросы", type: "select", required: false, empty: "– не закреплена –", options: teachers.map((t) => [t.id, t.full_name || t.username]) },
         { name: "quotas", label: "Сколько тестовых вопросов разработать по каждой компетенции", type: "quotas" },
       ],
       onForm(inputs) {
@@ -350,12 +350,12 @@ const CATALOGS = {
           const d = discs.get(Number(inputs.discipline_id.value));
           const current = new Map([...box.querySelectorAll("input[data-competency]")].map((i) => [Number(i.dataset.competency), i.value]));
           fill(box, !d?.competency_ids.length
-            ? h("p", { class: "muted small" }, "У дисциплины нет компетенций — укажите их в «Дисциплинах».")
+            ? h("p", { class: "muted small" }, "У дисциплины нет компетенций – укажите их в «Дисциплинах».")
             : d.competency_ids.map((id) => {
                 const c = comps.get(id);
                 const value = current.get(id) ?? box.initial.get(id) ?? "";
                 return h("label", { class: "quota-row" },
-                  h("span", {}, h("strong", {}, c.code), ` — ${c.description}`),
+                  h("span", {}, h("strong", {}, c.code), ` – ${c.description}`),
                   h("input", { type: "number", min: 0, max: 200, value, "data-competency": id, "aria-label": `Вопросов по ${c.code}`, placeholder: "0" }));
               }));
         }
@@ -377,7 +377,7 @@ const CATALOGS = {
       columns: [
         ["Код", (r) => r.code],
         ["Название", (r) => r.name],
-        ["ОТФ", (r) => r.general_functions.map((g) => g.code).join(", ") || "—"],
+        ["ОТФ", (r) => r.general_functions.map((g) => g.code).join(", ") || "–"],
       ],
       fields: [{ name: "code", label: "Код, например 06.001" }, { name: "name", label: "Название" }],
       toForm: (r) => r,
@@ -395,7 +395,7 @@ const CATALOGS = {
       load: () => api("/general-functions"),
       label: (r) => `ОТФ ${r.code}`,
       columns: [
-        ["Профстандарт", (r) => stds.get(r.standard_id)?.code || "—"],
+        ["Профстандарт", (r) => stds.get(r.standard_id)?.code || "–"],
         ["Код", (r) => r.code],
         ["Название", (r) => r.name],
         ["Уровень", (r) => r.qualification_level],
@@ -423,7 +423,7 @@ const CATALOGS = {
       load: () => api("/labor-functions"),
       label: (r) => r.code,
       columns: [
-        ["ОТФ", (r) => { const g = gens.get(r.general_function_id); return g ? `${g.standard.code} · ${g.code}` : "—"; }],
+        ["ОТФ", (r) => { const g = gens.get(r.general_function_id); return g ? `${g.standard.code} · ${g.code}` : "–"; }],
         ["Код", (r) => r.code],
         ["Название", (r) => r.name],
         ["Компетенции", (r) => codes(r.competency_ids, comps)],

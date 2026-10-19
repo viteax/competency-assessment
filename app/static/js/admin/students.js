@@ -76,7 +76,7 @@ export async function adminStudents(render) {
               const account = accounts.get(s.id);
               return h("tr", {},
                 h("td", { class: "wrap" }, s.full_name),
-                h("td", {}, s.email || h("span", { class: "muted" }, "—")),
+                h("td", {}, s.email || h("span", { class: "muted" }, "–")),
                 h("td", {},
                   account ? account.username : h("span", { class: "muted" }, "нет учётки"),
                   account?.must_change_password ? h("span", { class: "badge warn", style: "margin-left:6px" }, "не входил") : null,

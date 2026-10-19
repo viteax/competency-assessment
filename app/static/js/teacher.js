@@ -19,12 +19,12 @@ function progressView(d) {
     h("table", { class: "small" },
       h("tr", {}, ["Компетенция", "Нужно", "Сделано", "Осталось"].map((t) => h("th", {}, t))),
       d.competencies.map((c) => h("tr", {},
-        h("td", { class: "wrap", title: c.description }, h("strong", {}, c.code), ` — ${c.description}`),
-        h("td", {}, c.required || "—"),
+        h("td", { class: "wrap", title: c.description }, h("strong", {}, c.code), ` – ${c.description}`),
+        h("td", {}, c.required || "–"),
         h("td", {}, c.done),
-        h("td", {}, c.required ? Math.max(c.required - c.done, 0) : "—"),
+        h("td", {}, c.required ? Math.max(c.required - c.done, 0) : "–"),
       ))),
-    d.required ? null : h("p", { class: "muted small" }, "Сколько вопросов нужно, ещё не указано — уточните у администратора."),
+    d.required ? null : h("p", { class: "muted small" }, "Сколько вопросов нужно, ещё не указано – уточните у администратора."),
   );
 }
 
@@ -34,7 +34,7 @@ export async function teacherDisciplines(render) {
     h("h1", {}, "Мои дисциплины"),
     mine.length
       ? [
-          h("p", { class: "muted" }, "Для каждой дисциплины указано, по каким компетенциям и сколько тестовых вопросов нужно разработать. Вопросы можно составлять частями — прогресс сохраняется."),
+          h("p", { class: "muted" }, "Для каждой дисциплины указано, по каким компетенциям и сколько тестовых вопросов нужно разработать. Вопросы можно составлять частями – прогресс сохраняется."),
           mine.map((d) => h("div", { class: "card" },
             h("h2", { style: "margin-top:0" }, d.discipline),
             h("p", { class: "muted small", style: "margin-top:0" }, `${d.direction}, ${semesters(d)} семестр`),

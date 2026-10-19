@@ -29,7 +29,7 @@ def _directions_and_semesters(session: Session, discipline_ids: list[int]) -> tu
 
 
 def _sections(questions: list[models.Question]) -> list[Section]:
-    """Задания по компетенциям (компетенции — по коду), внутри — в исходном порядке."""
+    """Задания по компетенциям (компетенции – по коду), внутри – в исходном порядке."""
     by_competency: dict[int, list[models.Question]] = defaultdict(list)
     for q in questions:
         by_competency[q.competency_id].append(q)
@@ -39,13 +39,13 @@ def _sections(questions: list[models.Question]) -> list[Section]:
 
 def _filename(name: str, key: bool) -> str:
     safe = "".join(ch for ch in name if ch not in '\\/:*?"<>|').strip() or "задания"
-    return f"{safe} — ключ.docx" if key else f"{safe}.docx"
+    return f"{safe} – ключ.docx" if key else f"{safe}.docx"
 
 
 def test_document(
     session: Session, test_id: int, key: bool, variant: int | None = None
 ) -> tuple[bytes, str]:
-    """Тест в Word: каждый вариант — с новой страницы (или только выбранный)."""
+    """Тест в Word: каждый вариант – с новой страницы (или только выбранный)."""
     test = session.scalar(
         select(models.Test)
         .where(models.Test.id == test_id)
@@ -104,4 +104,4 @@ def discipline_document(session: Session, discipline_id: int, key: bool) -> tupl
         discipline=discipline.name,
         competencies=[s.competency for s in sections],
     )
-    return build([(header, sections, "")], key), _filename(f"ФОМ — {discipline.name}", key)
+    return build([(header, sections, "")], key), _filename(f"ФОМ – {discipline.name}", key)

@@ -18,7 +18,7 @@ export async function adminGroupResults(render) {
     h("h2", {}, "Роза ветров"),
     h("div", { class: "card" },
       h("div", {}, h("label", {}, "Чьи результаты"), whom),
-      h("p", { class: "muted small" }, "Шкала 0–5: 5 — все ответы верные. Уровень трудовой функции — среднее по связанным с ней компетенциям, которые проверялись."),
+      h("p", { class: "muted small" }, "Шкала 0–5: 5 – все ответы верные. Уровень трудовой функции – среднее по связанным с ней компетенциям, которые проверялись."),
       radarHint,
     ),
     charts,
@@ -75,15 +75,15 @@ export async function adminGroupResults(render) {
     radarHint.hidden = true;
     fill(out,
       h("p", { class: "muted small", style: "margin-top:0" },
-        `«N из M» — верных ответов из заданных. Зелёным — компетенция сформирована (от ${Math.round(settings.mastery_threshold * 100)}% верных; порог меняется в «Справочники → Настройки»).`),
+        `«N из M» – верных ответов из заданных. Зелёным – компетенция сформирована (от ${Math.round(settings.mastery_threshold * 100)}% верных; порог меняется в «Справочники → Настройки»).`),
       h("table", {},
         h("tr", {}, h("th", {}, "Студент"), h("th", {}, "Дата"), codes.map((c) => h("th", {}, c))),
         report.students.map((s) => {
           const byCode = new Map(s.competencies.map((c) => [c.code, c]));
           return h("tr", {},
             h("td", {}, s.full_name),
-            h("td", {}, s.tested_at ? new Date(s.tested_at).toLocaleDateString("ru-RU") : h("span", { class: "muted" }, "—")),
-            codes.map((c) => h("td", {}, byCode.has(c) ? masteryBadge(byCode.get(c)) : h("span", { class: "muted" }, "—"))),
+            h("td", {}, s.tested_at ? new Date(s.tested_at).toLocaleDateString("ru-RU") : h("span", { class: "muted" }, "–")),
+            codes.map((c) => h("td", {}, byCode.has(c) ? masteryBadge(byCode.get(c)) : h("span", { class: "muted" }, "–"))),
           );
         }),
       ),
