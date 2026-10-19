@@ -6,7 +6,7 @@ export function laborFunctionsView(report) {
   if (!report.length) return h("p", { class: "muted" }, "Профстандарты не загружены");
   return report.map((g) =>
     h("div", { class: "card" },
-      h("h2", { style: "margin-top:0" },
+      h("h2", {},
         `${g.standard_code} · ОТФ ${g.code}. ${g.name} `,
         h("span", { class: `badge ${g.covered ? "ok" : "bad"}` }, g.covered ? "закрыта" : "не закрыта"),
       ),
@@ -16,7 +16,7 @@ export function laborFunctionsView(report) {
           g.functions.map((f) =>
             h("tr", {},
               h("td", {}, f.code),
-              h("td", { style: "white-space:normal" }, f.name),
+              h("td", { class: "wrap-text" }, f.name),
               h("td", {}, f.competency_codes.join(", ")),
               h("td", {}, h("span", { class: `badge ${f.covered ? "ok" : "bad"}` }, f.covered ? "✓" : "✗")),
             ),

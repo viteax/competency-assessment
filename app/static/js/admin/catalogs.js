@@ -96,9 +96,9 @@ async function crudSection(cfg) {
             }
           },
         },
-        h("h2", { style: "margin-top:0" }, row ? "Изменить" : "Добавить"),
+        h("h2", {}, row ? "Изменить" : "Добавить"),
         inputs.map(([f, el]) => [h("label", {}, f.label), el]),
-        h("div", { class: "row", style: "margin-top:16px" },
+        h("div", { class: "row mt-l" },
           h("button", { class: "primary" }, "Сохранить"),
           h("button", { type: "button", onclick: closeForm }, "Отмена"),
         ),
@@ -147,7 +147,7 @@ async function crudSection(cfg) {
     h("div", { class: "card" },
       h("button", { class: "primary", onclick: () => openForm(null) }, "Добавить"),
       err.el,
-      h("div", { style: "margin-top:12px" }, tableSlot),
+      h("div", { class: "mt-m" }, tableSlot),
     ),
     formSlot,
   );
@@ -304,10 +304,10 @@ const CATALOGS = {
           }
         },
       },
-        h("h2", { style: "margin-top:0" }, "Добавить преподавателя"),
+        h("h2", {}, "Добавить преподавателя"),
         h("label", {}, "ФИО"), fullName,
         h("label", {}, "Логин"), username,
-        h("div", { style: "margin-top:16px" }, h("button", { class: "primary" }, "Добавить")),
+        h("div", { class: "mt-l" }, h("button", { class: "primary" }, "Добавить")),
       ),
     );
   },

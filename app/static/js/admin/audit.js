@@ -32,7 +32,7 @@ export async function adminAudit(render) {
         h("thead", {}, h("tr", {}, ["Когда", "Кто", "Действие", "Результат", "IP"].map((t) => h("th", {}, t)))),
         rows,
       ),
-      h("div", { style: "margin-top:12px" }, more),
+      h("div", { class: "mt-m" }, more),
     ),
   );
   fill(rows);

@@ -216,3 +216,24 @@ progress { width: 100%; max-width: 420px; height: 10px; accent-color: var(--acce
 .verdict-item { display: flex; gap: 12px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--border); }
 .verdict-item:first-child { border-top: none; }
 .verdict-item .what { flex: 1 1 320px; min-width: 0; }
+
+/* Отступы и раскладка – классами, а не inline-стилями в JS */
+.card > h2:first-child { margin-top: 0; }
+.mt-0 { margin-top: 0; }
+.mt-xs { margin-top: 4px; }
+.mt-s { margin-top: 8px; }
+.mt-m { margin-top: 12px; }
+.mt-l { margin-top: 16px; }
+.mb-0 { margin-bottom: 0; }
+.mb-s { margin-bottom: 8px; }
+.m-0 { margin: 0; }
+.ml-xs { margin-left: 6px; }
+.pad-bottom { padding-bottom: 8px; }
+.grow { flex: 1; min-width: 220px; }
+input.narrow { max-width: 110px; }
+button.link.bare { padding: 0; }
+.button-row { gap: 8px; flex-wrap: wrap; }
+.spaced-list > li { margin: 8px 0; }
+.mode-switch { margin: 14px 0 4px; }
+.mode-switch label.inline { margin: 0; }
+td.wrap-text, .wrap-text { white-space: normal; }

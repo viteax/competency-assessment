@@ -74,7 +74,7 @@ export async function adminGroupResults(render) {
     whom.parentElement.hidden = false;
     radarHint.hidden = true;
     fill(out,
-      h("p", { class: "muted small", style: "margin-top:0" },
+      h("p", { class: "muted small mt-0" },
         `«N из M» – верных ответов из заданных. Зелёным – компетенция сформирована (от ${Math.round(settings.mastery_threshold * 100)}% верных; порог меняется в «Справочники → Настройки»).`),
       h("table", {},
         h("tr", {}, h("th", {}, "Студент"), h("th", {}, "Дата"), codes.map((c) => h("th", {}, c))),
@@ -99,9 +99,9 @@ export async function adminGroupResults(render) {
     h("div", { class: "card" },
       h("div", { class: "row" },
         h("div", {}, h("label", {}, "Группа"), group),
-        h("div", { style: "flex:1;min-width:220px" }, h("label", {}, "Тест"), test),
+        h("div", { class: "grow" }, h("label", {}, "Тест"), test),
         h("div", {}, excel),
-        h("div", { style: "padding-bottom:6px" }, toRadar),
+        h("div", { class: "pad-bottom" }, toRadar),
       ),
     ),
     h("div", { class: "card" }, out),

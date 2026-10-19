@@ -77,7 +77,7 @@ function competencyImportView() {
 
     fill(previewSlot,
       h("div", { class: "card" },
-        h("h2", { style: "margin-top:0" }, `«${p.filename}»: найдено компетенций – ${p.competencies.length}`),
+        h("h2", {}, `«${p.filename}»: найдено компетенций – ${p.competencies.length}`),
         p.warnings.map((w) => h("p", { class: "error" }, w)),
         p.competencies.length ? [
           h("label", {}, "Дисциплина (компетенции будут к ней привязаны)"),
@@ -86,8 +86,8 @@ function competencyImportView() {
             ? h("div", { class: "muted small" }, p.discipline_exists ? "Дисциплина уже есть – компетенции добавятся к ней" : "Дисциплина будет создана")
             : null,
           h("label", { class: "inline" }, overwrite, "Перезаписать формулировки существующих компетенций и индикаторов"),
-          h("div", { class: "table-wrap", style: "margin-top:12px" }, table),
-          h("div", { class: "row", style: "margin-top:16px" },
+          h("div", { class: "table-wrap mt-m" }, table),
+          h("div", { class: "row mt-l" },
             h("button", {
               class: "primary",
               onclick: async () => {
@@ -108,7 +108,7 @@ function competencyImportView() {
                     },
                   });
                   fill(previewSlot, h("div", { class: "card" },
-                    h("h2", { style: "margin-top:0" }, "Импорт выполнен"),
+                    h("h2", {}, "Импорт выполнен"),
                     h("ul", {},
                       h("li", {}, `Новых компетенций: ${result.created_competencies}`),
                       h("li", {}, `Обновлено формулировок компетенций: ${result.updated_competencies}`),
@@ -135,12 +135,12 @@ function competencyImportView() {
 
   return [
     h("form", { class: "card", onsubmit: upload },
-      h("p", { class: "muted", style: "margin-top:0" },
+      h("p", { class: "muted mt-0" },
         "Загрузите РПД, матрицу компетенций или другой документ ОПОП (.docx, .xlsx, .pdf, .txt). ",
         "В тексте ищутся коды УК-…, ОПК-…, ПК-… и индикаторы (УК-1.1, ИУК-1.1, ИД-1.УК-1) с формулировками. ",
         "Перед сохранением результат можно проверить и поправить; ничего не удаляется."),
       file,
-      h("div", { style: "margin-top:12px" }, h("button", { class: "primary" }, "Разобрать файл")),
+      h("div", { class: "mt-m" }, h("button", { class: "primary" }, "Разобрать файл")),
       err.el,
     ),
     previewSlot,
@@ -203,7 +203,7 @@ export async function studentImportView() {
 
     fill(previewSlot,
       h("div", { class: "card" },
-        h("h2", { style: "margin-top:0" }, `«${p.filename}»: строк – ${p.rows.length}`),
+        h("h2", {}, `«${p.filename}»: строк – ${p.rows.length}`),
         // Если колонку с ФИО не узнали, сразу показываем сопоставление.
         h("details", { open: p.mapping.full_name === null && p.mapping.last_name === null },
           h("summary", {}, "Сопоставление колонок"),
@@ -213,18 +213,18 @@ export async function studentImportView() {
           ),
           h("button", {
             type: "button",
-            style: "margin-top:12px",
+            class: "mt-m",
             onclick: () => runPreview(Object.fromEntries(mappingSelects.map(([f, , s]) => [f, s.value === "" ? null : Number(s.value)]))),
           }, "Применить"),
         ),
-        h("div", { class: "row", style: "margin-top:8px" },
+        h("div", { class: "row mt-s" },
           h("div", {}, h("label", {}, "Группа для строк без группы"), defaultGroup),
           p.missing_groups.length
             ? h("div", {}, h("label", {}, `Направление для новых групп: ${p.missing_groups.join(", ")}`), direction)
             : null,
         ),
         h("label", { class: "inline" }, createAccounts, "Создать учётные записи новым студентам (логины и пароли покажу один раз)"),
-        h("div", { class: "table-wrap", style: "margin-top:12px" },
+        h("div", { class: "table-wrap mt-m" },
           h("table", {},
             h("tr", {}, ["", "Стр.", "ФИО", "Группа", "E-mail", "ID в СДО", "Роль", "Статус"].map((t) => h("th", {}, t))),
             rows.map(({ r, include }) => {
@@ -232,7 +232,7 @@ export async function studentImportView() {
               return h("tr", { class: r.is_student ? "" : "muted" },
                 h("td", {}, include),
                 h("td", {}, r.row),
-                h("td", { class: "wrap" }, r.full_name || "–", r.problems.map((pr) => h("div", { class: "error small", style: "margin:0" }, pr))),
+                h("td", { class: "wrap" }, r.full_name || "–", r.problems.map((pr) => h("div", { class: "error small m-0" }, pr))),
                 h("td", {}, r.existing_group && r.group && r.existing_group !== r.group ? `${r.existing_group} → ${r.group}` : (r.group || r.existing_group || "–")),
                 h("td", {}, r.email || "–"),
                 h("td", {}, r.external_id || "–"),
@@ -242,7 +242,7 @@ export async function studentImportView() {
             }),
           ),
         ),
-        h("div", { class: "row", style: "margin-top:16px" },
+        h("div", { class: "row mt-l" },
           h("button", {
             class: "primary",
             onclick: async () => {
@@ -277,7 +277,7 @@ export async function studentImportView() {
     const accountRows = result.accounts.map((a) => [a.full_name, a.group, a.username, a.password]);
     fill(previewSlot,
       h("div", { class: "card" },
-        h("h2", { style: "margin-top:0" }, "Импорт выполнен"),
+        h("h2", {}, "Импорт выполнен"),
         h("ul", {},
           h("li", {}, `Новых студентов: ${result.created}`),
           h("li", {}, `Обновлено: ${result.updated}`),
@@ -291,7 +291,7 @@ export async function studentImportView() {
                 class: "primary",
                 onclick: () => downloadCsv("logins.csv", [["ФИО", "Группа", "Логин", "Пароль"], ...accountRows]),
               }, "Скачать логины и пароли (CSV)"),
-              h("div", { class: "table-wrap", style: "margin-top:12px" },
+              h("div", { class: "table-wrap mt-m" },
                 h("table", {},
                   h("tr", {}, ["ФИО", "Группа", "Логин", "Пароль"].map((t) => h("th", {}, t))),
                   accountRows.map((r) => h("tr", {}, r.map((v) => h("td", {}, v)))),
@@ -305,12 +305,12 @@ export async function studentImportView() {
 
   return [
     h("form", { class: "card", onsubmit: (event) => { event.preventDefault(); runPreview(null); } },
-      h("p", { class: "muted", style: "margin-top:0" },
+      h("p", { class: "muted mt-0" },
         "Загрузите список студентов в CSV или Excel: выгрузку участников курса или журнала оценок из СДО, ",
         "список из деканата и т.п. Нужны как минимум ФИО и группа; e-mail или идентификатор СДО помогают узнавать ",
         "студентов при повторной загрузке. Ничего не удаляется."),
       file,
-      h("div", { style: "margin-top:12px" }, h("button", { class: "primary" }, "Разобрать файл")),
+      h("div", { class: "mt-m" }, h("button", { class: "primary" }, "Разобрать файл")),
       err.el,
     ),
     previewSlot,

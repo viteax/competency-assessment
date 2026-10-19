@@ -53,10 +53,10 @@ export async function adminTests(render) {
     variant.addEventListener("change", setLinks);
     setLinks();
     fill(detail, h("div", { class: "card" },
-      h("h2", { style: "margin-top:0" }, t.title),
-      h("div", { class: "row", style: "margin-bottom:8px" },
+      h("h2", {}, t.title),
+      h("div", { class: "row mb-s" },
         t.variant_count > 1 ? h("div", {}, variant) : null, blank, key),
-      h("p", { class: "muted small", style: "margin-top:0" }, "Документ оформлен по образцу фонда оценочных материалов: без ответов (поля «Ответ» пустые) и с заполненными правильными ответами."),
+      h("p", { class: "muted small mt-0" }, "Документ оформлен по образцу фонда оценочных материалов: без ответов (поля «Ответ» пустые) и с заполненными правильными ответами."),
       h("p", { class: "muted" },
         t.semester ? `Для ${t.semester}-го семестра. ` : "",
         t.discipline_ids.length
@@ -93,13 +93,13 @@ export async function adminTests(render) {
       h("p", { class: "muted small" }, "Варианты не пересекаются по вопросам. Каждому студенту при открытии теста достаётся случайный из тех, что выданы реже, а порядок вопросов и ответов перемешивается. Правильные ответы отмечены ✓, для последовательности – верный порядок."),
       t.variants.map((v) => h("details", { open: t.variant_count === 1 },
         h("summary", {}, `Вариант ${v.variant} – ${v.questions.length} вопр.`),
-        h("ol", {}, v.questions.map((q) => h("li", { style: "margin:8px 0" },
+        h("ol", { class: "spaced-list" }, v.questions.map((q) => h("li", {},
           h("span", { class: "badge" }, codes.get(q.competency_id) || "–"), " ",
           h("span", { class: "muted small" }, QUESTION_KINDS[q.kind], ". "), q.text,
           answerKey(q),
         ))),
       )),
-      h("div", { class: "row", style: "margin-top:16px" },
+      h("div", { class: "row mt-l" },
         h("button", {
           class: "danger",
           disabled: t.assignments.some((a) => a.started),

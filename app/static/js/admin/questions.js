@@ -143,7 +143,7 @@ export async function questionBank(render, opts) {
           }
         },
       },
-      h("h2", { style: "margin-top:0" }, q ? "Изменить вопрос" : "Новый вопрос"),
+      h("h2", {}, q ? "Изменить вопрос" : "Новый вопрос"),
       locked ? h("p", { class: "muted" }, "Вопрос уже входит в собранные тесты, по нему могут быть ответы студентов. Можно править формулировки, дисциплину и сложность; для остального создайте новый вопрос.") : null,
       h("div", { class: "row" },
         h("div", {}, h("label", {}, "Тип задания"), kind),
@@ -153,7 +153,7 @@ export async function questionBank(render, opts) {
       lockedDiscipline ? null : [h("label", {}, "Дисциплина"), discipline],
       h("label", {}, "Текст задания"), text,
       editor.el,
-      h("div", { class: "row", style: "margin-top:16px" },
+      h("div", { class: "row mt-l" },
         h("button", { class: "primary" }, "Сохранить"),
         h("button", { type: "button", onclick: () => fill(formSlot) }, "Отмена"),
       ),
@@ -175,9 +175,9 @@ export async function questionBank(render, opts) {
         lockedDiscipline ? null : h("div", {}, h("label", {}, "Дисциплина"), filterDiscipline),
         h("button", { class: "primary", onclick: () => openForm(null) }, "Новый вопрос"),
       ),
-      h("div", { class: "row", style: "margin-top:10px" }, fundBlank, fundKey, fundHint),
+      h("div", { class: "row mt-m" }, fundBlank, fundKey, fundHint),
       err.el,
-      h("div", { style: "margin-top:12px" }, tableSlot),
+      h("div", { class: "mt-m" }, tableSlot),
     ),
     formSlot,
   );
@@ -201,7 +201,7 @@ function optionsEditor(locked) {
       box,
       nodes: [
         h("label", {}, label),
-        hint ? h("p", { class: "muted small", style: "margin-top:0" }, hint) : null,
+        hint ? h("p", { class: "muted small mt-0" }, hint) : null,
         box,
         locked ? null : h("button", { type: "button", class: "link", onclick: () => box.append(makeRow()) }, addLabel),
       ],

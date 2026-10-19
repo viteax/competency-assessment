@@ -190,7 +190,7 @@ export function radarCard(title, axes, filename, legend = []) {
     const image = (type, ext) => run(async () => save(await chartImage(title, drawn, legend, type), `${filename}.${ext}`));
     body = [
       wrap,
-      h("div", { class: "row no-print", style: "gap:8px;flex-wrap:wrap" },
+      h("div", { class: "row no-print button-row" },
         h("button", { type: "button", onclick: image("image/jpeg", "jpg") }, "JPEG"),
         h("button", { type: "button", onclick: image("image/png", "png") }, "PNG"),
         h("button", { type: "button", onclick: run(() => downloadDocx(title, drawn, legend, filename)) }, "Word"),
@@ -205,7 +205,7 @@ export function radarCard(title, axes, filename, legend = []) {
         : "Пока нет результатов.");
   }
   card.append(
-    h("h2", { style: "margin-top:0" }, title),
+    h("h2", {}, title),
     legend.length ? h("p", { class: "muted small radar-legend" }, legend.map((line, i) => [i ? h("br") : null, line])) : "",
     ...[body].flat(),
     drawn.length ? h("table", { class: "small" },

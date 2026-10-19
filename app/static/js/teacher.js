@@ -36,10 +36,10 @@ export async function teacherDisciplines(render) {
       ? [
           h("p", { class: "muted" }, "Для каждой дисциплины указано, по каким компетенциям и сколько тестовых вопросов нужно разработать. Вопросы можно составлять частями – прогресс сохраняется."),
           mine.map((d) => h("div", { class: "card" },
-            h("h2", { style: "margin-top:0" }, d.discipline),
-            h("p", { class: "muted small", style: "margin-top:0" }, `${d.direction}, ${semesters(d)} семестр`),
+            h("h2", {}, d.discipline),
+            h("p", { class: "muted small mt-0" }, `${d.direction}, ${semesters(d)} семестр`),
             progressView(d),
-            h("div", { class: "row", style: "margin-top:12px" },
+            h("div", { class: "row mt-m" },
               h("button", { class: "primary", onclick: () => go((r) => disciplineQuestions(r, d.discipline_id), teacherDisciplines) }, "Составлять вопросы"),
               h("a", { class: "button", download: "", href: fundUrl(d.discipline_id, false) }, "ФОМ в Word"),
               h("a", { class: "button", download: "", href: fundUrl(d.discipline_id, true) }, "ФОМ с ответами (Word)"),
@@ -57,7 +57,7 @@ async function disciplineQuestions(render, disciplineId) {
   if (!d) return go(teacherDisciplines);
   const panel = h("div", { class: "card" });
   const drawPanel = (data) => fill(panel,
-    h("button", { type: "button", class: "link", style: "padding-left:0", onclick: () => go(teacherDisciplines) }, "← Мои дисциплины"),
+    h("button", { type: "button", class: "link bare", onclick: () => go(teacherDisciplines) }, "← Мои дисциплины"),
     h("p", { class: "muted small" }, `${data.direction}, ${semesters(data)} семестр`),
     progressView(data));
   drawPanel(d);

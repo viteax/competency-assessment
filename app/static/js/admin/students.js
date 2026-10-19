@@ -47,13 +47,13 @@ export async function adminStudents(render) {
         }
       },
     },
-      h("h2", { style: "margin-top:0" }, "Изменить студента"),
+      h("h2", {}, "Изменить студента"),
       h("label", {}, "ФИО"), fullName,
       h("div", { class: "row" },
         h("div", {}, h("label", {}, "Группа"), groupSelect),
         h("div", {}, h("label", {}, "E-mail"), email),
       ),
-      h("div", { class: "row", style: "margin-top:16px" },
+      h("div", { class: "row mt-l" },
         h("button", { class: "primary" }, "Сохранить"),
         h("button", { type: "button", onclick: () => fill(editSlot) }, "Отмена"),
       ),
@@ -79,7 +79,7 @@ export async function adminStudents(render) {
                 h("td", {}, s.email || h("span", { class: "muted" }, "–")),
                 h("td", {},
                   account ? account.username : h("span", { class: "muted" }, "нет учётки"),
-                  account?.must_change_password ? h("span", { class: "badge warn", style: "margin-left:6px" }, "не входил") : null,
+                  account?.must_change_password ? h("span", { class: "badge warn ml-xs" }, "не входил") : null,
                   account && !account.must_change_password && account.created_at
                     ? h("div", { class: "muted small" }, `создана ${new Date(account.created_at).toLocaleDateString("ru-RU")}`)
                     : null,
@@ -125,7 +125,7 @@ export async function adminStudents(render) {
       h("label", {}, "Группа"), group,
       err.el,
       notice,
-      h("div", { style: "margin-top:12px" }, table),
+      h("div", { class: "mt-m" }, table),
     ),
     editSlot,
     h("form", {
@@ -155,14 +155,14 @@ export async function adminStudents(render) {
         }
       },
     },
-      h("h2", { style: "margin-top:0" }, "Добавить студента в выбранную группу"),
-      h("p", { class: "muted small", style: "margin-top:0" }, "Если указать логин, сгенерируется временный пароль. Без логина студент зарегистрируется сам: выберет группу и введёт ФИО. Список группы удобнее загрузить во вкладке «Импорт»."),
+      h("h2", {}, "Добавить студента в выбранную группу"),
+      h("p", { class: "muted small mt-0" }, "Если указать логин, сгенерируется временный пароль. Без логина студент зарегистрируется сам: выберет группу и введёт ФИО. Список группы удобнее загрузить во вкладке «Импорт»."),
       h("label", {}, "ФИО"), fullName,
       h("div", { class: "row" },
         h("div", {}, h("label", {}, "Логин (необязательно)"), username),
         h("div", {}, h("label", {}, "E-mail (необязательно)"), email),
       ),
-      h("div", { style: "margin-top:16px" }, h("button", { class: "primary" }, "Добавить")),
+      h("div", { class: "mt-l" }, h("button", { class: "primary" }, "Добавить")),
       addErr.el,
     ),
   );

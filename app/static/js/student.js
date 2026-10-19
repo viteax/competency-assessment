@@ -56,7 +56,7 @@ async function takeTest(assignmentId, render) {
           render(
             h("h1", {}, attempt.title),
             h("div", { class: "card" },
-              h("p", { class: "muted", style: "margin:0" }, "Тест сдан"),
+              h("p", { class: "muted m-0" }, "Тест сдан"),
               h("div", { class: "score" }, `Верно ${result.score} из ${result.max_score}`),
               h("h2", {}, "Вывод по компетенциям"),
               verdictView(result.competencies),
@@ -155,11 +155,11 @@ function verdictView(competencies) {
 function laborSummary(labor) {
   const covered = labor.flatMap((g) => g.functions.filter((f) => f.covered).map((f) => ({ ...f, standard: g.standard_code })));
   return h("div", { class: "card" },
-    h("h2", { style: "margin-top:0" }, "Трудовые функции, которые вы можете выполнять"),
+    h("h2", {}, "Трудовые функции, которые вы можете выполнять"),
     covered.length
       ? h("ul", {}, covered.map((f) => h("li", {}, h("strong", {}, f.code), ` ${f.name} `,
           h("span", { class: "muted small" }, `(профстандарт ${f.standard})`))))
-      : h("p", { class: "muted", style: "margin-bottom:0" },
+      : h("p", { class: "muted mb-0" },
           labor.length
             ? "Пока ни одна трудовая функция не подтверждена полностью: для этого нужны сформированными все её компетенции."
             : "Профстандарты не загружены."),
@@ -178,7 +178,7 @@ export async function studentResults(render) {
     h("h1", {}, "Мои результаты"),
     h("div", { class: "card" },
       total ? h("div", { class: "score" }, `Верно ${correct} из ${total}`) : null,
-      total ? h("p", { class: "muted", style: "margin-top:0" }, "по всем пройденным тестам") : null,
+      total ? h("p", { class: "muted mt-0" }, "по всем пройденным тестам") : null,
       h("h2", {}, "Вывод по компетенциям"),
       verdictView(report.competencies),
     ),
