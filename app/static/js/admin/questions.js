@@ -13,6 +13,114 @@ export async function adminQuestions(render) {
   });
 }
 
+// Ссылки «ФОМ дисциплины» и «ФОМ с ответами»; update(id) – для выбранной дисциплины.
+function fundLinks(fundUrl) {
+  const blank = h("a", { class: "button", download: "" }, "ФОМ дисциплины (Word)");
+  const key = h("a", { class: "button", download: "" }, "ФОМ с ответами (Word)");
+  const hint = h("span", { class: "muted small" }, "Выберите дисциплину, чтобы выгрузить её ФОМ в Word.");
+  return {
+    el: h("div", { class: "row mt-m" }, blank, key, hint),
+    update(id) {
+      blank.hidden = key.hidden = !id;
+      hint.hidden = Boolean(id);
+      if (id) {
+        blank.href = fundUrl(id, false);
+        key.href = fundUrl(id, true);
+      }
+    },
+  };
+}
+
+function questionsTable(questions, { comps, discs, lockedDiscipline, onEdit, onDelete }) {
+  if (!questions.length) return h("p", { class: "muted" }, "Вопросов не найдено");
+  const heads = ["Вопрос", "Тип", "Компетенция", lockedDiscipline ? null : "Дисциплина", ""];
+  return h("table", {},
+    h("tr", {}, heads.filter((t) => t !== null).map((t) => h("th", {}, t))),
+    questions.map((q) =>
+      h("tr", {},
+        h("td", { class: "wrap" }, q.text, q.in_use ? [" ", h("span", { class: "badge ok" }, "в тестах")] : null),
+        h("td", { class: "wrap small" }, QUESTION_KINDS[q.kind], q.difficulty === "advanced" ? h("div", { class: "muted" }, "повышенный") : null),
+        h("td", {}, comps.get(q.competency_id)?.code || "–"),
+        lockedDiscipline ? null : h("td", { class: "wrap" }, discs.get(q.discipline_id)?.name || "–"),
+        h("td", { class: "actions" },
+          h("button", { class: "link", onclick: () => onEdit(q) }, "Изменить"),
+          q.in_use ? null : h("button", { class: "link danger", onclick: () => onDelete(q) }, "Удалить"),
+        ),
+      ),
+    ),
+  );
+}
+
+// Форма вопроса (q – существующий или null). defaults – компетенция и дисциплина из фильтров.
+function questionForm(q, { competencies, disciplines, lockedDiscipline, defaults, onSaved, onCancel }) {
+  const locked = Boolean(q?.in_use);
+  const formErr = errorBox();
+  const competency = h("select", { required: true, disabled: locked, "aria-label": "Компетенция" },
+    competencies.map((c) => h("option", { value: c.id }, `${c.code} – ${c.description}`)));
+  const discipline = h("select", { disabled: Boolean(lockedDiscipline), "aria-label": "Дисциплина вопроса" },
+    lockedDiscipline ? null : h("option", { value: "" }, "Без дисциплины"),
+    disciplines.map((d) => h("option", { value: d.id }, d.name)));
+  const text = h("textarea", { rows: 3, required: true });
+  const kind = h("select", { disabled: locked, "aria-label": "Тип задания" },
+    Object.entries(QUESTION_KINDS).map(([v, label]) => h("option", { value: v }, label)));
+  const difficulty = h("select", { "aria-label": "Уровень сложности" },
+    Object.entries(DIFFICULTIES).map(([v, label]) => h("option", { value: v }, label)));
+  const editor = optionsEditor(locked);
+
+  if (q) {
+    competency.value = String(q.competency_id);
+    discipline.value = q.discipline_id ? String(q.discipline_id) : "";
+    text.value = q.text;
+    kind.value = q.kind;
+    difficulty.value = q.difficulty;
+  } else {
+    if (defaults.competency) competency.value = defaults.competency;
+    if (defaults.discipline) discipline.value = defaults.discipline;
+  }
+  if (lockedDiscipline) discipline.value = String(lockedDiscipline);
+  editor.draw(kind.value, q);
+  kind.addEventListener("change", () => editor.draw(kind.value, null));
+
+  async function save(event) {
+    event.preventDefault();
+    formErr.clear();
+    try {
+      const body = {
+        competency_id: Number(competency.value),
+        indicator_id: q?.indicator_id ?? null, // индикаторы в интерфейсе не используются
+        discipline_id: discipline.value ? Number(discipline.value) : null,
+        text: text.value.trim(),
+        kind: kind.value,
+        difficulty: difficulty.value,
+        options: editor.read(),
+      };
+      if (q) await api(`/questions/${q.id}`, { method: "PUT", body });
+      else await api("/questions", { method: "POST", body });
+      await onSaved();
+    } catch (e) {
+      formErr.show(e);
+    }
+  }
+
+  return h("form", { class: "card edit-form", onsubmit: save },
+    h("h2", {}, q ? "Изменить вопрос" : "Новый вопрос"),
+    locked ? h("p", { class: "muted" }, "Вопрос уже входит в собранные тесты, по нему могут быть ответы студентов. Можно править формулировки, дисциплину и сложность; для остального создайте новый вопрос.") : null,
+    h("div", { class: "row" },
+      h("div", {}, h("label", {}, "Тип задания"), kind),
+      h("div", {}, h("label", {}, "Уровень сложности"), difficulty),
+    ),
+    h("label", {}, "Компетенция"), competency,
+    lockedDiscipline ? null : [h("label", {}, "Дисциплина"), discipline],
+    h("label", {}, "Текст задания"), text,
+    editor.el,
+    h("div", { class: "row mt-l" },
+      h("button", { class: "primary" }, "Сохранить"),
+      h("button", { type: "button", onclick: onCancel }, "Отмена"),
+    ),
+    formErr.el,
+  );
+}
+
 // opts: title, competencies, disciplines, fundUrl(disciplineId, key),
 //       lockedDiscipline (id) – только эта дисциплина, intro – блок над таблицей,
 //       onChange() – после сохранения или удаления вопроса.
@@ -27,145 +135,48 @@ export async function questionBank(render, opts) {
     disciplines.map((d) => h("option", { value: d.id }, d.name)));
   if (lockedDiscipline) filterDiscipline.value = String(lockedDiscipline);
   const err = errorBox();
-  const fundBlank = h("a", { class: "button", download: "" }, "ФОМ дисциплины (Word)");
-  const fundKey = h("a", { class: "button", download: "" }, "ФОМ с ответами (Word)");
-  const fundHint = h("span", { class: "muted small" }, "Выберите дисциплину, чтобы выгрузить её ФОМ в Word.");
-  function setFundLinks() {
-    const id = filterDiscipline.value;
-    fundBlank.hidden = fundKey.hidden = !id;
-    fundHint.hidden = Boolean(id);
-    if (id) {
-      fundBlank.href = opts.fundUrl(id, false);
-      fundKey.href = opts.fundUrl(id, true);
-    }
-  }
+  const fund = fundLinks(opts.fundUrl);
   const formSlot = h("div");
   const tableSlot = h("div", { class: "table-wrap" });
+
+  async function changed() {
+    fill(formSlot);
+    await refresh();
+    await opts.onChange?.();
+  }
+
+  async function remove(q) {
+    if (!confirm("Удалить вопрос?")) return;
+    err.clear();
+    try {
+      await api(`/questions/${q.id}`, { method: "DELETE" });
+      await changed();
+    } catch (e) {
+      err.show(e);
+    }
+  }
+
+  function openForm(q) {
+    fill(formSlot, questionForm(q, {
+      competencies, disciplines, lockedDiscipline,
+      defaults: { competency: filterCompetency.value, discipline: filterDiscipline.value },
+      onSaved: changed,
+      onCancel: () => fill(formSlot),
+    }));
+    formSlot.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
 
   async function refresh() {
     const params = new URLSearchParams();
     if (filterCompetency.value) params.set("competency_id", filterCompetency.value);
     if (filterDiscipline.value) params.set("discipline_id", filterDiscipline.value);
     const questions = await api(`/questions?${params}`);
-    fill(tableSlot,
-      questions.length
-        ? h("table", {},
-            h("tr", {}, ["Вопрос", "Тип", "Компетенция", lockedDiscipline ? null : "Дисциплина", ""].filter((t) => t !== null).map((t) => h("th", {}, t))),
-            questions.map((q) =>
-              h("tr", {},
-                h("td", { class: "wrap" }, q.text, q.in_use ? [" ", h("span", { class: "badge ok" }, "в тестах")] : null),
-                h("td", { class: "wrap small" }, QUESTION_KINDS[q.kind], q.difficulty === "advanced" ? h("div", { class: "muted" }, "повышенный") : null),
-                h("td", {}, comps.get(q.competency_id)?.code || "–"),
-                lockedDiscipline ? null : h("td", { class: "wrap" }, discs.get(q.discipline_id)?.name || "–"),
-                h("td", { class: "actions" },
-                  h("button", { class: "link", onclick: () => openForm(q) }, "Изменить"),
-                  q.in_use ? null : h("button", {
-                    class: "link danger",
-                    onclick: async () => {
-                      if (!confirm("Удалить вопрос?")) return;
-                      err.clear();
-                      try {
-                        await api(`/questions/${q.id}`, { method: "DELETE" });
-                        fill(formSlot);
-                        await refresh();
-                        await opts.onChange?.();
-                      } catch (e) {
-                        err.show(e);
-                      }
-                    },
-                  }, "Удалить"),
-                ),
-              ),
-            ),
-          )
-        : h("p", { class: "muted" }, "Вопросов не найдено"),
-    );
-  }
-
-  function openForm(q) {
-    const locked = Boolean(q?.in_use);
-    const formErr = errorBox();
-    const competency = h("select", { required: true, disabled: locked, "aria-label": "Компетенция" },
-      competencies.map((c) => h("option", { value: c.id }, `${c.code} – ${c.description}`)));
-    const discipline = h("select", { disabled: Boolean(lockedDiscipline), "aria-label": "Дисциплина вопроса" },
-      lockedDiscipline ? null : h("option", { value: "" }, "Без дисциплины"),
-      disciplines.map((d) => h("option", { value: d.id }, d.name)));
-    const text = h("textarea", { rows: 3, required: true });
-    const kind = h("select", { disabled: locked, "aria-label": "Тип задания" },
-      Object.entries(QUESTION_KINDS).map(([v, label]) => h("option", { value: v }, label)));
-    const difficulty = h("select", { "aria-label": "Уровень сложности" },
-      Object.entries(DIFFICULTIES).map(([v, label]) => h("option", { value: v }, label)));
-    const editor = optionsEditor(locked);
-
-    if (q) {
-      competency.value = String(q.competency_id);
-      discipline.value = q.discipline_id ? String(q.discipline_id) : "";
-      text.value = q.text;
-      kind.value = q.kind;
-      difficulty.value = q.difficulty;
-    } else {
-      if (filterCompetency.value) competency.value = filterCompetency.value;
-      if (filterDiscipline.value) discipline.value = filterDiscipline.value;
-    }
-    if (lockedDiscipline) discipline.value = String(lockedDiscipline);
-    editor.draw(kind.value, q);
-    kind.addEventListener("change", () => editor.draw(kind.value, null));
-
-    fill(formSlot,
-      h("form", {
-        class: "card edit-form",
-        onsubmit: async (event) => {
-          event.preventDefault();
-          formErr.clear();
-          let options;
-          try {
-            options = editor.read();
-          } catch (e) {
-            return formErr.show(e);
-          }
-          const body = {
-            competency_id: Number(competency.value),
-            indicator_id: q?.indicator_id ?? null,  // индикаторы в интерфейсе не используются
-            discipline_id: discipline.value ? Number(discipline.value) : null,
-            text: text.value.trim(),
-            kind: kind.value,
-            difficulty: difficulty.value,
-            options,
-          };
-          try {
-            if (q) await api(`/questions/${q.id}`, { method: "PUT", body });
-            else await api("/questions", { method: "POST", body });
-            fill(formSlot);
-            await refresh();
-            await opts.onChange?.();
-          } catch (e) {
-            formErr.show(e);
-          }
-        },
-      },
-      h("h2", {}, q ? "Изменить вопрос" : "Новый вопрос"),
-      locked ? h("p", { class: "muted" }, "Вопрос уже входит в собранные тесты, по нему могут быть ответы студентов. Можно править формулировки, дисциплину и сложность; для остального создайте новый вопрос.") : null,
-      h("div", { class: "row" },
-        h("div", {}, h("label", {}, "Тип задания"), kind),
-        h("div", {}, h("label", {}, "Уровень сложности"), difficulty),
-      ),
-      h("label", {}, "Компетенция"), competency,
-      lockedDiscipline ? null : [h("label", {}, "Дисциплина"), discipline],
-      h("label", {}, "Текст задания"), text,
-      editor.el,
-      h("div", { class: "row mt-l" },
-        h("button", { class: "primary" }, "Сохранить"),
-        h("button", { type: "button", onclick: () => fill(formSlot) }, "Отмена"),
-      ),
-      formErr.el,
-      ),
-    );
-    formSlot.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    fill(tableSlot, questionsTable(questions, { comps, discs, lockedDiscipline, onEdit: openForm, onDelete: remove }));
   }
 
   filterCompetency.addEventListener("change", refresh);
-  filterDiscipline.addEventListener("change", () => { setFundLinks(); refresh(); });
-  setFundLinks();
+  filterDiscipline.addEventListener("change", () => { fund.update(filterDiscipline.value); refresh(); });
+  fund.update(filterDiscipline.value);
   render(
     h("h1", {}, opts.title),
     opts.intro || null,
@@ -175,7 +186,7 @@ export async function questionBank(render, opts) {
         lockedDiscipline ? null : h("div", {}, h("label", {}, "Дисциплина"), filterDiscipline),
         h("button", { class: "primary", onclick: () => openForm(null) }, "Новый вопрос"),
       ),
-      h("div", { class: "row mt-m" }, fundBlank, fundKey, fundHint),
+      fund.el,
       err.el,
       h("div", { class: "mt-m" }, tableSlot),
     ),
