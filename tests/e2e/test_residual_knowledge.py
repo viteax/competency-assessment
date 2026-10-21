@@ -62,6 +62,7 @@ def test_semester_variants_and_tests_tab(admin_page: Page, new_page):
     page.click("nav >> text=Тесты")
     page.click("text=Открыть")
     expect(page.locator("h3:text-is('Варианты (4)')")).to_be_visible()
+    expect(page.locator("text=Варианты не пересекаются по вопросам")).to_be_visible()
     group_row = page.locator("tr", has=page.locator("td:text-is('ПИ-21')"))
     expect(group_row).to_contain_text("уже проходят")
     expect(page.locator("button:text-is('Удалить тест')")).to_be_disabled()

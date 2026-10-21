@@ -63,6 +63,16 @@ function readField(field, el) {
 }
 
 // Таблица записей с формой добавления/редактирования и удалением.
+// Классы колонок таблицы по содержимому: самая «текстовая» колонка забирает свободное место
+// (main), длинные переносятся (wrap), короткие (коды, числа) – в одну строку.
+function columnClasses(cells) {
+  const text = (v) => (v instanceof Node ? v.textContent : String(v ?? "")).length;
+  const count = cells[0]?.length ?? 0;
+  const avg = Array.from({ length: count }, (_, i) => cells.reduce((sum, row) => sum + text(row[i]), 0) / (cells.length || 1));
+  const main = avg.indexOf(Math.max(...avg));
+  return avg.map((a, i) => (i === main && a > 12 ? "wrap main" : a > 24 ? "wrap" : ""));
+}
+
 async function crudSection(cfg) {
   const err = errorBox();
   const formSlot = h("div");
@@ -110,13 +120,14 @@ async function crudSection(cfg) {
 
   async function refresh() {
     const rows = await cfg.load();
+    const classes = columnClasses(rows.map((row) => cfg.columns.map(([, cell]) => cell(row))));
     fill(tableSlot,
       rows.length
         ? h("table", {},
             h("tr", {}, cfg.columns.map(([title]) => h("th", {}, title)), h("th", {}, "")),
             rows.map((row) =>
               h("tr", {},
-                cfg.columns.map(([, cell]) => h("td", { class: "wrap" }, cell(row))),
+                cfg.columns.map(([, cell], i) => h("td", { class: classes[i] }, cell(row))),
                 h("td", { class: "actions" },
                   h("button", { class: "link", onclick: () => openForm(row) }, "Изменить"),
                   h("button", {

@@ -209,7 +209,7 @@ export function radarCard(title, axes, filename, legend = []) {
     legend.length ? h("p", { class: "muted small radar-legend" }, legend.map((line, i) => [i ? h("br") : null, line])) : "",
     ...[body].flat(),
     drawn.length ? h("table", { class: "small" },
-      drawn.map((a) => h("tr", {}, h("td", {}, a.label), h("td", { class: "wrap" }, a.name || ""), h("td", {}, `${score(a.value)} из ${MAX}`)))) : "",
+      drawn.map((a) => h("tr", {}, h("td", {}, a.label), h("td", { class: "wrap main" }, a.name || ""), h("td", {}, `${score(a.value)} из ${MAX}`)))) : "",
     missing.length ? h("p", { class: "muted small" }, "Нет данных (не проверялись): ", missing.map((a) => a.label).join(", ")) : "",
   );
   return card;

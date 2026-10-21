@@ -17,8 +17,12 @@ export async function studentTests(render) {
               return h("tr", {},
                 h("td", {}, a.title),
                 h("td", {}, a.question_count),
-                h("td", {}, done ? `${a.attempt.score}/${a.attempt.max_score}` : h("span", { class: "muted" }, "не пройден")),
-                h("td", {}, done ? "" : h("button", { class: "primary", onclick: () => go((render) => takeTest(a.id, render), studentTests) }, a.attempt ? "Продолжить" : "Пройти")),
+                h("td", {}, done
+                  ? [`Верно ${a.attempt.score} из ${a.attempt.max_score} `, h("span", { class: "badge ok" }, "пройден")]
+                  : h("span", { class: "muted" }, a.attempt ? "начат" : "не пройден")),
+                h("td", { class: "actions" }, done
+                  ? h("button", { class: "link", onclick: () => go(studentResults) }, "Результаты")
+                  : h("button", { class: "primary", onclick: () => go((render) => takeTest(a.id, render), studentTests) }, a.attempt ? "Продолжить" : "Пройти")),
               );
             }),
           ),
@@ -184,7 +188,10 @@ export async function studentResults(render) {
     ),
     report.competencies.length ? laborSummary(labor) : null,
     report.competencies.length ? profileCharts(profile, "мои результаты") : null,
-    h("h2", {}, "Трудовые функции профстандарта"),
-    laborFunctionsView(labor),
+    report.competencies.length
+      ? h("details", { class: "card" },
+          h("summary", {}, "Подробно: трудовые функции профстандарта и нужные для них компетенции"),
+          h("div", { class: "mt-m" }, laborFunctionsView(labor)))
+      : null,
   );
 }

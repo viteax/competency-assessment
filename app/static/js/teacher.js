@@ -19,7 +19,7 @@ function progressView(d) {
     h("table", { class: "small" },
       h("tr", {}, ["Компетенция", "Нужно", "Сделано", "Осталось"].map((t) => h("th", {}, t))),
       d.competencies.map((c) => h("tr", {},
-        h("td", { class: "wrap", title: c.description }, h("strong", {}, c.code), ` – ${c.description}`),
+        h("td", { class: "wrap main", title: c.description }, h("strong", {}, c.code), ` – ${c.description}`),
         h("td", {}, c.required || "–"),
         h("td", {}, c.done),
         h("td", {}, c.required ? Math.max(c.required - c.done, 0) : "–"),

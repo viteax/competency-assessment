@@ -41,7 +41,8 @@ def test_temporary_password_lifecycle(admin_page: Page):
     expect(page.locator(".notice")).to_contain_text("временный пароль")
 
     page.click("nav >> text=Журнал")
-    expect(page.locator("td:has-text('reset-password')").first).to_be_visible()
+    expect(page.locator("td:has-text('Сброс пароля')").first).to_be_visible()
+    expect(page.locator("td:has-text('reset-password')").first).to_be_visible()  # путь – мелко
 
     # после сброса старый пароль не подходит
     logout(page)

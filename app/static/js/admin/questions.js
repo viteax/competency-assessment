@@ -38,7 +38,7 @@ function questionsTable(questions, { comps, discs, lockedDiscipline, onEdit, onD
     h("tr", {}, heads.filter((t) => t !== null).map((t) => h("th", {}, t))),
     questions.map((q) =>
       h("tr", {},
-        h("td", { class: "wrap" }, q.text, q.in_use ? [" ", h("span", { class: "badge ok" }, "в тестах")] : null),
+        h("td", { class: "wrap main" }, q.text, q.in_use ? [" ", h("span", { class: "badge ok" }, "в тестах")] : null),
         h("td", { class: "wrap small" }, QUESTION_KINDS[q.kind], q.difficulty === "advanced" ? h("div", { class: "muted" }, "повышенный") : null),
         h("td", {}, comps.get(q.competency_id)?.code || "–"),
         lockedDiscipline ? null : h("td", { class: "wrap" }, discs.get(q.discipline_id)?.name || "–"),
@@ -134,10 +134,13 @@ export async function questionBank(render, opts) {
   const filterDiscipline = h("select", { "aria-label": "Дисциплина" }, h("option", { value: "" }, "Все дисциплины"),
     disciplines.map((d) => h("option", { value: d.id }, d.name)));
   if (lockedDiscipline) filterDiscipline.value = String(lockedDiscipline);
+  const search = h("input", { type: "search", placeholder: "Поиск по тексту задания", "aria-label": "Поиск" });
   const err = errorBox();
   const fund = fundLinks(opts.fundUrl);
   const formSlot = h("div");
+  const counter = h("p", { class: "muted small mt-0" });
   const tableSlot = h("div", { class: "table-wrap" });
+  let loaded = [];
 
   async function changed() {
     fill(formSlot);
@@ -170,11 +173,21 @@ export async function questionBank(render, opts) {
     const params = new URLSearchParams();
     if (filterCompetency.value) params.set("competency_id", filterCompetency.value);
     if (filterDiscipline.value) params.set("discipline_id", filterDiscipline.value);
-    const questions = await api(`/questions?${params}`);
-    fill(tableSlot, questionsTable(questions, { comps, discs, lockedDiscipline, onEdit: openForm, onDelete: remove }));
+    loaded = await api(`/questions?${params}`);
+    drawTable();
+  }
+
+  function drawTable() {
+    const words = search.value.toLowerCase().split(/\s+/).filter(Boolean);
+    const shown = loaded.filter((q) => words.every((w) => q.text.toLowerCase().includes(w)));
+    counter.textContent = shown.length === loaded.length
+      ? `Вопросов: ${loaded.length}`
+      : `Найдено: ${shown.length} из ${loaded.length}`;
+    fill(tableSlot, questionsTable(shown, { comps, discs, lockedDiscipline, onEdit: openForm, onDelete: remove }));
   }
 
   filterCompetency.addEventListener("change", refresh);
+  search.addEventListener("input", drawTable);
   filterDiscipline.addEventListener("change", () => { fund.update(filterDiscipline.value); refresh(); });
   fund.update(filterDiscipline.value);
   render(
@@ -188,9 +201,13 @@ export async function questionBank(render, opts) {
       ),
       fund.el,
       err.el,
-      h("div", { class: "mt-m" }, tableSlot),
     ),
     formSlot,
+    h("div", { class: "card" },
+      h("div", { class: "row" }, h("div", { class: "grow" }, search)),
+      h("div", { class: "mt-s" }, counter),
+      tableSlot,
+    ),
   );
   await refresh();
 }

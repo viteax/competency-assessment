@@ -75,7 +75,7 @@ export async function adminStudents(render) {
             students.map((s) => {
               const account = accounts.get(s.id);
               return h("tr", {},
-                h("td", { class: "wrap" }, s.full_name),
+                h("td", { class: "wrap main" }, s.full_name),
                 h("td", {}, s.email || h("span", { class: "muted" }, "–")),
                 h("td", {},
                   account ? account.username : h("span", { class: "muted" }, "нет учётки"),

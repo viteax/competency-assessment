@@ -28,6 +28,7 @@ def test_assign_take_and_review(admin_page: Page):
 
     page.click("text=Мои результаты")
     expect(page.locator("text=ПК-1").first).to_be_visible()
+    page.click("summary:has-text('трудовые функции профстандарта')")  # подробности свёрнуты
     expect(page.locator("text=ОТФ").first).to_be_visible()
 
     logout(page)

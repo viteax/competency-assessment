@@ -3,6 +3,12 @@
 
 import { api, errorBox, fill, h, QUESTION_KINDS } from "../core.js";
 
+// Есть ли вопросы, которые входят больше чем в один вариант.
+const overlaps = (t) => {
+  const ids = t.variants.flatMap((v) => v.questions.map((q) => q.id));
+  return new Set(ids).size < ids.length;
+};
+
 export async function adminTests(render) {
   const [tests, competencies, disciplines] = await Promise.all([
     api("/tests"),
@@ -20,7 +26,7 @@ export async function adminTests(render) {
       ? h("table", {},
           h("tr", {}, ["Тест", "Семестр", "Вариантов", "Вопросов у студента", "Создан", ""].map((t) => h("th", {}, t))),
           tests.map((t) => h("tr", {},
-            h("td", { class: "wrap" }, t.title),
+            h("td", { class: "wrap main" }, t.title),
             h("td", {}, t.semester ?? "–"),
             h("td", {}, t.variant_count),
             h("td", {}, t.questions_per_variant),
@@ -90,7 +96,9 @@ export async function adminTests(render) {
             )))
         : h("p", { class: "muted" }, "Пока никому не назначен."),
       h("h3", {}, `Варианты (${t.variant_count})`),
-      h("p", { class: "muted small" }, "Варианты не пересекаются по вопросам. Каждому студенту при открытии теста достаётся случайный из тех, что выданы реже, а порядок вопросов и ответов перемешивается. Правильные ответы отмечены ✓, для последовательности – верный порядок."),
+      h("p", { class: "muted small" },
+        overlaps(t) ? "Варианты частично пересекаются по вопросам, но все разные. " : "Варианты не пересекаются по вопросам. ",
+        "Каждому студенту при открытии теста достаётся случайный из тех, что выданы реже, а порядок вопросов и ответов перемешивается. Правильные ответы отмечены ✓, для последовательности – верный порядок."),
       t.variants.map((v) => h("details", { open: t.variant_count === 1 },
         h("summary", {}, `Вариант ${v.variant} – ${v.questions.length} вопр.`),
         h("ol", { class: "spaced-list" }, v.questions.map((q) => h("li", {},

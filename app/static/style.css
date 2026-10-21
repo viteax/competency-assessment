@@ -78,6 +78,16 @@ body {
 #who { color: var(--muted); font-size: 14px; }
 #theme { font-size: 14px; color: var(--muted); }
 
+/* Телефон: заголовок отдельной строкой, меню в одну строку с прокруткой. */
+@media (max-width: 600px) {
+  .topbar { gap: 2px 12px; padding: 10px 12px 6px; }
+  .topbar > strong { flex-basis: 100%; }
+  #nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-top: 4px; }
+  #nav::-webkit-scrollbar { display: none; }
+  #nav button { white-space: nowrap; flex-shrink: 0; }
+  main { padding-top: 16px; }
+}
+
 main { max-width: 960px; margin: 0 auto; padding: 20px 16px 48px; }
 
 h1 { font-size: 22px; margin: 0 0 16px; }
@@ -102,7 +112,7 @@ input, select, button, a.button {
   background: var(--card);
 }
 
-input[type="text"], input[type="password"], input[type="number"], select { width: 100%; max-width: 420px; }
+input[type="text"], input[type="password"], input[type="number"], input[type="search"], select { width: 100%; max-width: 420px; }
 textarea {
   font: inherit;
   color: inherit;
@@ -134,7 +144,9 @@ button.danger:not(.link) { color: var(--bad); border-color: var(--bad); }
 
 .subnav { display: flex; flex-wrap: wrap; gap: 2px; margin: -6px 0 12px -8px; }
 
+/* Колонка с текстом забирает свободное место; короткие колонки – по содержимому. */
 td.wrap { white-space: normal; min-width: 160px; }
+td.main { width: 60%; }
 td.actions { text-align: right; }
 
 .option-row { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
@@ -237,3 +249,5 @@ button.link.bare { padding: 0; }
 .mode-switch { margin: 14px 0 4px; }
 .mode-switch label.inline { margin: 0; }
 td.wrap-text, .wrap-text { white-space: normal; }
+
+details.card .card { border: none; padding: 0; margin: 12px 0 0; }
