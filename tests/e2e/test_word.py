@@ -6,7 +6,7 @@ import pytest
 from docx import Document
 from playwright.sync_api import expect
 
-from tests.e2e.conftest import assign_new_test, login
+from tests.e2e.conftest import assign_new_test, login, open_section
 
 pytestmark = pytest.mark.e2e
 
@@ -30,9 +30,8 @@ def test_fund_and_test_documents(new_page):
     name, _ = downloaded(page, "ФОМ с ответами (Word)")
     assert name == "ФОМ – Операционные системы – ключ.docx"
 
-    page.click("nav >> text=Назначить тест")
     assign_new_test(page, "Контрольная", ["ОПК-5"], per_competency=5)
-    page.click("nav >> text=Тесты")
+    open_section(page, "Тесты", "Все тесты")
     page.click("text=Открыть")
     page.get_by_label("Вариант для Word").select_option(label="Вариант 3")
     name, doc = downloaded(page, "Тест с ответами (Word)")

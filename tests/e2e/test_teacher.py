@@ -5,7 +5,7 @@ import re
 import pytest
 from playwright.sync_api import Page, expect
 
-from tests.e2e.conftest import login
+from tests.e2e.conftest import login, open_section
 
 pytestmark = pytest.mark.e2e
 
@@ -43,8 +43,7 @@ def test_teacher_composes_questions(new_page):
 
 def test_admin_adds_teacher_and_assigns_discipline(admin_page: Page, new_page):
     page = admin_page
-    page.click("nav >> text=Справочники")
-    page.click(".subnav >> text=Преподаватели")
+    open_section(page, "База", "Преподаватели")
     page.get_by_label("ФИО преподавателя").fill("Лебедев Олег Игоревич")
     page.get_by_label("Логин преподавателя").fill("lebedev")
     page.click("form >> button:text-is('Добавить')")

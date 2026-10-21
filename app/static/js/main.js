@@ -1,26 +1,21 @@
 // Точка входа: вход в систему, меню по роли, тема оформления.
 
-import { adminAssign } from "./admin/assign.js";
 import { adminAudit } from "./admin/audit.js";
-import { adminCatalogs } from "./admin/catalogs.js";
-import { adminImport } from "./admin/import.js";
+import { adminHome } from "./admin/home.js";
+import { basePage, resultsPage, studentsPage, testsPage } from "./admin/pages.js";
 import { adminQuestions } from "./admin/questions.js";
-import { adminGroupResults, adminLaborFunctions } from "./admin/results.js";
-import { adminStudents } from "./admin/students.js";
-import { adminTests } from "./admin/tests.js";
 import { api, errorBox, fill, go, h, render, setMenu, setUnauthorizedHandler } from "./core.js";
 import { studentResults, studentTests } from "./student.js";
 import { teacherDisciplines } from "./teacher.js";
 
+// Порядок – как идёт работа: общая картина, тесты, результаты, вопросы, студенты, база.
 const ADMIN_MENU = [
-  ["Назначить тест", adminAssign],
-  ["Тесты", adminTests],
-  ["Студенты", adminStudents],
-  ["Результаты группы", adminGroupResults],
-  ["ПК → ОТФ", adminLaborFunctions],
+  ["Главная", adminHome],
+  ["Тесты", testsPage],
+  ["Результаты", resultsPage],
   ["Банк вопросов", adminQuestions],
-  ["Справочники", adminCatalogs],
-  ["Импорт", adminImport],
+  ["Студенты", studentsPage],
+  ["База", basePage],
   ["Журнал", adminAudit],
 ];
 

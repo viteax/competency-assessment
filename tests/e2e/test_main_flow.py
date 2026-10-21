@@ -3,7 +3,7 @@ import re
 import pytest
 from playwright.sync_api import Page, expect
 
-from tests.e2e.conftest import answer_all, assign_new_test, login, logout
+from tests.e2e.conftest import answer_all, assign_new_test, login, logout, open_section
 
 pytestmark = pytest.mark.e2e
 
@@ -33,16 +33,16 @@ def test_assign_take_and_review(admin_page: Page):
 
     logout(page)
     login(page, "admin", "admin123")
-    page.click("nav >> text=Результаты группы")
+    open_section(page, "Результаты", "По группе")
     expect(page.locator("td:has-text('Иванов Иван Иванович')")).to_be_visible()
-    page.click("nav >> text=ПК → ОТФ")
+    open_section(page, "Результаты", "Трудовые функции студента")
     expect(page.locator("text=ОТФ A").first).to_be_visible()
 
 
 def test_mobile_has_no_horizontal_scroll(admin_page: Page):
     page = admin_page
     page.set_viewport_size({"width": 390, "height": 800})
-    for tab in ["Результаты группы", "Справочники", "Банк вопросов"]:
+    for tab in ["Главная", "Результаты", "База", "Банк вопросов"]:
         page.click(f"nav >> text={tab}")
         page.wait_for_load_state("networkidle")
         assert page.evaluate("document.documentElement.scrollWidth") <= 390, tab
@@ -74,13 +74,13 @@ def test_slow_screen_does_not_cover_newer_one(admin_page: Page):
     """Пока экран ждёт ответа сервера, пользователь уходит на другой: опоздавший экран не должен
     перерисоваться поверх нового."""
     page = admin_page
-    tests = re.compile(r"/tests$")  # экран «Назначить тест» ждёт этот запрос перед отрисовкой
+    tests = re.compile(r"/tests$")  # вкладка «Новый тест» ждёт этот запрос
     held = []
     page.route(tests, lambda route: held.append(route))
 
     with page.expect_request(tests):
-        page.click("nav >> text=Назначить тест")
-    page.click("nav >> text=Студенты")
+        open_section(page, "Тесты", "Новый тест")
+    open_section(page, "Студенты")
     expect(page.locator("h1")).to_have_text("Студенты")
 
     with page.expect_response(tests):

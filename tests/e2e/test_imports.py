@@ -1,7 +1,7 @@
 import pytest
 from playwright.sync_api import Page, expect
 
-from tests.e2e.conftest import login, logout
+from tests.e2e.conftest import login, logout, open_section
 from tests.import_samples import matrix_xlsx, rpd_docx
 
 pytestmark = pytest.mark.e2e
@@ -21,19 +21,19 @@ def upload(page: Page, name: str, content: bytes, mime: str) -> None:
 
 def test_competency_import(admin_page: Page):
     page = admin_page
-    page.click("nav >> text=Импорт")
+    open_section(page, "База", "Загрузка из ОПОП / РПД")
     upload(page, "rpd.docx", rpd_docx(), "application/octet-stream")
     expect(page.locator("text=найдено компетенций")).to_be_visible()
     page.click("text=Импортировать выбранные")
     expect(page.locator("text=Импорт выполнен")).to_be_visible()
 
-    page.click("nav >> text=Импорт")
+    open_section(page, "База", "Загрузка из ОПОП / РПД")
     upload(page, "matrix.xlsx", matrix_xlsx(), "application/octet-stream")
     expect(page.locator("text=найдено компетенций")).to_be_visible()
     page.click("text=Импортировать выбранные")
     expect(page.locator("text=Импорт выполнен")).to_be_visible()
 
-    page.click("text=Открыть справочники")
+    page.click("text=Открыть компетенции в базе")
     expect(page.locator("td:text-is('ОПК-2')")).to_be_visible()
     expect(page.locator("td:text-is('УК-2')")).to_be_visible()
     page.click(".subnav >> text=Дисциплины")
@@ -43,8 +43,7 @@ def test_competency_import(admin_page: Page):
 def test_student_import_and_first_login(new_page):
     page = new_page(accept_downloads=True)
     login(page, "admin", "admin123")
-    page.click("nav >> text=Импорт")
-    page.click(".subnav >> text=Студенты (выгрузка СДО)")
+    open_section(page, "Студенты", "Загрузить из Excel / СДО")
     expect(page.locator("text=Загрузите список студентов")).to_be_visible()
     upload(page, "participants.csv", SDO_PARTICIPANTS.encode(), "text/csv")
     # Иванов уже есть в группе, преподаватель не студент – новых один

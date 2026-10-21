@@ -1,6 +1,6 @@
-// Справочники: универсальная таблица с формой и описания всех справочников.
+// База: универсальная таблица с формой и описания всех разделов базы.
 
-import { api, byId, errorBox, fill, h, passwordNotice, tabbedPage, temporaryPassword } from "../core.js";
+import { api, byId, errorBox, fill, h, passwordNotice, temporaryPassword } from "../core.js";
 
 // Поле формы → элемент ввода. Значение читается через readField.
 function fieldInput(field, value) {
@@ -166,7 +166,7 @@ async function crudSection(cfg) {
 
 const codes = (ids, map) => ids.map((id) => map.get(id)?.code).filter(Boolean).sort().join(", ") || "–";
 
-const CATALOGS = {
+export const CATALOGS = {
   async "Направления"() {
     return crudSection({
       load: () => api("/directions"),
@@ -486,5 +486,3 @@ const CATALOGS = {
     );
   },
 };
-
-export const adminCatalogs = tabbedPage("Справочники", CATALOGS, "Компетенции");

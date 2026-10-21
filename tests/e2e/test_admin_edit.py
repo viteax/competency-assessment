@@ -3,7 +3,7 @@ import re
 import pytest
 from playwright.sync_api import Locator, Page, expect
 
-from tests.e2e.conftest import assign_new_test
+from tests.e2e.conftest import answer_all, assign_new_test, login, logout, open_section
 
 pytestmark = pytest.mark.e2e
 
@@ -23,7 +23,7 @@ def test_edit_catalogs(admin_page: Page):
     page = admin_page
     assign_new_test(page, "Входной контроль", ["ПК-1"])
 
-    page.click("nav >> text=Справочники")
+    open_section(page, "База", "Компетенции")
     page.click(".card >> button:text-is('Добавить')")
     form = page.locator("form.edit-form")
     form.locator("input").nth(0).fill("ПК-3")
@@ -90,17 +90,25 @@ def test_edit_questions(admin_page: Page):
 
 def test_mastery_threshold_setting(admin_page: Page):
     page = admin_page
-    page.click("nav >> text=Справочники")
-    page.click(".subnav >> text=Настройки")
+    assign_new_test(page, "Порог", ["ПК-1"])
+    logout(page)
+    login(page, "student1", "student123")  # порог виден в результатах, когда они есть
+    page.click("text=Пройти")
+    answer_all(page)
+    page.click("text=Сдать тест")
+    expect(page.locator(".score")).to_be_visible()
+    logout(page)
+    login(page, "admin", "admin123")
+
+    open_section(page, "База", "Настройки")
     field = page.locator("form input[type=number]")
     expect(field).to_have_value("60")
     field.fill("75")
     page.click("button:text-is('Сохранить')")
     expect(page.locator(".success")).to_contain_text("от 75%")
 
-    page.click("nav >> text=Результаты группы")
-    expect(page.locator("text=от 75% верных ответов")).to_be_visible()
+    open_section(page, "Результаты", "По группе")
+    expect(page.locator("text=компетенция сформирована (от 75% верных")).to_be_visible()
     page.reload()
-    page.click("nav >> text=Справочники")
-    page.click(".subnav >> text=Настройки")
+    open_section(page, "База", "Настройки")
     expect(page.locator("form input[type=number]")).to_have_value("75")

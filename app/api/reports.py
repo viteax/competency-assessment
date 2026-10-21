@@ -4,6 +4,7 @@ from app import models, schemas
 from app.api.deps import SessionDep, require_admin
 from app.api.files import XLSX, attachment
 from app.errors import NotFound
+from app.services import dashboard as dashboard_service
 from app.services import report_export, reports
 from app.services.common import get_or_404
 
@@ -57,3 +58,10 @@ def group_profile(
     test = get_or_404(session, models.Test, test_id) if test_id is not None else None
     result.legend = reports.group_profile_legend(group, result.students, test)
     return result
+
+
+@router.get("/dashboard", response_model=schemas.Dashboard)
+def dashboard(session: SessionDep):
+    """Главная страница администратора: цифры, прогресс преподавателей, последние тесты и
+    что требует внимания."""
+    return dashboard_service.dashboard(session)

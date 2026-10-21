@@ -137,9 +137,17 @@ def admin_page(page: Page) -> Page:
     return page
 
 
+def open_section(page: Page, section: str, tab: str | None = None) -> None:
+    """Пункт меню администратора и, если нужно, вкладка в нём (вкладка запоминается)."""
+    page.click(f"nav >> text={section}")
+    if tab:
+        page.click(f".subnav >> text={tab}")
+
+
 def assign_new_test(page: Page, title: str, codes: list[str], per_competency: int = 3) -> None:
-    """Вкладка «Назначить тест» администратора: собрать новый тест группе по умолчанию
+    """«Тесты → Новый тест»: собрать новый тест группе по умолчанию
     (семестр подставляется текущий, вопросы – из завершённых дисциплин)."""
+    open_section(page, "Тесты", "Новый тест")
     page.wait_for_selector("text=Завершены до")
     for code in codes:
         page.locator("label", has_text=re.compile(rf"^{code} ")).locator("input").check()

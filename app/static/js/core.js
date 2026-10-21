@@ -129,20 +129,45 @@ export function go(view, menuItem = view) {
 }
 
 // Страница с вкладками; открытая вкладка запоминается до следующего захода.
+// page.at(name) – та же страница, открытая на нужной вкладке (для ссылок с других экранов).
 export function tabbedPage(title, tabs, initial = Object.keys(tabs)[0]) {
   let current = initial;
-  return async function page(render) {
+  let loads = 0; // номер последней загрузки вкладки: показывается только она
+  page.at = (name) => (render) => {
+    current = name;
+    return page(render);
+  };
+  return page;
+  async function page(render) {
     const bar = h("div", { class: "subnav" });
     const body = h("div");
+    let shown = null; // какая вкладка уже показана на этой странице
     async function open(name) {
+      // Клик по уже открытой вкладке ничего не делает: иначе введённое в форму пропало бы.
+      if (name === shown && name === current) return;
       current = name;
+      const ticket = ++loads;
       fill(bar, Object.keys(tabs).map((n) =>
         h("button", { class: `link ${n === name ? "active" : ""}`, onclick: () => open(n) }, n)));
       const content = await tabs[name]();
-      if (current === name) fill(body, content);  // вкладку не сменили, пока она загружалась
+      // Пока вкладка загружалась, могли открыть другую или эту же ещё раз (повторный клик,
+      // переход по меню): опоздавшая загрузка не должна заменить уже показанную.
+      if (ticket === loads) {
+        fill(body, content);
+        shown = name;
+      }
     }
     render(h("h1", {}, title), bar, body);
     await open(current);
+  }
+}
+
+// Отдельный экран как вкладка страницы: его заголовок h1 не нужен – он есть у страницы.
+export function screenTab(screen) {
+  return async () => {
+    const box = h("div");
+    await screen((...nodes) => fill(box, nodes.flat(Infinity).filter((n) => !(n instanceof Element && n.tagName === "H1"))));
+    return box;
   };
 }
 

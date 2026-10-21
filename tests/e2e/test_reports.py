@@ -8,7 +8,7 @@ from docx import Document
 from openpyxl import load_workbook
 from playwright.sync_api import Page, expect
 
-from tests.e2e.conftest import answer_all, assign_new_test, login, logout
+from tests.e2e.conftest import answer_all, assign_new_test, login, logout, open_section
 
 pytestmark = pytest.mark.e2e
 
@@ -39,7 +39,7 @@ def test_excel_and_radars(new_page):
     logout(page)
 
     login(page, "admin", "admin123")
-    page.click("nav >> text=Результаты группы")
+    open_section(page, "Результаты", "По группе")
     expect(page.locator("td:has-text('Иванов Иван Иванович')")).to_be_visible()
     page.get_by_label("Тест").select_option(label="Остаточные знания")
     expect(page.locator("th:text-is('ОПК-5')")).to_be_visible()
@@ -83,14 +83,14 @@ def test_too_few_axes_explained(admin_page: Page, new_page):
     assign_new_test(page, "Один ОПК", ["ОПК-5"], per_competency=2)
     student = new_page()
     pass_test(student, "student1")
-    page.click("nav >> text=Результаты группы")
+    open_section(page, "Результаты", "По группе")
     # Одна компетенция и одна ТФ (B/03.4) – для обеих «роз» объяснение вместо диаграммы.
     expect(page.locator("text=Для диаграммы нужно минимум 3 оси, сейчас 1")).to_have_count(2)
 
 
 def test_radar_section_explains_when_empty(admin_page: Page):
     page = admin_page
-    page.click("nav >> text=Результаты группы")
+    open_section(page, "Результаты", "По группе")
     expect(page.locator(".notice")).to_contain_text("Появится, когда студенты сдадут тест")
     page.click("button:text-is('Роза ветров ↓')")
     expect(page.locator("h2:text-is('Роза ветров')")).to_be_in_viewport()

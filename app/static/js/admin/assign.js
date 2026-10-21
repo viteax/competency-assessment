@@ -95,7 +95,7 @@ function disciplineNodes(plan, checks, onChange) {
       : null,
     plan.unplanned.length
       ? h("p", { class: "small error" }, "Без семестров в учебном плане (в тест не попадут): ",
-          plan.unplanned.join(", "), ". Укажите их в «Справочники → Учебный план».")
+          plan.unplanned.join(", "), ". Укажите их в «База → Учебный план».")
       : null,
   ];
 }
@@ -349,7 +349,7 @@ export async function adminAssign(render) {
       tests.find((t) => t.id === test.id).group_ids.push(Number(group.value));
       modeExisting.disabled = false;
       existing.draw();
-      ok.textContent = `Тест «${test.title}» (${variantsWord(test.variant_count)} по ${test.questions_per_variant} вопр.) назначен группе ${groupName}. Его вопросы – во вкладке «Тесты».`;
+      ok.textContent = `Тест «${test.title}» (${variantsWord(test.variant_count)} по ${test.questions_per_variant} вопр.) назначен группе ${groupName}. Его варианты и вопросы – на вкладке «Все тесты».`;
     } catch (e) {
       err.show(e);
     }

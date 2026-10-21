@@ -1,7 +1,6 @@
 // Импорт компетенций из ОПОП / РПД и студентов из выгрузки СДО.
 
-import { api, autoHeight, downloadCsv, errorBox, fill, go, h, tabbedPage } from "../core.js";
-import { adminCatalogs } from "./catalogs.js";
+import { api, autoHeight, downloadCsv, errorBox, fill, go, h } from "../core.js";
 
 const IMPORT_STATUS = {
   new: ["новая", "ok"],
@@ -9,7 +8,7 @@ const IMPORT_STATUS = {
   same: ["без изменений", ""],
 };
 
-function competencyImportView() {
+export function competencyImportView() {
   const err = errorBox();
   const file = h("input", { type: "file", accept: ".docx,.xlsx,.pdf,.txt", required: true });
   const previewSlot = h("div");
@@ -118,7 +117,13 @@ function competencyImportView() {
                         ? h("li", {}, `Дисциплина «${result.discipline.name}»${result.created_discipline ? " создана" : ""}, привязано компетенций: ${result.linked_competencies}`)
                         : null,
                     ),
-                    h("button", { onclick: () => go(adminCatalogs) }, "Открыть справочники"),
+                    h("button", {
+                      // pages.js сам подключает этот модуль, поэтому импорт – по требованию.
+                      onclick: async () => {
+                        const { basePage } = await import("./pages.js");
+                        go(basePage.at("Компетенции"), basePage);
+                      },
+                    }, "Открыть компетенции в базе"),
                   ));
                 } catch (e) {
                   applyErr.show(e);
@@ -316,8 +321,3 @@ export async function studentImportView() {
     previewSlot,
   ];
 }
-
-export const adminImport = tabbedPage("Импорт", {
-  "Компетенции (ОПОП / РПД)": competencyImportView,
-  "Студенты (выгрузка СДО)": studentImportView,
-});

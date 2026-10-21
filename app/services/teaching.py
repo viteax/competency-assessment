@@ -50,7 +50,13 @@ def check_question_access(
 
 
 def progress(session: Session, teacher: models.User) -> list[schemas.TeacherDiscipline]:
-    entries = entries_of(session, teacher)
+    return entries_progress(session, entries_of(session, teacher))
+
+
+def entries_progress(
+    session: Session, entries: list[models.CurriculumEntry]
+) -> list[schemas.TeacherDiscipline]:
+    """Квоты и сколько вопросов уже есть по каждой компетенции строк учебного плана."""
     counts = Counter(
         {
             (discipline_id, competency_id): n
