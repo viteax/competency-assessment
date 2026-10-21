@@ -280,25 +280,60 @@ def start_attempt(
     return attempt, _shuffled_for(attempt, questions)
 
 
-def submit_attempt(
-    session: Session, attempt_id: int, student: models.Student, data: schemas.AttemptSubmit
-) -> models.Attempt:
+def _open_attempt(session: Session, attempt_id: int, student: models.Student) -> models.Attempt:
+    """Своя незавершённая попытка; чужие не отличаем от несуществующих."""
     attempt = session.get(models.Attempt, attempt_id)
     if attempt is None or attempt.student_id != student.id:
         raise NotFound(f"попытка {attempt_id} не найдена")
     if attempt.finished_at is not None:
         raise Conflict("попытка уже завершена")
+    return attempt
 
-    questions = {
-        q.id: q for q in _test_questions(session, attempt.assignment.test_id, attempt.variant)
-    }
+
+def _answers_by_question(
+    questions: dict[int, models.Question], answers: list[schemas.AnswerIn]
+) -> dict[int, schemas.AnswerIn]:
     given: dict[int, schemas.AnswerIn] = {}
-    for answer in data.answers:
+    for answer in answers:
         if answer.question_id not in questions:
             raise NotFound(f"вопроса {answer.question_id} нет в этом тесте")
         if answer.question_id in given:
             raise DomainError(f"на вопрос {answer.question_id} дано несколько ответов")
         given[answer.question_id] = answer
+    return given
+
+
+def _attempt_questions(session: Session, attempt: models.Attempt) -> dict[int, models.Question]:
+    return {q.id: q for q in _test_questions(session, attempt.assignment.test_id, attempt.variant)}
+
+
+def save_draft(
+    session: Session, attempt_id: int, student: models.Student, data: schemas.AttemptSubmit
+) -> None:
+    """Ответы по ходу теста, в том числе неполные: после обновления страницы или входа с
+    другого компьютера студент продолжит с того же места. Ничего не оценивается."""
+    attempt = _open_attempt(session, attempt_id, student)
+    questions = _attempt_questions(session, attempt)
+    given = _answers_by_question(questions, data.answers)
+    for question_id, answer in given.items():
+        question = questions[question_id]
+        if len(answer.order or []) > len(question.options):
+            raise DomainError(f"в ответе на вопрос {question_id} лишние элементы")
+        _grade(question, answer)  # проверяет, что элементы из этого вопроса
+    attempt.draft = json.dumps([a.model_dump(exclude_none=True) for a in given.values()])
+    session.commit()
+
+
+def draft_answers(attempt: models.Attempt) -> list[schemas.AnswerIn]:
+    return [schemas.AnswerIn.model_validate(a) for a in json.loads(attempt.draft or "[]")]
+
+
+def submit_attempt(
+    session: Session, attempt_id: int, student: models.Student, data: schemas.AttemptSubmit
+) -> models.Attempt:
+    attempt = _open_attempt(session, attempt_id, student)
+    questions = _attempt_questions(session, attempt)
+    given = _answers_by_question(questions, data.answers)
 
     # Вопросы без ответа засчитываются как неверные. Задание засчитывается целиком:
     # «полное совпадение с верным ответом – 1 балл, иначе 0».
@@ -318,6 +353,7 @@ def submit_attempt(
     attempt.score = score
     attempt.max_score = len(questions)
     attempt.finished_at = models.utcnow()
+    attempt.draft = None
     session.commit()
     return attempt
 

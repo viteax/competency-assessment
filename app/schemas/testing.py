@@ -125,12 +125,6 @@ class AttemptStart(BaseModel):
     assignment_id: int
 
 
-class AttemptStarted(BaseModel):
-    attempt_id: int
-    title: str
-    questions: list[StudentQuestionOut]
-
-
 class AnswerIn(BaseModel):
     """Ответ на вопрос; заполняется поле, соответствующее типу задания."""
 
@@ -142,3 +136,10 @@ class AnswerIn(BaseModel):
 
 class AttemptSubmit(BaseModel):
     answers: list[AnswerIn]
+
+
+class AttemptStarted(BaseModel):
+    attempt_id: int
+    title: str
+    questions: list[StudentQuestionOut]
+    draft: list[AnswerIn] = []  # сохранённые по ходу теста ответы, в том числе неполные

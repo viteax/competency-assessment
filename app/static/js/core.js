@@ -33,6 +33,8 @@ let screen = 0;
 
 // Экран вне меню (вход, смена пароля).
 export function render(...nodes) {
+  leaving();
+  leaving = () => {};
   screen += 1;
   fill(app, ...nodes);
 }
@@ -82,7 +84,8 @@ export function setUnauthorizedHandler(handler) {
   onUnauthorized = handler;
 }
 
-export async function api(path, { method = "GET", body, form, multipart } = {}) {
+// keepalive – запрос доживёт до конца, даже если страницу закрывают (не больше 64 КБ).
+export async function api(path, { method = "GET", body, form, multipart, keepalive = false } = {}) {
   const headers = { "X-Requested-With": "fetch" };
   let payload;
   if (multipart) payload = multipart;
@@ -91,7 +94,7 @@ export async function api(path, { method = "GET", body, form, multipart } = {}) 
     headers["Content-Type"] = "application/json";
     payload = JSON.stringify(body);
   }
-  const response = await fetch(path, { method, headers, body: payload, credentials: "same-origin" });
+  const response = await fetch(path, { method, headers, body: payload, credentials: "same-origin", keepalive });
   if (response.status === 401 && !path.startsWith("/auth/")) {
     onUnauthorized();
     throw new Error("сессия истекла, войдите снова");
@@ -110,14 +113,69 @@ export async function api(path, { method = "GET", body, form, multipart } = {}) 
 
 // Экран – асинхронная функция, которая рисует себя через переданный ей render. Меню задаёт
 // main.js; экраны переходят друг к другу через go() и ничего не знают о меню.
-let menu = [];
+//
+// Адрес экрана – в хэше: #/раздел, #/раздел/вкладка, #/раздел/параметр. Поэтому работают
+// «Назад», обновление страницы и ссылки на экран. Адрес – свойство path экрана: у пунктов
+// меню его задаёт setMenu, у вкладок – tabbedPage, у экранов с параметром – screenAt.
+let menu = []; // [название, экран, адрес]
+let routes = {}; // адрес → (параметр) => экран, для экранов вне меню
 
-export function setMenu(items) {
+export function setMenu(items, paramRoutes = {}) {
   menu = items;
+  routes = paramRoutes;
+  for (const [, view, path] of items) view.path = path;
+}
+
+// Экран со своим адресом; menuItem – какой пункт меню при нём подсвечен.
+export function screenAt(path, view, menuItem) {
+  return Object.assign(view, { path, menu: menuItem });
+}
+
+// Записывает адрес в историю браузера; replace – заменить текущую запись, а не добавить.
+export function setAddress(path, replace = false) {
+  if (path === undefined || currentAddress() === path) return;
+  history[replace ? "replaceState" : "pushState"](null, "", `#/${path}`);
+}
+
+function currentAddress() {
+  try {
+    return decodeURIComponent(location.hash.slice(2));
+  } catch {
+    return "";
+  }
+}
+
+export function clearAddress() {
+  history.replaceState(null, "", location.pathname);
+}
+
+// Открывает экран по адресу из строки браузера; неизвестный адрес – первый пункт меню.
+export function openAddress() {
+  const [name, ...rest] = currentAddress().split("/");
+  const param = rest.join("/");
+  const item = menu.find(([, , path]) => path === name);
+  const view = item
+    ? (param && item[1].tab?.(param)) || item[1]
+    : (param && routes[name]?.(param)) || menu[0][1];
+  return go(view, undefined, { replace: true });
+}
+
+window.addEventListener("popstate", () => {
+  if (menu.length) openAddress();
+});
+
+// Что сделать при уходе с текущего экрана (например, сохранить несохранённое).
+let leaving = () => {};
+
+export function onLeave(handler) {
+  leaving = handler;
 }
 
 // menuItem – какой пункт меню подсветить, если экран открыт не из меню.
-export function go(view, menuItem = view) {
+export function go(view, menuItem = view.menu ?? view, { replace = false } = {}) {
+  leaving();
+  leaving = () => {};
+  setAddress(view.path, replace);
   fill(nav, menu.map(([title, v]) =>
     h("button", { class: `link ${v === menuItem ? "active" : ""}`, onclick: () => go(v) }, title)));
   const current = (screen += 1);
@@ -128,27 +186,37 @@ export function go(view, menuItem = view) {
   });
 }
 
+// Часть адреса для вкладки: «Учебный план» → «учебный-план».
+const slug = (name) => name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "");
+
 // Страница с вкладками; открытая вкладка запоминается до следующего захода.
 // page.at(name) – та же страница, открытая на нужной вкладке (для ссылок с других экранов).
 export function tabbedPage(title, tabs, initial = Object.keys(tabs)[0]) {
   let current = initial;
   let loads = 0; // номер последней загрузки вкладки: показывается только она
-  page.at = (name) => (render) => {
-    current = name;
-    return page(render);
+  page.at = (name) =>
+    screenAt(page.path && `${page.path}/${slug(name)}`, (render) => {
+      current = name;
+      return page(render);
+    }, page);
+  // Вкладка по части адреса; неизвестная – undefined.
+  page.tab = (part) => {
+    const name = Object.keys(tabs).find((n) => slug(n) === part);
+    return name && page.at(name);
   };
   return page;
   async function page(render) {
     const bar = h("div", { class: "subnav" });
     const body = h("div");
     let shown = null; // какая вкладка уже показана на этой странице
-    async function open(name) {
+    async function open(name, clicked = false) {
       // Клик по уже открытой вкладке ничего не делает: иначе введённое в форму пропало бы.
       if (name === shown && name === current) return;
       current = name;
+      if (page.path) setAddress(`${page.path}/${slug(name)}`, !clicked);
       const ticket = ++loads;
       fill(bar, Object.keys(tabs).map((n) =>
-        h("button", { class: `link ${n === name ? "active" : ""}`, onclick: () => open(n) }, n)));
+        h("button", { class: `link ${n === name ? "active" : ""}`, onclick: () => open(n, true) }, n)));
       const content = await tabs[name]();
       // Пока вкладка загружалась, могли открыть другую или эту же ещё раз (повторный клик,
       // переход по меню): опоздавшая загрузка не должна заменить уже показанную.

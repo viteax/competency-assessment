@@ -27,6 +27,10 @@
 - `app/validation_messages.py` – перевод ошибок 422 на русский (введённые значения не выводятся).
 - `app/static/js/core.js` – `h()` / `fill()`, `api()`, `go(view, menuItem)`, `tabbedPage()`,
   `screenTab()`. Разметку строить через `h()`, стили – классами в `app/static/style.css`.
+- Адрес экрана – в хэше (`#/раздел/вкладка`, `#/test/5`): у пунктов меню он третий элемент
+  в `main.js`, у вкладок – часть названия, экран с параметром создаётся через
+  `screenAt(path, view, menuItem)` и регистрируется в `ROUTES` в `main.js`. `onLeave()` –
+  что сделать при уходе с экрана.
 - `app/static/js/admin/` – экраны администратора; меню в `main.js` (`ADMIN_MENU`),
   разделы с вкладками – в `admin/pages.js`, главная – `admin/home.js`.
 - Роли: администратор, преподаватель (`teacher.js`), студент (`student.js`).

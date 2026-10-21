@@ -4,28 +4,36 @@ import { adminAudit } from "./admin/audit.js";
 import { adminHome } from "./admin/home.js";
 import { basePage, resultsPage, studentsPage, testsPage } from "./admin/pages.js";
 import { adminQuestions } from "./admin/questions.js";
-import { api, errorBox, fill, go, h, render, setMenu, setUnauthorizedHandler } from "./core.js";
-import { studentResults, studentTests } from "./student.js";
-import { teacherDisciplines } from "./teacher.js";
+import { api, clearAddress, errorBox, fill, h, openAddress, render, setMenu, setUnauthorizedHandler } from "./core.js";
+import { studentResults, studentTests, testScreen } from "./student.js";
+import { disciplineScreen, teacherDisciplines } from "./teacher.js";
 
+// Пункт меню: [название, экран, адрес в строке браузера (#/адрес)].
 // Порядок – как идёт работа: общая картина, тесты, результаты, вопросы, студенты, база.
 const ADMIN_MENU = [
-  ["Главная", adminHome],
-  ["Тесты", testsPage],
-  ["Результаты", resultsPage],
-  ["Банк вопросов", adminQuestions],
-  ["Студенты", studentsPage],
-  ["База", basePage],
-  ["Журнал", adminAudit],
+  ["Главная", adminHome, "home"],
+  ["Тесты", testsPage, "tests"],
+  ["Результаты", resultsPage, "results"],
+  ["Банк вопросов", adminQuestions, "questions"],
+  ["Студенты", studentsPage, "students"],
+  ["База", basePage, "base"],
+  ["Журнал", adminAudit, "audit"],
 ];
 
-const TEACHER_MENU = [["Мои дисциплины", teacherDisciplines]];
+const TEACHER_MENU = [["Мои дисциплины", teacherDisciplines, "disciplines"]];
 const ROLE_NAMES = { admin: "администратор", teacher: "преподаватель", student: "студент" };
 
 const STUDENT_MENU = [
-  ["Мои тесты", studentTests],
-  ["Мои результаты", studentResults],
+  ["Мои тесты", studentTests, "tests"],
+  ["Мои результаты", studentResults, "results"],
 ];
+
+// Экраны вне меню с параметром в адресе: #/test/5 – прохождение теста по назначению 5.
+const ROUTES = {
+  admin: {},
+  teacher: { discipline: disciplineScreen },
+  student: { test: testScreen },
+};
 
 const who = document.getElementById("who");
 
@@ -33,6 +41,8 @@ async function logout() {
   try {
     await api("/auth/logout", { method: "POST" });
   } finally {
+    // После выхода следующий вошедший начинает с главной, а не с чужого экрана.
+    clearAddress();
     showLogin();
   }
 }
@@ -183,8 +193,8 @@ async function start() {
     h("button", { class: "link", onclick: logout }, "Выйти"),
   );
   const menu = { admin: ADMIN_MENU, teacher: TEACHER_MENU, student: STUDENT_MENU }[me.role];
-  setMenu(menu);
-  await go(menu[0][1]);
+  setMenu(menu, ROUTES[me.role]);
+  await openAddress();
 }
 
 // --- тема оформления -----------------------------------------------------------

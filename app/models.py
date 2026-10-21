@@ -492,6 +492,8 @@ class Attempt(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     score: Mapped[int | None] = mapped_column(Integer)
     max_score: Mapped[int | None] = mapped_column(Integer)
+    # Черновик ответов (JSON) – сохраняется по ходу теста и стирается при сдаче.
+    draft: Mapped[str | None] = mapped_column(Text)
 
     assignment: Mapped[Assignment] = relationship()
     student: Mapped[Student] = relationship()

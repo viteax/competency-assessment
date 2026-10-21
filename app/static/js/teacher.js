@@ -1,7 +1,7 @@
 // Кабинет преподавателя: закреплённые дисциплины, что и сколько разработать, составление
 // вопросов и выгрузка ФОМ в Word для учебного управления.
 
-import { api, fill, go, h } from "./core.js";
+import { api, fill, go, h, screenAt } from "./core.js";
 import { questionBank } from "./admin/questions.js";
 
 const semesters = (d) => (d.first_semester === d.last_semester ? `${d.first_semester}` : `${d.first_semester}–${d.last_semester}`);
@@ -40,7 +40,7 @@ export async function teacherDisciplines(render) {
             h("p", { class: "muted small mt-0" }, `${d.direction}, ${semesters(d)} семестр`),
             progressView(d),
             h("div", { class: "row mt-m" },
-              h("button", { class: "primary", onclick: () => go((r) => disciplineQuestions(r, d.discipline_id), teacherDisciplines) }, "Составлять вопросы"),
+              h("button", { class: "primary", onclick: () => go(disciplineScreen(d.discipline_id)) }, "Составлять вопросы"),
               h("a", { class: "button", download: "", href: fundUrl(d.discipline_id, false) }, "ФОМ в Word"),
               h("a", { class: "button", download: "", href: fundUrl(d.discipline_id, true) }, "ФОМ с ответами (Word)"),
             ),
@@ -50,11 +50,15 @@ export async function teacherDisciplines(render) {
   );
 }
 
+// Экран дисциплины по номеру (номер может прийти из адреса строкой).
+export const disciplineScreen = (id) =>
+  screenAt(`discipline/${id}`, (render) => disciplineQuestions(render, Number(id)), teacherDisciplines);
+
 // Банк вопросов одной дисциплины с панелью прогресса сверху.
 async function disciplineQuestions(render, disciplineId) {
   const load = async () => (await api("/teacher/disciplines")).find((d) => d.discipline_id === disciplineId);
   const d = await load();
-  if (!d) return go(teacherDisciplines);
+  if (!d) return go(teacherDisciplines, undefined, { replace: true });
   const panel = h("div", { class: "card" });
   const drawPanel = (data) => fill(panel,
     h("button", { type: "button", class: "link bare", onclick: () => go(teacherDisciplines) }, "← Мои дисциплины"),

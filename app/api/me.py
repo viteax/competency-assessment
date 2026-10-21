@@ -22,7 +22,16 @@ def start_attempt(data: schemas.AttemptStart, student: CurrentStudent, session: 
         attempt_id=attempt.id,
         title=attempt.assignment.test.title,
         questions=questions,
+        draft=testing.draft_answers(attempt),
     )
+
+
+@router.put("/attempts/{attempt_id}/draft", status_code=204)
+def save_draft(
+    attempt_id: int, data: schemas.AttemptSubmit, student: CurrentStudent, session: SessionDep
+) -> None:
+    """Сохранить ответы по ходу теста (без оценки); при следующем открытии теста они вернутся."""
+    testing.save_draft(session, attempt_id, student, data)
 
 
 @router.post("/attempts/{attempt_id}/submit", response_model=schemas.AttemptResult)
