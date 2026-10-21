@@ -13,8 +13,6 @@ def answer_for(question: dict, correct: bool = True) -> dict:
     """Поля ответа на вопрос из банка (QuestionOut): верного или заведомо неверного."""
     options = question["options"]
     match question["kind"]:
-        case "single":
-            return {"option_id": next(o["id"] for o in options if o["is_correct"] == correct)}
         case "open":
             return {"text": options[0]["text"].upper() if correct else "заведомо не то"}
         case "sequence":
