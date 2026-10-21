@@ -11,13 +11,12 @@ export async function studentTests(render) {
     assignments.length
       ? h("div", { class: "card table-wrap" },
           h("table", {},
-            h("tr", {}, h("th", {}, "Тест"), h("th", {}, "Вопросов"), h("th", {}, "Результат"), h("th", {}, "")),
+            h("tr", {}, h("th", {}, "Тест"), h("th", {}, "Результат"), h("th", {}, "")),
             assignments.map((a) => {
               const done = a.attempt?.finished_at;
               return h("tr", {},
-                h("td", {}, a.title),
-                h("td", {}, a.question_count),
-                h("td", {}, done
+                h("td", { class: "wrap-text" }, a.title, h("div", { class: "muted small" }, `вопросов: ${a.question_count}`)),
+                h("td", { class: "wrap-text" }, done
                   ? [`Верно ${a.attempt.score} из ${a.attempt.max_score} `, h("span", { class: "badge ok" }, "пройден")]
                   : h("span", { class: "muted" }, a.attempt ? "начат" : "не пройден")),
                 h("td", { class: "actions" }, done
