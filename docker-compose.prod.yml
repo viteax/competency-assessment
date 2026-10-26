@@ -61,6 +61,7 @@ services:
       SITE_ADDRESS: ${SITE_ADDRESS:?задайте SITE_ADDRESS в .env (домен или :80)}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/sites:/etc/caddy/sites:ro
       - caddy_data:/data # сертификаты Let's Encrypt
       - caddy_config:/config
     depends_on:

@@ -10,3 +10,4 @@ dist/
 *.egg-info/
 backups/
 node_modules/
+deploy/sites/*.caddy

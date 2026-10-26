@@ -1,0 +1,48 @@
+# Демо-стенд с публичными демо-учетками и выдуманными данными (scripts/seed.py).
+# Работает рядом с продом на том же сервере: своя база, общий только Caddy прода.
+#
+#   docker compose -f docker-compose.demo.yml up -d --build
+#   docker compose -f docker-compose.demo.yml exec demo-api python -m scripts.seed
+#
+# Имена сервисов demo-api и demo-db не совпадают с api и db прода: оба стека видят общую
+# сеть, и одинаковые имена перепутали бы, куда идут запросы. Подробно – docs/deploy.md.
+
+name: competency-demo
+
+services:
+  demo-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: competency
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d competency"]
+      interval: 2s
+      retries: 15
+    mem_limit: 256m
+
+  demo-api:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@demo-db:5432/competency
+      ENVIRONMENT: dev
+      WEB_CONCURRENCY: 1
+    depends_on:
+      demo-db:
+        condition: service_healthy
+    mem_limit: 512m
+    networks: [default, proxy]
+
+volumes:
+  pgdata:
+
+networks:
+  # Сеть прода (проект competency): через нее Caddy прода видит demo-api.
+  proxy:
+    external: true
+    name: competency_default

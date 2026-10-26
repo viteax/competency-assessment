@@ -131,7 +131,84 @@ docker compose -f docker-compose.prod.yml up -d --build
 **Откат:** верните предыдущую версию образа (или `git checkout <тег>` и `--build`). Если новая
 версия успела изменить схему базы, восстановите копию, сделанную перед обновлением.
 
-## 8. Чек-лист безопасности
+## 8. Демо-стенд
+
+Копия системы с выдуманными данными и публичными демо-учетками – показать, как все устроено,
+не пуская в прод. Работает на том же сервере рядом с продом: своя база, общий только Caddy.
+
+```bash
+git clone https://github.com/viteax/competency-assessment.git /opt/competency-demo
+cd /opt/competency-demo
+docker compose -f docker-compose.demo.yml up -d --build
+docker compose -f docker-compose.demo.yml exec demo-api python -m scripts.seed
+```
+
+Адрес демо – отдельный файл для Caddy прода (в git его нет, у каждого сервера свой):
+
+```bash
+cat > /opt/competency/deploy/sites/demo.caddy <<'CADDY'
+demo.example.ru {
+	reverse_proxy demo-api:8000
+}
+CADDY
+cd /opt/competency && docker compose -f docker-compose.prod.yml exec caddy caddy reload --config /etc/caddy/Caddyfile
+```
+
+> На демо пароли публичные (`admin` / `admin123`): любой, у кого есть ссылка, войдет
+> администратором. Реальные данные туда не загружайте. Сбросить демо к исходному состоянию:
+> `docker compose -f docker-compose.demo.yml down -v`, затем снова `up` и `seed`.
+
+## 9. Автоматическое обновление (CD)
+
+После настройки ниже GitHub Actions обновляет сервер сам:
+
+- **пуш в `main`** (после зеленых проверок CI) – демо-стенд пересобирается из свежего кода;
+- **тег `v1.2.3`** – прод: резервная копия, затем образ `ghcr.io/viteax/competency-assessment:1.2.3`
+  из GitHub Container Registry, перезапуск, миграции при старте. Если в окружении `production`
+  включено подтверждение, обновление ждет нажатия кнопки в GitHub.
+
+Выпуск версии: поправить версию и `CHANGELOG.md`, затем `git tag v1.2.3 && git push --tags`.
+
+### Настройка (один раз)
+
+**1. Ключ деплоя** (на своем компьютере, без пароля – его будет использовать GitHub):
+
+```bash
+ssh-keygen -t ed25519 -N "" -C deploy -f deploy_key
+```
+
+**2. На сервере** – разрешить этому ключу только запуск скрипта обновления, без shell. Добавьте
+в `~/.ssh/authorized_keys` строку, подставив содержимое `deploy_key.pub`:
+
+```
+restrict,command="/opt/competency/deploy/remote-deploy.sh" ssh-ed25519 AAAA... deploy
+```
+
+**3. В GitHub** – Settings → Secrets and variables → Actions:
+
+| Тип | Имя | Значение |
+| :-- | :-- | :-- |
+| Secret | `DEPLOY_SSH_KEY` | содержимое приватного `deploy_key` |
+| Secret | `DEPLOY_KNOWN_HOSTS` | вывод `ssh-keyscan <IP сервера>` |
+| Variable | `DEPLOY_HOST` | IP или домен сервера |
+| Variable | `PROD_URL` | `https://<домен прода>` – проверка `/ready` после обновления |
+| Variable | `DEMO_URL` | `https://<домен демо>` |
+
+Без `DEPLOY_HOST` задачи деплоя пропускаются, CI работает как раньше.
+
+**4. Подтверждение прода** (рекомендуется): Settings → Environments → `production` →
+Required reviewers – добавить себя. Окружение появится после первого запуска задачи.
+
+**5. Образ в GHCR должен быть публичным**, иначе сервер не скачает его без входа: после первого
+тега – страница пакета на GitHub → Package settings → Change visibility → Public.
+
+После настройки удалите `deploy_key` с компьютера: он хранится только в секретах GitHub.
+
+**Откат прода** – перезапустить («Re-run») задачу деплоя предыдущего тега в GitHub Actions или
+на сервере: `SSH_ORIGINAL_COMMAND="prod 1.2.2" deploy/remote-deploy.sh`. Если новая версия
+успела изменить схему базы, восстановите копию, сделанную перед обновлением (раздел 6).
+
+## 10. Чек-лист безопасности
 
 - [ ] Сайт открывается по `https://`, в браузере нет предупреждений о сертификате.
 - [ ] `.env` с правами 600, не попадает в git и в общие папки.
@@ -141,7 +218,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 - [ ] Копии из `./backups` регулярно уходят на другой сервер.
 - [ ] Обновления системы и Docker на сервере ставятся регулярно.
 
-## 9. Решение проблем
+## 11. Решение проблем
 
 | Симптом | Причина и решение |
 | :-- | :-- |

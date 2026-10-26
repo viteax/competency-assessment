@@ -146,3 +146,58 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
+
+  # --- Доставка на сервер (docs/deploy.md, раздел «Автоматическое обновление») -------------
+  # Включается переменной репозитория DEPLOY_HOST; без нее задачи пропускаются.
+  # Ключ SSH дает только запуск deploy/remote-deploy.sh, shell на сервере он не открывает.
+
+  deploy-demo:
+    # Каждый зеленый пуш в main – на демо-стенд.
+    if: github.ref == 'refs/heads/main' && vars.DEPLOY_HOST != ''
+    needs: [docker, audit]
+    runs-on: ubuntu-24.04
+    environment:
+      name: demo
+      url: ${{ vars.DEMO_URL }}
+    concurrency: deploy-demo
+    steps:
+      - name: Deploy
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -o BatchMode=yes root@${{ vars.DEPLOY_HOST }} demo
+      - name: Check
+        if: vars.DEMO_URL != ''
+        run: |
+          for _ in $(seq 1 30); do curl -fsS "${{ vars.DEMO_URL }}/ready" && exit 0; sleep 5; done
+          exit 1
+
+  deploy-prod:
+    # Тег v1.2.3 – на прод, после ручного подтверждения в окружении production
+    # (Settings → Environments → production → Required reviewers).
+    if: startsWith(github.ref, 'refs/tags/v') && vars.DEPLOY_HOST != ''
+    needs: [docker, audit]
+    runs-on: ubuntu-24.04
+    environment:
+      name: production
+      url: ${{ vars.PROD_URL }}
+    concurrency: deploy-prod
+    steps:
+      - name: Deploy
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -o BatchMode=yes root@${{ vars.DEPLOY_HOST }} prod "${GITHUB_REF_NAME#v}"
+      - name: Check
+        if: vars.PROD_URL != ''
+        run: |
+          for _ in $(seq 1 30); do curl -fsS "${{ vars.PROD_URL }}/ready" && exit 0; sleep 5; done
+          exit 1
