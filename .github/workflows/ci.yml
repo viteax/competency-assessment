@@ -167,7 +167,13 @@ jobs:
           KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           install -m 700 -d ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          # Ключ, скопированный из терминала, часто приносит CR и пробелы по краям строк.
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
+            > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null || {
+            echo "::error::DEPLOY_SSH_KEY не читается: скопируйте ключ целиком, от BEGIN до END"
+            exit 1
+          }
           echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           ssh -o BatchMode=yes root@${{ vars.DEPLOY_HOST }} demo
       - name: Check
@@ -193,7 +199,13 @@ jobs:
           KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           install -m 700 -d ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          # Ключ, скопированный из терминала, часто приносит CR и пробелы по краям строк.
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
+            > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null || {
+            echo "::error::DEPLOY_SSH_KEY не читается: скопируйте ключ целиком, от BEGIN до END"
+            exit 1
+          }
           echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           ssh -o BatchMode=yes root@${{ vars.DEPLOY_HOST }} prod "${GITHUB_REF_NAME#v}"
       - name: Check
