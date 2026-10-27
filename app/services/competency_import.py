@@ -6,9 +6,14 @@
 индикаторов (УК-1.1, ИУК-1.1, ИД-1.УК-1, ИД-1 ОПК-5 …). Формулировка – текст после
 кода до следующего кода. Результат показывается администратору для проверки и только
 потом сохраняется.
+
+Исключение – таблицы в PDF: текстовый слой PDF перемешивает ячейки соседних колонок,
+поэтому там текст сначала раскладывается по колонкам (см. _pdf_text).
 """
 
+import io
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 
 from sqlalchemy import select
@@ -45,6 +50,9 @@ _DISCIPLINE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Где формулировка точно кончилась: пустая строка или шапка следующей таблицы.
+_END_RE = re.compile(r"\n\s*\n|код и наименование|наименование категории", re.IGNORECASE)
+
 # Подписи колонок и служебные слова, которые не являются формулировкой.
 _NOISE_RE = re.compile(
     r"^(код и наименование.*|наименование.*компетенци.*|индикатор.*достижени.*компетенци.*)$",
@@ -78,20 +86,115 @@ def extract_text(filename: str, data: bytes) -> str:
             rows = files.xlsx_rows(data, all_sheets=True)
             return "\n".join(cell for row in rows for cell in row if cell)
         if ext == ".pdf":
-            return files.pdf_text(data)
+            return _pdf_text(data)
         return files.decode_text(data)
+
+
+# Таблица «группа | компетенция | индикаторы | …» в PDF. Ячейки идут колонками, и обычное
+# извлечение текста склеивает соседние ячейки построчно: формулировка компетенции рвется
+# текстом индикаторов, в нее попадают колонки групп и профстандартов, а хвост ячейки после
+# разрыва страницы уходит за колонтитул. Поэтому страница читается с сохранением
+# расположения, колонки компетенций и индикаторов находятся по отступу их кодов, и текст
+# собирается по колонкам; остальные колонки и строки только из цифр (колонтитулы)
+# отбрасываются.
+
+_SEGMENT_RE = re.compile(r"\S+(?: \S+)*")  # кусок строки до разрыва в два пробела и больше
+_COLUMN_SLACK = 3  # на сколько символов может «гулять» начало колонки
+
+
+def _code_columns(lines: list[str], previous: tuple[int, int] | None) -> tuple[int, int] | None:
+    """Отступы колонки компетенций и колонки индикаторов, если страница – такая таблица.
+
+    На странице-продолжении может не быть кодов одного вида (только индикаторы конца
+    строки таблицы) – тогда отступ этой колонки берется с прошлой страницы. Страница совсем
+    без кодов таблицей не считается.
+    """
+    competencies: Counter[int] = Counter()
+    indicators: Counter[int] = Counter()
+    for line in lines:
+        for segment in _SEGMENT_RE.finditer(line):
+            m = _CODE_RE.match(segment.group())
+            if m:
+                target = indicators if m["a_kind"] or m["b_kind"] else competencies
+                target[segment.start()] += 1
+    if not competencies and not indicators:
+        return None
+    competency_x = competencies.most_common(1)[0][0] if competencies else None
+    indicator_x = indicators.most_common(1)[0][0] if indicators else None
+    if previous is not None:
+        competency_x = previous[0] if competency_x is None else competency_x
+        indicator_x = previous[1] if indicator_x is None else indicator_x
+    if competency_x is None or indicator_x is None:
+        return None
+    # Коды в одной колонке – это не таблица с колонками, а список: читаем как обычно.
+    return (competency_x, indicator_x) if indicator_x - competency_x > 10 else None
+
+
+def _table_cells(line: str, competency_x: int, indicator_x: int) -> tuple[str, str]:
+    """Куски строки в колонках компетенций и индикаторов. Строка, в которой кусок попадает
+    между колонками, – не строка таблицы, а абзац, выровненный по ширине: его пропускаем."""
+    competency, indicator = [], []
+    for segment in _SEGMENT_RE.finditer(line):
+        x = segment.start()
+        if abs(x - competency_x) <= _COLUMN_SLACK:
+            competency.append(segment.group())
+        elif abs(x - indicator_x) <= _COLUMN_SLACK:
+            indicator.append(segment.group())
+        elif competency_x < x < indicator_x:
+            return "", ""
+    return " ".join(competency), " ".join(indicator)
+
+
+def _pdf_text(data: bytes) -> str:
+    from pypdf import PdfReader
+
+    competency_lines: list[str] = []
+    indicator_lines: list[str] = []
+    plain: list[str] = []
+    columns = None  # отступы колонок последней страницы с таблицей
+    for page in PdfReader(io.BytesIO(data)).pages:
+        text = page.extract_text() or ""
+        if not _CODE_RE.search(text):
+            plain.append(text)  # раскладка медленная – строим ее только для страниц с кодами
+            continue
+        lines = [
+            line
+            for line in page.extract_text(extraction_mode="layout").splitlines()
+            if not re.fullmatch(r"[\d\s]*", line)  # пустые строки и колонтитулы с номерами
+        ]
+        page_columns = _code_columns(lines, columns)
+        if page_columns is None:
+            plain.append(text)
+            continue
+        columns = page_columns
+        for line in lines:
+            competency, indicator = _table_cells(line, *columns)
+            if competency:
+                competency_lines.append(competency)
+            if indicator:
+                indicator_lines.append(indicator)
+            if not competency and not indicator:
+                # Строка вне колонок (заголовок, абзац, шапка таблицы) – граница: пустая
+                # строка обрывает формулировку, и чужие слова к ней не приклеятся.
+                competency_lines.append("")
+                indicator_lines.append("")
+    # Пустая строка между частями: формулировка не перетекает из одной в другую (parse_text).
+    return "\n\n".join(["\n".join(competency_lines), "\n".join(indicator_lines), *plain])
 
 
 # --- разбор текста ----------------------------------------------------------
 
 
 def _clean(text: str) -> str:
+    # «социально-\nпсихологические» – перенос по дефису внутри ячейки.
+    text = re.sub(r"(?<=[А-Яа-яЁё])-\s*\n\s*(?=[А-Яа-яЁё])", "-", text)
     text = re.sub(r"\s+", " ", text).strip()
     text = text.strip(" .:;,–\u2014-|")
     text = text.removeprefix("– ").removeprefix("\u2014 ")
     if _NOISE_RE.match(text):
         return ""
-    return text[:2000]
+    # Формулировки в документах пишут то с прописной, то со строчной («способностью к…»).
+    return text[:1].upper() + text[1:2000]
 
 
 def _better(current: str, candidate: str) -> str:
@@ -115,9 +218,9 @@ def parse_text(text: str) -> ParsedDocument:
 
     for i, m in enumerate(matches):
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        # Формулировка не перетекает через пустую строку или в следующий абзац списка кодов.
+        # Формулировка не перетекает через пустую строку или в шапку следующей таблицы.
         tail = text[m.end() : end]
-        description = _clean(re.split(r"\n\s*\n", tail, maxsplit=1)[0])
+        description = _clean(_END_RE.split(tail, maxsplit=1)[0])
         g = m.groupdict()
         if g["a_kind"]:
             parent = competency(g["a_kind"], g["a_num"])
@@ -150,6 +253,15 @@ def _existing(session: Session, codes: list[str]) -> dict[str, models.Competency
     return {c.code: c for c in rows}
 
 
+def _differs(new: str, current: str) -> bool:
+    """Отличается ли формулировка по существу: регистр, пробелы и точка в конце не в счет."""
+
+    def norm(text: str) -> str:
+        return " ".join(text.split()).strip(" .;").casefold()
+
+    return bool(new) and norm(new) != norm(current)
+
+
 def preview(session: Session, filename: str, parsed: ParsedDocument) -> schemas.ImportPreview:
     existing = _existing(session, list(parsed.competencies))
     items = []
@@ -162,14 +274,14 @@ def preview(session: Session, filename: str, parsed: ParsedDocument) -> schemas.
                 code=ic,
                 description=desc,
                 exists=ic in current_indicators,
-                changed=ic in current_indicators and bool(desc) and desc != current_indicators[ic],
+                changed=ic in current_indicators and _differs(desc, current_indicators[ic]),
             )
             for ic, desc in sorted(pc.indicators.items(), key=lambda kv: int(kv[0].rsplit(".")[1]))
         ]
         if current is None:
             status = "new"
-        elif any(not i.exists or i.changed for i in indicators) or (
-            pc.description and pc.description != current.description
+        elif any(not i.exists or i.changed for i in indicators) or _differs(
+            pc.description, current.description
         ):
             status = "update"
         else:
