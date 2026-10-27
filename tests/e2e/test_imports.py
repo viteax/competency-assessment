@@ -21,13 +21,13 @@ def upload(page: Page, name: str, content: bytes, mime: str) -> None:
 
 def test_competency_import(admin_page: Page):
     page = admin_page
-    open_section(page, "База", "Загрузка из ОПОП / РПД")
+    open_section(page, "Справочники", "Загрузка из ОПОП / РПД")
     upload(page, "rpd.docx", rpd_docx(), "application/octet-stream")
     expect(page.locator("text=найдено компетенций")).to_be_visible()
     page.click("text=Импортировать выбранные")
     expect(page.locator("text=Импорт выполнен")).to_be_visible()
 
-    open_section(page, "База", "Загрузка из ОПОП / РПД")
+    open_section(page, "Справочники", "Загрузка из ОПОП / РПД")
     upload(page, "matrix.xlsx", matrix_xlsx(), "application/octet-stream")
     expect(page.locator("text=найдено компетенций")).to_be_visible()
     page.click("text=Импортировать выбранные")

@@ -1,16 +1,16 @@
 // Главная администратора: общая картина, что требует внимания и быстрые действия.
 
 import { api, go, h } from "../core.js";
-import { basePage, resultsPage, studentsPage, testsPage } from "./pages.js";
+import { catalogsPage, resultsPage, studentsPage, testsPage } from "./pages.js";
 import { adminQuestions } from "./questions.js";
 
 // Куда ведут ссылки из «Требует внимания» (target из GET /reports/dashboard).
 const TARGETS = {
-  curriculum: ["Открыть учебный план", () => go(basePage.at("Учебный план"), basePage)],
-  groups: ["Открыть группы", () => go(basePage.at("Группы"), basePage)],
+  curriculum: ["Открыть учебный план", () => go(catalogsPage.at("Учебный план"), catalogsPage)],
+  groups: ["Открыть группы", () => go(catalogsPage.at("Группы"), catalogsPage)],
   students: ["Открыть студентов", () => go(studentsPage.at("Список по группам"), studentsPage)],
   bank: ["Открыть банк вопросов", () => go(adminQuestions)],
-  labor_functions: ["Открыть ТФ ⇒ компетенции", () => go(basePage.at("ТФ ⇒ компетенции"), basePage)],
+  labor_functions: ["Открыть ТФ ⇒ компетенции", () => go(catalogsPage.at("ТФ ⇒ компетенции"), catalogsPage)],
   tests: ["Собрать тест", () => go(testsPage.at("Новый тест"), testsPage)],
 };
 
@@ -78,7 +78,7 @@ function teachersCard(teachers) {
               h("td", { class: "wrap" }, t.teacher),
               h("td", {}, t.required ? `${t.done} из ${t.required}` : h("span", { class: "muted" }, "квота не задана"), t.required ? bar(t.done, t.required) : null))))),
         ]
-      : h("p", { class: "muted mb-0" }, "Дисциплины ещё не закреплены за преподавателями – это делается в «База → Учебный план»."));
+      : h("p", { class: "muted mb-0" }, "Дисциплины ещё не закреплены за преподавателями – это делается в «Справочники → Учебный план»."));
 }
 
 export async function adminHome(render) {

@@ -19,9 +19,9 @@ def test_admin_lands_on_home_with_key_facts(admin_page: Page):
     # «Требует внимания» ведёт прямо туда, где это исправить.
     item = page.locator(".attention li", has_text="Не закреплены за преподавателем")
     item.locator("button").click()
-    expect(page.locator("h1")).to_have_text("База")
+    expect(page.locator("h1")).to_have_text("Справочники")
     expect(page.locator(".subnav .active")).to_have_text("Учебный план")
-    expect(page.locator("nav .active")).to_have_text("База")
+    expect(page.locator("nav .active")).to_have_text("Справочники")
 
     page.click("nav >> text=Главная")
     page.click("button:text-is('Собрать и назначить тест')")
@@ -37,7 +37,7 @@ def test_menu_is_short_and_in_work_order(admin_page: Page):
         "Результаты",
         "Банк вопросов",
         "Студенты",
-        "База",
+        "Справочники",
         "Журнал",
     ]
 

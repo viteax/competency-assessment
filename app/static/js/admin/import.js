@@ -120,8 +120,8 @@ export function competencyImportView() {
                     h("button", {
                       // pages.js сам подключает этот модуль, поэтому импорт – по требованию.
                       onclick: async () => {
-                        const { basePage } = await import("./pages.js");
-                        go(basePage.at("Компетенции"), basePage);
+                        const { catalogsPage } = await import("./pages.js");
+                        go(catalogsPage.at("Компетенции"), catalogsPage);
                       },
                     }, "Открыть компетенции в базе"),
                   ));

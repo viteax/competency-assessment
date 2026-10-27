@@ -75,7 +75,7 @@ export async function adminGroupResults(render) {
     radarHint.hidden = true;
     fill(out,
       h("p", { class: "muted small mt-0" },
-        `«N из M» – верных ответов из заданных. Зелёным – компетенция сформирована (от ${Math.round(settings.mastery_threshold * 100)}% верных; порог меняется в «База → Настройки»).`),
+        `«N из M» – верных ответов из заданных. Зелёным – компетенция сформирована (от ${Math.round(settings.mastery_threshold * 100)}% верных; порог меняется в «Справочники → Настройки»).`),
       h("table", {},
         h("tr", {}, h("th", {}, "Студент"), h("th", {}, "Дата"), codes.map((c) => h("th", {}, c))),
         report.students.map((s) => {

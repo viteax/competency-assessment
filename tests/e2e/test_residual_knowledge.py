@@ -87,7 +87,7 @@ def test_unassign_and_delete_untouched_test(admin_page: Page):
 
 def test_curriculum_and_group_start_year(admin_page: Page):
     page = admin_page
-    open_section(page, "База", "Учебный план")
+    open_section(page, "Справочники", "Учебный план")
     row = page.locator("tr", has=page.locator("td:text-is('Математика')"))
     expect(row).to_contain_text("1–2")
     page.click(".subnav >> text=Группы")

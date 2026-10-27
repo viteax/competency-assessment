@@ -2,21 +2,21 @@
 
 import { adminAudit } from "./admin/audit.js";
 import { adminHome } from "./admin/home.js";
-import { basePage, resultsPage, studentsPage, testsPage } from "./admin/pages.js";
+import { catalogsPage, resultsPage, studentsPage, testsPage } from "./admin/pages.js";
 import { adminQuestions } from "./admin/questions.js";
 import { api, clearAddress, errorBox, fill, h, openAddress, render, setMenu, setUnauthorizedHandler } from "./core.js";
 import { studentResults, studentTests, testScreen } from "./student.js";
 import { disciplineScreen, teacherDisciplines } from "./teacher.js";
 
 // Пункт меню: [название, экран, адрес в строке браузера (#/адрес)].
-// Порядок – как идёт работа: общая картина, тесты, результаты, вопросы, студенты, база.
+// Порядок – как идёт работа: общая картина, тесты, результаты, вопросы, студенты, справочники.
 const ADMIN_MENU = [
   ["Главная", adminHome, "home"],
   ["Тесты", testsPage, "tests"],
   ["Результаты", resultsPage, "results"],
   ["Банк вопросов", adminQuestions, "questions"],
   ["Студенты", studentsPage, "students"],
-  ["База", basePage, "base"],
+  ["Справочники", catalogsPage, "catalogs"],
   ["Журнал", adminAudit, "audit"],
 ];
 

@@ -42,7 +42,7 @@ def test_assign_take_and_review(admin_page: Page):
 def test_mobile_has_no_horizontal_scroll(admin_page: Page):
     page = admin_page
     page.set_viewport_size({"width": 390, "height": 800})
-    for tab in ["Главная", "Результаты", "База", "Банк вопросов"]:
+    for tab in ["Главная", "Результаты", "Справочники", "Банк вопросов"]:
         page.click(f"nav >> text={tab}")
         page.wait_for_load_state("networkidle")
         assert page.evaluate("document.documentElement.scrollWidth") <= 390, tab

@@ -1,4 +1,4 @@
-// База: универсальная таблица с формой и описания всех разделов базы.
+// Справочники: универсальная таблица с формой и описания всех справочников.
 
 import { api, byCode, byId, errorBox, fill, h, passwordNotice, temporaryPassword } from "../core.js";
 

@@ -21,18 +21,18 @@ def test_address_back_and_reload(admin_page: Page):
     page = admin_page
     expect(page).to_have_url(re.compile(r"#/home$"))
 
-    open_section(page, "База", "Группы")
-    expect(page).to_have_url(address("base/группы"))
+    open_section(page, "Справочники", "Группы")
+    expect(page).to_have_url(address("catalogs/группы"))
     open_section(page, "Студенты")
     expect(page.locator("h1")).to_have_text("Студенты")
 
     page.go_back()
-    expect(page.locator("h1")).to_have_text("База")
+    expect(page.locator("h1")).to_have_text("Справочники")
     expect(page.locator(".subnav .active")).to_have_text("Группы")
 
     page.reload()
     expect(page.locator(".subnav .active")).to_have_text("Группы")
-    expect(page.locator("nav .active")).to_have_text("База")
+    expect(page.locator("nav .active")).to_have_text("Справочники")
 
     # Переход по вкладке – тоже шаг истории.
     page.go_back()

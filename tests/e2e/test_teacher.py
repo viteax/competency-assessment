@@ -43,7 +43,7 @@ def test_teacher_composes_questions(new_page):
 
 def test_admin_adds_teacher_and_assigns_discipline(admin_page: Page, new_page):
     page = admin_page
-    open_section(page, "База", "Преподаватели")
+    open_section(page, "Справочники", "Преподаватели")
     page.get_by_label("ФИО преподавателя").fill("Лебедев Олег Игоревич")
     page.get_by_label("Логин преподавателя").fill("lebedev")
     page.click("form >> button:text-is('Добавить')")

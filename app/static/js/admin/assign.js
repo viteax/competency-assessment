@@ -95,7 +95,7 @@ function disciplineNodes(plan, checks, onChange) {
       : null,
     plan.unplanned.length
       ? h("p", { class: "small error" }, "Без семестров в учебном плане (в тест не попадут): ",
-          plan.unplanned.join(", "), ". Укажите их в «База → Учебный план».")
+          plan.unplanned.join(", "), ". Укажите их в «Справочники → Учебный план».")
       : null,
   ];
 }
