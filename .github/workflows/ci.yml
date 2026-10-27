@@ -170,11 +170,16 @@ jobs:
           # Ключ – одна строка base64 из deploy/setup-cd.sh (переносы и пробелы при копировании
           # не мешают) или обычный файл ключа, у которого убираем CR и пробелы по краям строк.
           if printf '%s' "$SSH_KEY" | grep -q BEGIN; then
+            format=PEM
             printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
           else
-            printf '%s' "$SSH_KEY" | tr -d '[:space:]' | base64 -d
+            format=base64
+            printf '%s' "$SSH_KEY" | tr -d '[:space:]' | base64 -d || true
           fi > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-          ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null || {
+          # Сведения о ключе без его содержимого: по ним видно, что именно вставлено в секрет.
+          echo "DEPLOY_SSH_KEY: формат $format, $(printf '%s' "$SSH_KEY" | wc -c) символов," \
+            "$(printf '%s\n' "$SSH_KEY" | wc -l) строк; ожидается base64 около 550 символов"
+          ssh-keygen -l -f ~/.ssh/id_ed25519 || {
             echo "::error::DEPLOY_SSH_KEY не читается: вставьте строку из вывода deploy/setup-cd.sh"
             exit 1
           }
@@ -206,11 +211,16 @@ jobs:
           # Ключ – одна строка base64 из deploy/setup-cd.sh (переносы и пробелы при копировании
           # не мешают) или обычный файл ключа, у которого убираем CR и пробелы по краям строк.
           if printf '%s' "$SSH_KEY" | grep -q BEGIN; then
+            format=PEM
             printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
           else
-            printf '%s' "$SSH_KEY" | tr -d '[:space:]' | base64 -d
+            format=base64
+            printf '%s' "$SSH_KEY" | tr -d '[:space:]' | base64 -d || true
           fi > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-          ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null || {
+          # Сведения о ключе без его содержимого: по ним видно, что именно вставлено в секрет.
+          echo "DEPLOY_SSH_KEY: формат $format, $(printf '%s' "$SSH_KEY" | wc -c) символов," \
+            "$(printf '%s\n' "$SSH_KEY" | wc -l) строк; ожидается base64 около 550 символов"
+          ssh-keygen -l -f ~/.ssh/id_ed25519 || {
             echo "::error::DEPLOY_SSH_KEY не читается: вставьте строку из вывода deploy/setup-cd.sh"
             exit 1
           }
