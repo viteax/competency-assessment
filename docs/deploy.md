@@ -168,7 +168,7 @@ cd /opt/competency && docker compose -f docker-compose.prod.yml restart caddy
 
 - **пуш в `main`** (после зеленых проверок CI) – демо-стенд пересобирается из свежего кода;
 - **тег `v1.2.3`** – прод: резервная копия, затем образ `ghcr.io/viteax/competency-assessment:1.2.3`
-  из GitHub Container Registry, перезапуск, миграции при старте. Если в окружении `production`
+  из GitHub Container Registry, перезапуск, миграции при старте. Если в окружении `prod`
   включено подтверждение, обновление ждет нажатия кнопки в GitHub.
 
 Выпуск версии: поправить версию в `pyproject.toml` и `CHANGELOG.md`, затем
@@ -201,8 +201,9 @@ sudo sh deploy/setup-cd.sh demo.example.ru
 
 Без `DEPLOY_HOST` задачи деплоя пропускаются, CI работает как раньше.
 
-**3. Подтверждение прода** (рекомендуется): Settings → Environments → `production` →
-Required reviewers – добавить себя. Окружение появится после первого запуска задачи.
+**3. Подтверждение прода** (рекомендуется): Settings → Environments → `prod` →
+Required reviewers – добавить себя и сохранить. Создайте окружение заранее (New environment),
+тогда подтверждение действует уже с первого деплоя.
 
 Образ в GHCR уже публичный, сервер скачивает его без входа.
 

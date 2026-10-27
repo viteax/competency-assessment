@@ -201,13 +201,13 @@ jobs:
           exit 1
 
   deploy-prod:
-    # Тег v1.2.3 – на прод, после ручного подтверждения в окружении production
-    # (Settings → Environments → production → Required reviewers).
+    # Тег v1.2.3 – на прод, после ручного подтверждения в окружении prod
+    # (Settings → Environments → prod → Required reviewers).
     if: startsWith(github.ref, 'refs/tags/v') && vars.DEPLOY_HOST != ''
     needs: [docker, audit]
     runs-on: ubuntu-24.04
     environment:
-      name: production
+      name: prod
       url: ${{ vars.PROD_URL }}
     concurrency: deploy-prod
     steps:
