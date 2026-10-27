@@ -45,7 +45,13 @@ prod)
     cd "$PROD_DIR"
     compose="docker compose -f docker-compose.prod.yml"
 
-    git fetch -q --tags origin
+    echo "→ версии из GitHub"
+    # --force: теги на сервере – только копия тегов GitHub; тег, созданный здесь вручную,
+    # иначе молча (с -q) остановил бы обновление.
+    git fetch -q --tags --force origin || {
+        echo "не удалось получить теги из GitHub" >&2
+        exit 1
+    }
     # В версиях до автоматического обновления нет этого скрипта: после переключения на них
     # ключ деплоя перестал бы работать. На такие версии откатывайте вручную.
     git cat-file -e "v$version:deploy/remote-deploy.sh" 2>/dev/null || {
