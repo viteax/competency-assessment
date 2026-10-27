@@ -39,7 +39,10 @@ def test_dashboard_on_demo_data(admin: TestClient, student: TestClient):
 def test_attention_items(admin: TestClient):
     group = admin.post("/groups", json={"name": "ПИ-25", "direction_id": 1}).json()
     admin.post("/students", json={"full_name": "Новиков Илья Сергеевич", "group_id": group["id"]})
-    admin.post("/competencies", json={"code": "ПК-9", "kind": "ПК", "description": "новая"})
+    admin.post(
+        "/competencies",
+        json={"direction_id": 1, "code": "ПК-9", "kind": "ПК", "description": "новая"},
+    )
 
     data = admin.get("/reports/dashboard").json()
     attention = {a["target"]: a["text"] for a in data["attention"]}

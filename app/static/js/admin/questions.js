@@ -2,13 +2,20 @@
 // дисциплины (questionBank с lockedDiscipline).
 
 import { api, byId, DIFFICULTIES, errorBox, fill, h, QUESTION_KINDS } from "../core.js";
+import { currentDirection, directionPicker } from "./directions.js";
 
-export async function adminQuestions(render) {
-  const [competencies, disciplines] = await Promise.all([api("/competencies"), api("/disciplines")]);
+// У каждого направления свои компетенции и дисциплины: банк показывается по направлению.
+export async function adminQuestions(render, direction = null) {
+  const directions = await api("/directions");
+  direction = direction || currentDirection(directions);
+  const query = direction ? `?direction_id=${direction.id}` : "";
+  const [competencies, disciplines] = await Promise.all([api(`/competencies${query}`), api(`/disciplines${query}`)]);
   await questionBank(render, {
     title: "Банк вопросов",
     competencies,
     disciplines,
+    directionId: direction?.id,
+    intro: directions.length > 1 ? directionPicker(directions, direction, (chosen) => adminQuestions(render, chosen)) : null,
     fundUrl: (id, key) => `/disciplines/${id}/fund.docx${key ? "?key=true" : ""}`,
   });
 }
@@ -123,6 +130,7 @@ function questionForm(q, { competencies, disciplines, lockedDiscipline, defaults
 
 // opts: title, competencies, disciplines, fundUrl(disciplineId, key),
 //       lockedDiscipline (id) – только эта дисциплина, intro – блок над таблицей,
+//       directionId – вопросы только этого направления,
 //       onChange() – после сохранения или удаления вопроса.
 export async function questionBank(render, opts) {
   const { competencies, disciplines, lockedDiscipline = null } = opts;
@@ -171,6 +179,7 @@ export async function questionBank(render, opts) {
 
   async function refresh() {
     const params = new URLSearchParams();
+    if (opts.directionId) params.set("direction_id", opts.directionId);
     if (filterCompetency.value) params.set("competency_id", filterCompetency.value);
     if (filterDiscipline.value) params.set("discipline_id", filterDiscipline.value);
     loaded = await api(`/questions?${params}`);

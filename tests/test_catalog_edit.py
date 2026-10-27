@@ -2,7 +2,7 @@
 
 from fastapi.testclient import TestClient
 
-from tests.helpers import assign, by_code, discipline_id
+from tests.helpers import assign, by_code, demo_direction, discipline_id
 
 
 def test_direction_and_group(admin: TestClient):
@@ -35,7 +35,13 @@ def test_group_with_students_is_protected(admin: TestClient):
 
 def test_competency_and_indicators(admin: TestClient):
     competency = admin.post(
-        "/competencies", json={"code": "ПК-9", "kind": "ПК", "description": "черновик"}
+        "/competencies",
+        json={
+            "direction_id": demo_direction(admin),
+            "code": "ПК-9",
+            "kind": "ПК",
+            "description": "черновик",
+        },
     ).json()
     updated = admin.put(
         f"/competencies/{competency['id']}",
@@ -73,18 +79,40 @@ def test_duplicate_code_on_update(admin: TestClient):
         f"/competencies/{pk2['id']}", json={"code": "ПК-1", "kind": "ПК", "description": "x"}
     )
     assert response.status_code == 409
+    assert response.json()["detail"] == "в направлении 09.03.04 уже есть компетенция ПК-1"
 
 
 def test_discipline(admin: TestClient):
     pk1, pk2 = by_code(admin, "ПК-1"), by_code(admin, "ПК-2")
     discipline = admin.post(
-        "/disciplines", json={"name": "Тестирование ПО", "competency_ids": [pk1["id"]]}
+        "/disciplines",
+        json={
+            "direction_id": demo_direction(admin),
+            "name": " Тестирование ПО ",
+            "competency_ids": [pk1["id"]],
+        },
     ).json()
+    assert (discipline["name"], discipline["code"], discipline["kind"]) == (
+        "Тестирование ПО",
+        None,
+        "regular",
+    )
     updated = admin.put(
         f"/disciplines/{discipline['id']}",
-        json={"name": "Тестирование и отладка", "competency_ids": [pk2["id"]]},
+        json={
+            "name": "Тестирование и отладка",
+            "code": "Б1.В.ДВ.01.02",
+            "kind": "elective",
+            "competency_ids": [pk2["id"]],
+        },
     ).json()
     assert (updated["name"], updated["competency_ids"]) == ("Тестирование и отладка", [pk2["id"]])
+    assert (updated["code"], updated["kind"]) == ("Б1.В.ДВ.01.02", "elective")
+    same = admin.put(
+        f"/disciplines/{discipline['id']}", json={"name": "Математика", "competency_ids": []}
+    )
+    assert same.status_code == 409
+    assert same.json()["detail"] == "в направлении 09.03.04 уже есть дисциплина «Математика»"
     assert admin.delete(f"/disciplines/{discipline['id']}").status_code == 204
     # Дисциплину с вопросами удалить нельзя.
     math = discipline_id(admin, "Математика")

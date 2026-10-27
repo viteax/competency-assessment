@@ -8,7 +8,8 @@ const IMPORT_STATUS = {
   same: ["без изменений", ""],
 };
 
-export function competencyImportView() {
+// Компетенции загружаются в направление direction (их сравнивают с его компетенциями).
+export function competencyImportView(direction) {
   const err = errorBox();
   const file = h("input", { type: "file", accept: ".docx,.xlsx,.pdf,.txt", required: true });
   const previewSlot = h("div");
@@ -20,6 +21,7 @@ export function competencyImportView() {
     if (!file.files.length) return;
     const form = new FormData();
     form.append("file", file.files[0]);
+    form.append("direction_id", direction.id);
     try {
       showPreview(await api("/import/preview", { method: "POST", multipart: form }));
     } catch (e) {
@@ -97,6 +99,7 @@ export function competencyImportView() {
                   const result = await api("/import/apply", {
                     method: "POST",
                     body: {
+                      direction_id: direction.id,
                       discipline_name: discipline.value.trim() || null,
                       overwrite_descriptions: overwrite.checked,
                       competencies: selected.map(({ c, description }) => ({
@@ -123,7 +126,7 @@ export function competencyImportView() {
                         const { catalogsPage } = await import("./pages.js");
                         go(catalogsPage.at("Компетенции"), catalogsPage);
                       },
-                    }, "Открыть компетенции в базе"),
+                    }, "Открыть компетенции"),
                   ));
                 } catch (e) {
                   applyErr.show(e);

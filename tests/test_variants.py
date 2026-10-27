@@ -72,7 +72,7 @@ def test_plan_needs_start_year_or_semester(admin: TestClient):
 
 
 def test_disciplines_without_semesters_are_reported(admin: TestClient):
-    admin.post("/disciplines", json={"name": "Философия", "competency_ids": []})
+    admin.post("/disciplines", json={"direction_id": 1, "name": "Философия"})
     assert plan(admin, 3)["unplanned"] == ["Философия"]
 
 
@@ -201,16 +201,20 @@ def test_delete_test_and_assignment_only_before_attempts(admin: TestClient, stud
 
 def test_curriculum_crud(admin: TestClient):
     direction = admin.get("/directions").json()[0]
-    discipline = admin.post("/disciplines", json={"name": "Философия"}).json()
+    discipline = admin.post(
+        "/disciplines", json={"direction_id": direction["id"], "name": "Философия"}
+    ).json()
     entry = {
-        "direction_id": direction["id"],
         "discipline_id": discipline["id"],
         "first_semester": 3,
         "last_semester": 4,
     }
     created = admin.post("/curriculum", json=entry)
     assert created.status_code == 201, created.text
-    assert admin.post("/curriculum", json=entry).status_code == 409  # дубль
+    assert created.json()["direction_id"] == direction["id"]  # направление дисциплины
+    duplicate = admin.post("/curriculum", json=entry)
+    assert duplicate.status_code == 409
+    assert duplicate.json()["detail"] == "«Философия» уже есть в учебном плане – измените ту строку"
     bad = admin.post("/curriculum", json={**entry, "first_semester": 5})
     assert bad.status_code == 422
     entry_id = created.json()["id"]

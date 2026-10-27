@@ -74,12 +74,13 @@ COMPETENCIES = [
 ]
 
 # Дисциплина: (компетенции, первый и последний семестр в учебном плане 09.03.04).
+# Дисциплина: (индекс в учебном плане, компетенции, первый и последний семестр).
 DISCIPLINES = {
-    "Математика": (["ОПК-1", "УК-1"], 1, 2),
-    "Программирование": (["ПК-1", "УК-1"], 1, 2),
-    "Операционные системы": (["ОПК-5"], 3, 3),
-    "Технологии программирования": (["ПК-1", "ПК-2"], 3, 4),
-    "Тестирование программного обеспечения": (["ПК-2"], 5, 6),
+    "Математика": ("Б1.О.02.01", ["ОПК-1", "УК-1"], 1, 2),
+    "Программирование": ("Б1.О.02.02", ["ПК-1", "УК-1"], 1, 2),
+    "Операционные системы": ("Б1.О.03.01", ["ОПК-5"], 3, 3),
+    "Технологии программирования": ("Б1.В.01.01", ["ПК-1", "ПК-2"], 3, 4),
+    "Тестирование программного обеспечения": ("Б1.В.01.02", ["ПК-2"], 5, 6),
 }
 # Демо-преподаватель и закреплённые за ним дисциплины с квотами вопросов по компетенциям.
 TEACHER_NAME = "Морозов Сергей Николаевич"
@@ -200,7 +201,7 @@ def seed(session: Session) -> None:
     competencies: dict[str, models.Competency] = {}
     indicators: dict[str, models.Indicator] = {}
     for code, kind, description, inds in COMPETENCIES:
-        c = models.Competency(code=code, kind=kind, description=description)
+        c = models.Competency(direction=direction, code=code, kind=kind, description=description)
         for icode, idesc in inds:
             indicators[icode] = models.Indicator(code=icode, description=idesc)
             c.indicators.append(indicators[icode])
@@ -208,8 +209,13 @@ def seed(session: Session) -> None:
         session.add(c)
 
     disciplines = {
-        name: models.Discipline(name=name, competencies=[competencies[c] for c in codes])
-        for name, (codes, _, _) in DISCIPLINES.items()
+        name: models.Discipline(
+            direction=direction,
+            name=name,
+            code=index,
+            competencies=[competencies[c] for c in codes],
+        )
+        for name, (index, codes, _, _) in DISCIPLINES.items()
     }
     session.add_all(disciplines.values())
     session.add_all(
@@ -224,7 +230,7 @@ def seed(session: Session) -> None:
                 for code, n in TEACHER_QUOTAS.get(name, {}).items()
             ],
         )
-        for name, (_, first, last) in DISCIPLINES.items()
+        for name, (_, _, first, last) in DISCIPLINES.items()
     )
 
     code, name, generals = STANDARD

@@ -1,6 +1,11 @@
 from fastapi.testclient import TestClient
 
 
+def demo_direction(admin: TestClient) -> int:
+    """Направление демо-данных (09.03.04): в нем все демо-компетенции и дисциплины."""
+    return next(d["id"] for d in admin.get("/directions").json() if d["code"] == "09.03.04")
+
+
 def by_code(admin: TestClient, code: str) -> dict:
     return next(c for c in admin.get("/competencies").json() if c["code"] == code)
 

@@ -1,50 +1,36 @@
-"""Компетенции, индикаторы, дисциплины."""
+"""Компетенции, индикаторы, дисциплины (у каждого направления свои)."""
 
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
 from app import models, schemas
 from app.api.deps import SessionDep, require_admin
 from app.api.files import DOCX, attachment
-from app.services import fund
-from app.services.common import (
-    code_key,
-    delete_or_conflict,
-    get_many_or_404,
-    get_or_404,
-    save,
-    update_fields,
-)
+from app.services import catalogs, fund
+from app.services.common import code_key, delete_or_conflict, get_or_404, save, update_fields
 
 router = APIRouter(tags=["Компетенции"], dependencies=[Depends(require_admin)])
 
 
 @router.post("/competencies", response_model=schemas.CompetencyOut, status_code=201)
 def create_competency(data: schemas.CompetencyIn, session: SessionDep):
-    return save(
-        session,
-        models.Competency(
-            code=data.code,
-            kind=data.kind,
-            description=data.description,
-            indicators=[models.Indicator(**i.model_dump()) for i in data.indicators],
-        ),
-    )
+    return catalogs.create_competency(session, data)
 
 
 @router.get("/competencies", response_model=list[schemas.CompetencyOut])
-def list_competencies(session: SessionDep, kind: models.CompetencyKind | None = None):
-    stmt = select(models.Competency).options(selectinload(models.Competency.indicators))
-    if kind is not None:
-        stmt = stmt.where(models.Competency.kind == kind)
-    return sorted(session.scalars(stmt), key=lambda c: code_key(c.code))
+def list_competencies(
+    session: SessionDep,
+    direction_id: int | None = None,
+    kind: models.CompetencyKind | None = None,
+):
+    """Компетенции направления (или всех направлений) в порядке ФГОС."""
+    return catalogs.list_competencies(session, direction_id, kind)
 
 
 @router.put("/competencies/{competency_id}", response_model=schemas.CompetencyOut)
 def update_competency(competency_id: int, data: schemas.CompetencyUpdate, session: SessionDep):
     competency = get_or_404(session, models.Competency, competency_id)
-    return update_fields(session, competency, data)
+    return catalogs.update_competency(session, competency, data)
 
 
 @router.delete("/competencies/{competency_id}", status_code=204)
@@ -86,34 +72,19 @@ def delete_indicator(indicator_id: int, session: SessionDep):
 
 
 @router.post("/disciplines", response_model=schemas.DisciplineOut, status_code=201)
-def create_discipline(data: schemas.DisciplineIn, session: SessionDep):
-    return save(
-        session,
-        models.Discipline(
-            name=data.name,
-            competencies=get_many_or_404(session, models.Competency, data.competency_ids),
-        ),
-    )
+def create_discipline(data: schemas.DisciplineCreate, session: SessionDep):
+    return catalogs.create_discipline(session, data)
 
 
 @router.get("/disciplines", response_model=list[schemas.DisciplineOut])
-def list_disciplines(session: SessionDep):
-    return session.scalars(
-        select(models.Discipline)
-        .order_by(models.Discipline.name)
-        .options(selectinload(models.Discipline.competencies))
-    ).all()
+def list_disciplines(session: SessionDep, direction_id: int | None = None):
+    return catalogs.list_disciplines(session, direction_id)
 
 
 @router.put("/disciplines/{discipline_id}", response_model=schemas.DisciplineOut)
 def update_discipline(discipline_id: int, data: schemas.DisciplineIn, session: SessionDep):
     discipline = get_or_404(session, models.Discipline, discipline_id)
-    return update_fields(
-        session,
-        discipline,
-        name=data.name,
-        competencies=get_many_or_404(session, models.Competency, data.competency_ids),
-    )
+    return catalogs.save_discipline(session, discipline, data)
 
 
 @router.get("/disciplines/{discipline_id}/fund.docx", response_class=Response)

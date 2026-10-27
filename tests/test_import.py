@@ -65,13 +65,16 @@ def test_parse_discipline_name():
 
 
 def preview(admin: TestClient, name: str, data: bytes, mime: str) -> dict:
-    response = admin.post("/import/preview", files={"file": (name, data, mime)})
+    response = admin.post(
+        "/import/preview", files={"file": (name, data, mime)}, data={"direction_id": "1"}
+    )
     assert response.status_code == 200, response.text
     return response.json()
 
 
 def to_apply(p: dict, **extra) -> dict:
     return {
+        "direction_id": p["direction_id"],
         "discipline_name": p["discipline_name"],
         "competencies": [
             {
@@ -184,12 +187,22 @@ def test_empty_and_unsupported_files(admin: TestClient):
     empty = preview(admin, "empty.txt", "Пояснительная записка".encode(), "text/plain")
     assert empty["competencies"] == [] and empty["warnings"]
     old = admin.post(
-        "/import/preview", files={"file": ("rpd.doc", b"\xd0\xcf", "application/msword")}
+        "/import/preview",
+        files={"file": ("rpd.doc", b"\xd0\xcf", "application/msword")},
+        data={"direction_id": "1"},
     )
     assert old.status_code == 400 and ".docx" in old.json()["detail"]
-    broken = admin.post("/import/preview", files={"file": ("rpd.docx", b"not a zip", DOCX)})
+    broken = admin.post(
+        "/import/preview",
+        files={"file": ("rpd.docx", b"not a zip", DOCX)},
+        data={"direction_id": "1"},
+    )
     assert broken.status_code == 400
-    other = admin.post("/import/preview", files={"file": ("a.png", b"\x89PNG", "image/png")})
+    other = admin.post(
+        "/import/preview",
+        files={"file": ("a.png", b"\x89PNG", "image/png")},
+        data={"direction_id": "1"},
+    )
     assert other.status_code == 400
 
 

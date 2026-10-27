@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session, selectinload
 from app import models, schemas
 from app.errors import DomainError
 from app.services import files
-from app.services.common import code_key
+from app.services.common import code_key, get_or_404
 
 SUPPORTED = (".docx", ".xlsx", ".pdf", ".txt")
 
@@ -244,13 +244,23 @@ def parse_text(text: str) -> ParsedDocument:
 # --- предпросмотр и сохранение ---------------------------------------------
 
 
-def _existing(session: Session, codes: list[str]) -> dict[str, models.Competency]:
+def _existing(
+    session: Session, direction_id: int, codes: list[str]
+) -> dict[str, models.Competency]:
     rows = session.scalars(
         select(models.Competency)
-        .where(models.Competency.code.in_(codes))
+        .where(models.Competency.direction_id == direction_id, models.Competency.code.in_(codes))
         .options(selectinload(models.Competency.indicators))
     )
     return {c.code: c for c in rows}
+
+
+def _discipline(session: Session, direction_id: int, name: str) -> models.Discipline | None:
+    return session.scalar(
+        select(models.Discipline).where(
+            models.Discipline.direction_id == direction_id, models.Discipline.name == name
+        )
+    )
 
 
 def _differs(new: str, current: str) -> bool:
@@ -262,8 +272,11 @@ def _differs(new: str, current: str) -> bool:
     return bool(new) and norm(new) != norm(current)
 
 
-def preview(session: Session, filename: str, parsed: ParsedDocument) -> schemas.ImportPreview:
-    existing = _existing(session, list(parsed.competencies))
+def preview(
+    session: Session, direction_id: int, filename: str, parsed: ParsedDocument
+) -> schemas.ImportPreview:
+    get_or_404(session, models.Direction, direction_id)
+    existing = _existing(session, direction_id, list(parsed.competencies))
     items = []
     warnings = []
     for code, pc in parsed.competencies.items():
@@ -299,15 +312,13 @@ def preview(session: Session, filename: str, parsed: ParsedDocument) -> schemas.
             )
         )
     discipline_exists = bool(
-        parsed.discipline_name
-        and session.scalar(
-            select(models.Discipline.id).where(models.Discipline.name == parsed.discipline_name)
-        )
+        parsed.discipline_name and _discipline(session, direction_id, parsed.discipline_name)
     )
     if not items:
         warnings.append("в файле не найдено кодов компетенций (УК-…, ОПК-…, ПК-…)")
     return schemas.ImportPreview(
         filename=filename,
+        direction_id=direction_id,
         discipline_name=parsed.discipline_name,
         discipline_exists=discipline_exists,
         competencies=items,
@@ -316,9 +327,10 @@ def preview(session: Session, filename: str, parsed: ParsedDocument) -> schemas.
 
 
 def apply(session: Session, data: schemas.ImportApply) -> schemas.ImportResult:
-    """Создаёт недостающие компетенции и индикаторы, при желании обновляет формулировки,
-    и привязывает компетенции к дисциплине. Ничего не удаляет."""
-    existing = _existing(session, [c.code for c in data.competencies])
+    """Создаёт в направлении недостающие компетенции и индикаторы, при желании обновляет
+    формулировки, и привязывает компетенции к дисциплине направления. Ничего не удаляет."""
+    get_or_404(session, models.Direction, data.direction_id)
+    existing = _existing(session, data.direction_id, [c.code for c in data.competencies])
     result = schemas.ImportResult()
     touched: list[models.Competency] = []
 
@@ -328,6 +340,7 @@ def apply(session: Session, data: schemas.ImportApply) -> schemas.ImportResult:
             if not item.description:
                 raise DomainError(f"{item.code}: укажите формулировку компетенции")
             competency = models.Competency(
+                direction_id=data.direction_id,
                 code=item.code,
                 kind=models.CompetencyKind(item.code.split("-")[0]),
                 description=item.description,
@@ -361,11 +374,11 @@ def apply(session: Session, data: schemas.ImportApply) -> schemas.ImportResult:
 
     discipline = None
     if data.discipline_name:
-        discipline = session.scalar(
-            select(models.Discipline).where(models.Discipline.name == data.discipline_name)
-        )
+        discipline = _discipline(session, data.direction_id, data.discipline_name)
         if discipline is None:
-            discipline = models.Discipline(name=data.discipline_name)
+            discipline = models.Discipline(
+                direction_id=data.direction_id, name=data.discipline_name
+            )
             session.add(discipline)
             result.created_discipline = True
         linked = {c.code for c in discipline.competencies}

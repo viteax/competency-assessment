@@ -6,6 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from app import models, schemas
 from app.api.deps import SessionDep, require_admin
+from app.services import catalogs
 from app.services.common import delete_or_conflict, get_many_or_404, get_or_404, save, update_fields
 
 router = APIRouter(tags=["Профстандарты"], dependencies=[Depends(require_admin)])
@@ -140,15 +141,12 @@ def create_labor_function(data: schemas.LaborFunctionCreate, session: SessionDep
 def update_labor_function(
     labor_function_id: int, data: schemas.LaborFunctionIn, session: SessionDep
 ):
-    """Меняет ТФ и её связь ТФ ⇒ компетенции."""
+    """Меняет ТФ и её связь ТФ ⇒ компетенции (с direction_id – только этого направления)."""
     labor_function = get_or_404(session, models.LaborFunction, labor_function_id)
-    return update_fields(
-        session,
-        labor_function,
-        code=data.code,
-        name=data.name,
-        competencies=get_many_or_404(session, models.Competency, data.competency_ids),
+    catalogs.set_labor_function_competencies(
+        session, labor_function, data.competency_ids, data.direction_id
     )
+    return update_fields(session, labor_function, code=data.code, name=data.name)
 
 
 @router.delete("/labor-functions/{labor_function_id}", status_code=204)

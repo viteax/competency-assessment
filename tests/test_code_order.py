@@ -3,6 +3,7 @@
 from fastapi.testclient import TestClient
 
 from app.services.common import code_key
+from tests.helpers import demo_direction
 
 
 def test_code_key_orders_like_fgos():
@@ -15,7 +16,13 @@ def test_code_key_orders_like_fgos():
 def test_competency_list_puts_opk_2_before_opk_10(admin: TestClient):
     for code in ["ОПК-10", "ОПК-11"]:
         created = admin.post(
-            "/competencies", json={"code": code, "kind": "ОПК", "description": "новая"}
+            "/competencies",
+            json={
+                "direction_id": demo_direction(admin),
+                "code": code,
+                "kind": "ОПК",
+                "description": "новая",
+            },
         )
         assert created.status_code == 201, created.text
     codes = [c["code"] for c in admin.get("/competencies").json()]

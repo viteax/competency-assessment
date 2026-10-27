@@ -5,7 +5,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from app.models import QuestionKind
+from app.models import DisciplineKind, QuestionKind
 from app.schemas.base import ORM
 from app.schemas.questions import QuestionOut
 
@@ -58,6 +58,7 @@ class TestDetail(TestOut):
 class PlanDiscipline(BaseModel):
     id: int
     name: str
+    kind: DisciplineKind  # по выбору и факультативы изучают не все студенты
     first_semester: int
     last_semester: int
     competency_ids: list[int]

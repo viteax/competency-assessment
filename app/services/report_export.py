@@ -72,11 +72,12 @@ def group_results_xlsx(session: Session, group_id: int, test_id: int | None = No
     )
 
     # Уровень ТФ студента – средняя доля верных ответов по её проверенным компетенциям.
-    functions = reports.labor_functions(session)
+    group = session.get(models.Group, group_id)
+    functions = reports.labor_functions(session, {group.direction_id})
     tf = wb.create_sheet("Трудовые функции")
     _header(
         tf,
-        ["ФИО", "Группа", *[f"{lf.code} {lf.name}" for lf in functions]],
+        ["ФИО", "Группа", *[f"{f.function.code} {f.function.name}" for f in functions]],
         [36, 12, *[18] * len(functions)],
     )
     tf.row_dimensions[1].height = 75

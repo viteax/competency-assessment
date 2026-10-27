@@ -3,6 +3,7 @@
 // вопросы только из завершённых дисциплин, в вариантах – по числу студентов группы.
 
 import { api, errorBox, fill, h } from "../core.js";
+import { kindBadge } from "./directions.js";
 
 const KINDS = ["УК", "ОПК", "ПК"];
 const semesters = (d) => (d.first_semester === d.last_semester ? `${d.first_semester}` : `${d.first_semester}–${d.last_semester}`);
@@ -86,7 +87,7 @@ function disciplineNodes(plan, checks, onChange) {
       ? h("div", { class: "check-list check-grid" }, plan.finished.map((d) => {
           const box = h("input", { type: "checkbox", checked: true, onchange: onChange });
           checks.set(d.id, box);
-          return h("label", {}, box, `${d.name} `, h("span", { class: "muted" }, `(${semesters(d)} сем.)`));
+          return h("label", {}, box, `${d.name} `, kindBadge(d.kind), " ", h("span", { class: "muted" }, `(${semesters(d)} сем.)`));
         }))
       : h("p", { class: "muted" }, "Ни одна дисциплина ещё не завершена – проверять остаточные знания пока не по чему."),
     plan.not_finished.length
@@ -170,7 +171,9 @@ function newTestSection({ data, group, err, setSubmitBlocked }) {
 
   function drawCompetencies() {
     const allowed = allowedDisciplines();
-    const available = allowed ? new Set(allowed.flatMap((d) => d.competency_ids)) : new Set(competencies.map((c) => c.id));
+    // Без учебного плана – все компетенции направления группы.
+    const own = competencies.filter((c) => c.direction_id === groupsById.get(Number(group.value))?.direction_id);
+    const available = new Set(allowed ? allowed.flatMap((d) => d.competency_ids) : own.map((c) => c.id));
     fill(competencyBox, competencyNodes(
       competencies.filter((c) => available.has(c.id)),
       competencyChecks,

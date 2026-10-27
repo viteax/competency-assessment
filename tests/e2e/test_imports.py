@@ -33,7 +33,7 @@ def test_competency_import(admin_page: Page):
     page.click("text=Импортировать выбранные")
     expect(page.locator("text=Импорт выполнен")).to_be_visible()
 
-    page.click("text=Открыть компетенции в базе")
+    page.click("text=Открыть компетенции")
     expect(page.locator("td:text-is('ОПК-2')")).to_be_visible()
     expect(page.locator("td:text-is('УК-2')")).to_be_visible()
     page.click(".subnav >> text=Дисциплины")

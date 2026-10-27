@@ -25,6 +25,7 @@ def list_questions(
     user: StaffUser,
     competency_id: int | None = None,
     discipline_id: int | None = None,
+    direction_id: int | None = None,
 ):
     stmt = (
         select(models.Question)
@@ -35,6 +36,8 @@ def list_questions(
         stmt = stmt.where(models.Question.competency_id == competency_id)
     if discipline_id is not None:
         stmt = stmt.where(models.Question.discipline_id == discipline_id)
+    if direction_id is not None:
+        stmt = stmt.join(models.Competency).where(models.Competency.direction_id == direction_id)
     if user.role == models.Role.TEACHER:
         own = teaching.discipline_ids_of(session, user)
         stmt = stmt.where(models.Question.discipline_id.in_(own))

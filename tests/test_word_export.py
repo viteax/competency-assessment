@@ -151,7 +151,7 @@ def test_test_document_by_variants(admin: TestClient):
 
 
 def test_errors_and_access(admin: TestClient, student: TestClient):
-    empty = admin.post("/disciplines", json={"name": "Пустая"}).json()
+    empty = admin.post("/disciplines", json={"direction_id": 1, "name": "Пустая"}).json()
     assert admin.get(f"/disciplines/{empty['id']}/fund.docx").status_code == 404
     assert admin.get("/tests/999/document.docx").status_code == 404
     os_id = discipline_id(admin, "Операционные системы")

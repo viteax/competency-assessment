@@ -89,7 +89,9 @@ def lone(admin: TestClient):
     """Создаёт вопрос в отдельной дисциплине и тест только из него."""
 
     def make(kind: str, options: list[dict]) -> tuple[dict, int]:
-        discipline = admin.post("/disciplines", json={"name": f"Дисциплина {kind}"}).json()
+        discipline = admin.post(
+            "/disciplines", json={"direction_id": 1, "name": f"Дисциплина {kind}"}
+        ).json()
         question = create(admin, kind, options, discipline_id=discipline["id"])
         test = admin.post(
             "/tests",

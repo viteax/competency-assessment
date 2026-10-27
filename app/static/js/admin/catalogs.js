@@ -1,6 +1,8 @@
-// Справочники: универсальная таблица с формой и описания всех справочников.
+// Справочники: универсальная таблица с формой и описания всех справочников. Компетенции,
+// дисциплины, учебный план и ТФ ⇒ компетенции – по направлению (их функции получают его).
 
 import { api, byCode, byId, errorBox, fill, h, passwordNotice, temporaryPassword } from "../core.js";
+import { DISCIPLINE_KINDS, kindBadge } from "./directions.js";
 
 // Поле формы → элемент ввода. Значение читается через readField.
 function fieldInput(field, value) {
@@ -65,7 +67,7 @@ function readField(field, el) {
 }
 
 // Таблица записей с формой добавления/редактирования и удалением.
-// Классы колонок таблицы по содержимому: самая «текстовая» колонка забирает свободное место
+// Колонка – [заголовок, ячейка(запись), класс]; без класса он подбирается по содержимому: самая «текстовая» колонка забирает свободное место
 // (main), длинные переносятся (wrap), короткие (коды, числа) – в одну строку.
 function columnClasses(cells) {
   const text = (v) => (v instanceof Node ? v.textContent : String(v ?? "")).length;
@@ -129,13 +131,13 @@ async function crudSection(cfg) {
             h("tr", {}, cfg.columns.map(([title]) => h("th", {}, title)), h("th", {}, "")),
             rows.map((row) =>
               h("tr", {},
-                cfg.columns.map(([, cell], i) => h("td", { class: classes[i] }, cell(row))),
+                cfg.columns.map(([, cell, cls], i) => h("td", { class: cls ?? classes[i] }, cell(row))),
                 h("td", { class: "actions" },
                   h("button", { class: "link", onclick: () => openForm(row) }, "Изменить"),
                   h("button", {
                     class: "link danger",
                     onclick: async () => {
-                      if (!confirm(`Удалить «${cfg.label(row)}»?`)) return;
+                      if (!confirm(`Удалить «${cfg.label(row)}»?${cfg.removeWarning ? ` ${cfg.removeWarning}` : ""}`)) return;
                       err.clear();
                       try {
                         await cfg.remove(row);
@@ -166,13 +168,30 @@ async function crudSection(cfg) {
   );
 }
 
-const codes = (ids, map) => ids.map((id) => map.get(id)?.code).filter(Boolean).sort(byCode).join(", ") || "–";
+// Коды компетенций метками в порядке ФГОС (только известные – своего направления).
+function codes(ids, map) {
+  const list = ids.map((id) => map.get(id)?.code).filter(Boolean).sort(byCode);
+  return list.length ? h("div", { class: "chips" }, list.map((code) => h("span", { class: "chip" }, code))) : "–";
+}
+
+const semesterRange = (e) => (e.first_semester === e.last_semester ? `${e.first_semester}` : `${e.first_semester}–${e.last_semester}`);
+
+// Порядок учебного плана: по индексу (Б1.О.01.02 раньше Б1.О.01.10, обязательная часть «О»
+// раньше части «В», как в УП), без индекса – в конце.
+const planKey = (code) => code.replace(/^(Б\d+)\.О(?=\.|$)/, "$1.1").replace(/^(Б\d+)\.В(?=\.|$)/, "$1.2");
+const byPlanOrder = (a, b) =>
+  (a.code ? 0 : 1) - (b.code ? 0 : 1) ||
+  planKey(a.code || "").localeCompare(planKey(b.code || ""), "ru", { numeric: true }) ||
+  a.name.localeCompare(b.name, "ru");
+
+const NO_COMPETENCIES = "Компетенций пока нет: загрузите их на вкладке «Загрузка из ОПОП / РПД» или добавьте на вкладке «Компетенции».";
 
 export const CATALOGS = {
   async "Направления"() {
     return crudSection({
       load: () => api("/directions"),
       label: (r) => `${r.code} ${r.name}`,
+      removeWarning: "Вместе с ним удалятся его компетенции, дисциплины и учебный план. Направление с группами или вопросами в банке удалить нельзя.",
       columns: [["Код", (r) => r.code], ["Название", (r) => r.name]],
       fields: [{ name: "code", label: "Код" }, { name: "name", label: "Название" }],
       toForm: (r) => r,
@@ -207,9 +226,9 @@ export const CATALOGS = {
     });
   },
 
-  async "Компетенции"() {
+  async "Компетенции"(direction) {
     return crudSection({
-      load: () => api("/competencies"),
+      load: () => api(`/competencies?direction_id=${direction.id}`),
       label: (r) => r.code,
       columns: [
         ["Код", (r) => r.code],
@@ -222,28 +241,37 @@ export const CATALOGS = {
         { name: "description", label: "Формулировка", type: "textarea" },
       ],
       toForm: (r) => r,
-      create: (d) => api("/competencies", { method: "POST", body: d }),
+      create: (d) => api("/competencies", { method: "POST", body: { ...d, direction_id: direction.id } }),
       update: (r, d) => api(`/competencies/${r.id}`, { method: "PUT", body: d }),
       remove: (r) => api(`/competencies/${r.id}`, { method: "DELETE" }),
     });
   },
 
-  async "Дисциплины"() {
-    const competencies = await api("/competencies");
+  async "Дисциплины"(direction) {
+    const query = `?direction_id=${direction.id}`;
+    const [competencies, curriculum] = await Promise.all([api(`/competencies${query}`), api(`/curriculum${query}`)]);
     const comps = byId(competencies);
+    const plan = new Map(curriculum.map((e) => [e.discipline_id, e]));
     return crudSection({
-      load: () => api("/disciplines"),
+      load: async () => (await api(`/disciplines${query}`)).sort(byPlanOrder),
       label: (r) => r.name,
-      columns: [["Дисциплина", (r) => r.name], ["Компетенции", (r) => codes(r.competency_ids, comps)]],
+      columns: [
+        ["Индекс", (r) => r.code || "–", "muted small"],
+        ["Дисциплина", (r) => [r.name, " ", kindBadge(r.kind)], "wrap main"],
+        ["Семестры", (r) => (plan.has(r.id) ? semesterRange(plan.get(r.id)) : "–")],
+        ["Компетенции", (r) => codes(r.competency_ids, comps), "wrap"],
+      ],
       fields: [
         { name: "name", label: "Название" },
+        { name: "code", label: "Индекс в учебном плане (необязательно), например Б1.О.02.01", required: false },
+        { name: "kind", label: "Статус", type: "select", raw: true, options: Object.entries(DISCIPLINE_KINDS) },
         {
           name: "competency_ids", label: "Компетенции", type: "checkboxes", options: competencies.map((c) => [c.id, c.code]),
-          empty: "Компетенций пока нет: загрузите их на вкладке «Загрузка из ОПОП / РПД» или добавьте на вкладке «Компетенции». Дисциплину можно сохранить и без них, а компетенции отметить позже.",
+          empty: `${NO_COMPETENCIES} Дисциплину можно сохранить и без них, а компетенции отметить позже.`,
         },
       ],
       toForm: (r) => r,
-      create: (d) => api("/disciplines", { method: "POST", body: d }),
+      create: (d) => api("/disciplines", { method: "POST", body: { ...d, direction_id: direction.id } }),
       update: (r, d) => api(`/disciplines/${r.id}`, { method: "PUT", body: d }),
       remove: (r) => api(`/disciplines/${r.id}`, { method: "DELETE" }),
     });
@@ -327,24 +355,23 @@ export const CATALOGS = {
     );
   },
 
-  async "Учебный план"() {
-    const [directions, disciplines, competencies, users] = await Promise.all([
-      api("/directions"), api("/disciplines"), api("/competencies"), api("/users"),
+  async "Учебный план"(direction) {
+    const query = `?direction_id=${direction.id}`;
+    const [disciplines, competencies, users] = await Promise.all([
+      api(`/disciplines${query}`), api(`/competencies${query}`), api("/users"),
     ]);
-    const dirs = byId(directions);
+    disciplines.sort(byPlanOrder);
     const discs = byId(disciplines);
     const comps = byId(competencies);
     const teachers = users.filter((u) => u.role === "teacher");
     const teacherNames = new Map(teachers.map((t) => [t.id, t.full_name || t.username]));
-    const semesters = (r) => (r.first_semester === r.last_semester ? `${r.first_semester}` : `${r.first_semester}–${r.last_semester}`);
     return crudSection({
       hint: "В каких семестрах изучается дисциплина. В тест на остаточные знания попадают только дисциплины, завершённые до текущего семестра группы: во 2-м семестре нельзя проверять математику, которая идёт в 1–2 семестрах.",
-      load: () => api("/curriculum"),
+      load: () => api(`/curriculum${query}`),
       label: (r) => discs.get(r.discipline_id)?.name || "запись",
       columns: [
-        ["Направление", (r) => dirs.get(r.direction_id)?.code || "–"],
-        ["Дисциплина", (r) => discs.get(r.discipline_id)?.name || "–"],
-        ["Семестры", semesters],
+        ["Дисциплина", (r) => { const d = discs.get(r.discipline_id); return d ? [d.name, " ", kindBadge(d.kind)] : "–"; }, "wrap main"],
+        ["Семестры", semesterRange],
         ["Преподаватель", (r) => teacherNames.get(r.teacher_id) || "–"],
         ["Вопросов по компетенциям", (r) => r.quotas
           .map((q) => [comps.get(q.competency_id)?.code || "?", q.questions])
@@ -352,8 +379,7 @@ export const CATALOGS = {
           .map(([code, n]) => `${code}: ${n}`).join(", ") || "–"],
       ],
       fields: [
-        { name: "direction_id", label: "Направление", type: "select", options: directions.map((d) => [d.id, `${d.code} ${d.name}`]) },
-        { name: "discipline_id", label: "Дисциплина", type: "select", options: disciplines.map((d) => [d.id, d.name]) },
+        { name: "discipline_id", label: "Дисциплина", type: "select", options: disciplines.map((d) => [d.id, d.code ? `${d.code} ${d.name}` : d.name]) },
         { name: "first_semester", label: "Первый семестр", type: "number", min: 1, max: 12 },
         { name: "last_semester", label: "Последний семестр", type: "number", min: 1, max: 12 },
         { name: "teacher_id", label: "Преподаватель – разрабатывает тестовые вопросы", type: "select", required: false, empty: "– не закреплена –", options: teachers.map((t) => [t.id, t.full_name || t.username]) },
@@ -428,30 +454,31 @@ export const CATALOGS = {
     });
   },
 
-  async "ТФ ⇒ компетенции"() {
-    const [standards, competencies] = await Promise.all([api("/standards"), api("/competencies")]);
+  async "ТФ ⇒ компетенции"(direction) {
+    const [standards, competencies] = await Promise.all([api("/standards"), api(`/competencies?direction_id=${direction.id}`)]);
     const comps = byId(competencies);
     const generals = standards.flatMap((s) => s.general_functions.map((g) => ({ ...g, standard: s })));
     const gens = byId(generals);
     return crudSection({
-      hint: "Трудовые функции и компетенции, которые для них нужны. ТФ считается закрытой студентом, если сформированы все отмеченные компетенции.",
+      hint: "Трудовые функции и компетенции направления, которые для них нужны. ТФ считается закрытой студентом, если сформированы все отмеченные компетенции. Профстандарты общие, а связи у каждого направления свои.",
       load: () => api("/labor-functions"),
       label: (r) => r.code,
       columns: [
         ["ОТФ", (r) => { const g = gens.get(r.general_function_id); return g ? `${g.standard.code} · ${g.code}` : "–"; }],
         ["Код", (r) => r.code],
         ["Название", (r) => r.name],
-        ["Компетенции", (r) => codes(r.competency_ids, comps)],
+        ["Компетенции", (r) => codes(r.competency_ids, comps), "wrap"],
       ],
       fields: [
         { name: "general_function_id", label: "ОТФ", type: "select", options: generals.map((g) => [g.id, `${g.standard.code} · ОТФ ${g.code}. ${g.name}`]) },
         { name: "code", label: "Код, например A/01.3" },
         { name: "name", label: "Название", type: "textarea" },
-        { name: "competency_ids", label: "Нужные компетенции", type: "checkboxes", options: competencies.map((c) => [c.id, c.code]), empty: "Компетенций пока нет: загрузите их на вкладке «Загрузка из ОПОП / РПД» или добавьте на вкладке «Компетенции»." },
+        { name: "competency_ids", label: "Нужные компетенции", type: "checkboxes", options: competencies.map((c) => [c.id, c.code]), empty: NO_COMPETENCIES },
       ],
-      toForm: (r) => r,
+      // В форме – только связи этого направления; связи других направлений сохраняются.
+      toForm: (r) => ({ ...r, competency_ids: r.competency_ids.filter((id) => comps.has(id)) }),
       create: (d) => api("/labor-functions", { method: "POST", body: d }),
-      update: (r, d) => api(`/labor-functions/${r.id}`, { method: "PUT", body: { code: d.code, name: d.name, competency_ids: d.competency_ids } }),
+      update: (r, d) => api(`/labor-functions/${r.id}`, { method: "PUT", body: { code: d.code, name: d.name, competency_ids: d.competency_ids, direction_id: direction.id } }),
       remove: (r) => api(`/labor-functions/${r.id}`, { method: "DELETE" }),
     });
   },

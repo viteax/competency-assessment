@@ -6,13 +6,17 @@ from app.services.common import get_or_404, save
 
 
 def _check_links(session: Session, data: schemas.QuestionIn) -> None:
-    get_or_404(session, models.Competency, data.competency_id)
+    competency = get_or_404(session, models.Competency, data.competency_id)
     if data.indicator_id is not None:
         indicator = get_or_404(session, models.Indicator, data.indicator_id)
         if indicator.competency_id != data.competency_id:
             raise DomainError("индикатор относится к другой компетенции")
     if data.discipline_id is not None:
-        get_or_404(session, models.Discipline, data.discipline_id)
+        discipline = get_or_404(session, models.Discipline, data.discipline_id)
+        if discipline.direction_id != competency.direction_id:
+            raise DomainError(
+                f"«{discipline.name}» и {competency.code} относятся к разным направлениям"
+            )
 
 
 def _build_options(data: schemas.QuestionIn) -> list[models.AnswerOption]:

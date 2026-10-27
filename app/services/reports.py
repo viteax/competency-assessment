@@ -1,4 +1,6 @@
 from collections import defaultdict
+from collections.abc import Collection
+from dataclasses import dataclass
 
 from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.orm import Session, selectinload
@@ -158,31 +160,55 @@ def group_report(
     )
 
 
-def labor_functions(session: Session) -> list[models.LaborFunction]:
-    """Все ТФ профстандартов с их компетенциями, по порядку кодов."""
-    return session.scalars(
+@dataclass
+class DirectionFunction:
+    """ТФ и связанные с ней компетенции направления (у каждого направления связи свои)."""
+
+    function: models.LaborFunction
+    competencies: list[models.Competency]
+
+
+def labor_functions(session: Session, direction_ids: Collection[int]) -> list[DirectionFunction]:
+    """ТФ профстандартов, связанные с компетенциями направлений, по порядку кодов. ТФ, не
+    связанная ни с одной их компетенцией, к этим направлениям не относится."""
+    result = []
+    for lf in session.scalars(
         select(models.LaborFunction)
         .join(models.GeneralLaborFunction)
         .join(models.ProfStandard)
         .order_by(models.ProfStandard.code, models.LaborFunction.code)
         .options(selectinload(models.LaborFunction.competencies))
-    ).all()
+    ):
+        competencies = [c for c in lf.competencies if c.direction_id in direction_ids]
+        if competencies:
+            result.append(DirectionFunction(lf, competencies))
+    return result
+
+
+def directions_of(session: Session, student_ids: list[int]) -> set[int]:
+    return set(
+        session.scalars(
+            select(models.Group.direction_id)
+            .join(models.Student)
+            .where(models.Student.id.in_(student_ids))
+        )
+    )
 
 
 def labor_function_axes(
-    functions: list[models.LaborFunction], level: dict[int, float]
+    functions: list[DirectionFunction], level: dict[int, float]
 ) -> list[schemas.ProfileAxis]:
     """Уровень ТФ – среднее уровней её проверенных компетенций (level: id компетенции → 0..1)."""
     axes = []
-    for lf in functions:
-        measured = [level[c.id] for c in lf.competencies if c.id in level]
+    for f in functions:
+        measured = [level[c.id] for c in f.competencies if c.id in level]
         axes.append(
             schemas.ProfileAxis(
-                code=lf.code,
-                name=lf.name,
+                code=f.function.code,
+                name=f.function.name,
                 value=round(sum(measured) / len(measured), 3) if measured else None,
                 measured=len(measured),
-                total=len(lf.competencies),
+                total=len(f.competencies),
             )
         )
     return axes
@@ -207,7 +233,9 @@ def profile(
         names[c.id] = (c.code, c.description)
     level = {cid: sum(v) / len(v) for cid, v in ratios.items()}
 
-    tf_axes = labor_function_axes(labor_functions(session), level)
+    tf_axes = labor_function_axes(
+        labor_functions(session, directions_of(session, student_ids)), level
+    )
     return schemas.Profile(
         students=sum(bool(rows) for rows in results.values()),
         competencies=[
@@ -229,10 +257,11 @@ def labor_function_report(
 ) -> list[schemas.GeneralLaborFunctionResult]:
     """ПК → ОТФ: какие трудовые функции профстандарта закрывает студент.
 
-    ТФ считается закрытой, если все связанные с ней компетенции сформированы.
-    ОТФ закрыта, если закрыты все её ТФ.
+    ТФ считается закрытой, если все связанные с ней компетенции направления студента
+    сформированы. ОТФ закрыта, если закрыты все её ТФ. ТФ без связей с компетенциями
+    направления в отчет не попадают, ОТФ без таких ТФ – тоже.
     """
-    get_or_404(session, models.Student, student_id)
+    direction_id = get_or_404(session, models.Student, student_id).group.direction_id
     mastered = {r.competency_id for r in competency_results(session, student_id) if r.mastered}
 
     generals = session.scalars(
@@ -250,16 +279,20 @@ def labor_function_report(
     for general in generals:
         functions = []
         for lf in sorted(general.functions, key=lambda f: f.code):
-            required = {c.id for c in lf.competencies}
+            linked = [c for c in lf.competencies if c.direction_id == direction_id]
+            if not linked:
+                continue
             functions.append(
                 schemas.LaborFunctionResult(
                     labor_function_id=lf.id,
                     code=lf.code,
                     name=lf.name,
-                    competency_codes=sorted((c.code for c in lf.competencies), key=code_key),
-                    covered=bool(required) and required <= mastered,
+                    competency_codes=sorted((c.code for c in linked), key=code_key),
+                    covered={c.id for c in linked} <= mastered,
                 )
             )
+        if not functions:
+            continue
         report.append(
             schemas.GeneralLaborFunctionResult(
                 standard_code=general.standard.code,

@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app import models, schemas
-from app.errors import DomainError
+from app.errors import Conflict, DomainError
 from app.services.common import get_or_404, save
 
 
@@ -37,6 +37,7 @@ def assembly_plan(
             schemas.PlanDiscipline(
                 id=e.discipline.id,
                 name=e.discipline.name,
+                kind=e.discipline.kind,
                 first_semester=e.first_semester,
                 last_semester=e.last_semester,
                 competency_ids=e.discipline.competency_ids,
@@ -46,11 +47,13 @@ def assembly_plan(
         key=lambda d: (d.last_semester, d.name),
     )
     finished = [d for d in planned if d.last_semester < semester]
-    # Дисциплины, у которых семестры не указаны ни в одном учебном плане (дисциплины других
-    # направлений сюда не попадают).
+    # Дисциплины направления, у которых семестры не указаны в учебном плане.
     unplanned = session.scalars(
         select(models.Discipline.name)
-        .where(models.Discipline.id.not_in(select(models.CurriculumEntry.discipline_id)))
+        .where(
+            models.Discipline.direction_id == group.direction_id,
+            models.Discipline.id.not_in(select(models.CurriculumEntry.discipline_id)),
+        )
         .order_by(models.Discipline.name)
     ).all()
 
@@ -74,10 +77,17 @@ def assembly_plan(
 def save_entry(
     session: Session, entry: models.CurriculumEntry, data: schemas.CurriculumEntryIn
 ) -> models.CurriculumEntry:
-    """Сохраняет строку учебного плана: преподаватель – только с ролью «преподаватель», квоты –
-    только по компетенциям дисциплины, по одной на компетенцию."""
-    get_or_404(session, models.Direction, data.direction_id)
+    """Сохраняет строку учебного плана: направление – направление дисциплины, преподаватель –
+    только с ролью «преподаватель», квоты – только по компетенциям дисциплины, по одной на
+    компетенцию. У дисциплины одна строка плана."""
     discipline = get_or_404(session, models.Discipline, data.discipline_id)
+    other = session.scalar(
+        select(models.CurriculumEntry.id).where(
+            models.CurriculumEntry.discipline_id == discipline.id
+        )
+    )
+    if other is not None and other != entry.id:
+        raise Conflict(f"«{discipline.name}» уже есть в учебном плане – измените ту строку")
     if data.teacher_id is not None:
         teacher = get_or_404(session, models.User, data.teacher_id)
         if teacher.role != models.Role.TEACHER:
@@ -90,8 +100,9 @@ def save_entry(
     if entry.id is not None:
         entry.quotas = []
         session.flush()  # старые квоты удаляются до вставки новых с тем же ключом
-    for field in ("direction_id", "discipline_id", "first_semester", "last_semester", "teacher_id"):
+    for field in ("discipline_id", "first_semester", "last_semester", "teacher_id"):
         setattr(entry, field, getattr(data, field))
+    entry.direction_id = discipline.direction_id
     entry.quotas = [
         models.CurriculumQuota(competency_id=q.competency_id, questions=q.questions)
         for q in data.quotas

@@ -69,6 +69,11 @@ def create_test(
     ensure_unique_title(session, data.title)
     disciplines = get_many_or_404(session, models.Discipline, data.discipline_ids)
     competencies = get_many_or_404(session, models.Competency, data.competency_ids)
+    if len({c.direction_id for c in competencies} | {d.direction_id for d in disciplines}) > 1:
+        raise DomainError(
+            "тест собирается по одному направлению: выбраны компетенции или "
+            "дисциплины разных направлений"
+        )
     k = data.questions_per_competency
 
     pools: list[list[models.Question]] = []
@@ -142,7 +147,20 @@ def delete_assignment(session: Session, assignment_id: int) -> None:
 
 def assign_test(session: Session, data: schemas.AssignmentIn) -> models.Assignment:
     get_or_404(session, models.Test, data.test_id)
-    get_or_404(session, models.Group, data.group_id)
+    group = get_or_404(session, models.Group, data.group_id)
+    directions = set(
+        session.scalars(
+            select(models.Competency.direction_id)
+            .join(models.Question)
+            .join(models.TestQuestion)
+            .where(models.TestQuestion.test_id == data.test_id)
+            .distinct()
+        )
+    )
+    if directions and group.direction_id not in directions:
+        raise DomainError(
+            f"тест собран по компетенциям другого направления, чем у группы {group.name}"
+        )
     exists = session.scalar(
         select(models.Assignment).where(
             models.Assignment.test_id == data.test_id,

@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from tests.helpers import assign, by_code
+from tests.helpers import assign, by_code, demo_direction
 
 
 def test_not_enough_questions(admin: TestClient):
@@ -124,7 +124,13 @@ def test_indicator_must_belong_to_competency(admin: TestClient):
 
 def test_duplicate_competency_code(admin: TestClient):
     response = admin.post(
-        "/competencies", json={"code": "ПК-1", "kind": "ПК", "description": "дубль"}
+        "/competencies",
+        json={
+            "direction_id": demo_direction(admin),
+            "code": "ПК-1",
+            "kind": "ПК",
+            "description": "дубль",
+        },
     )
     assert response.status_code == 409
 

@@ -1,9 +1,13 @@
-"""Схемы API: компетенции."""
+"""Схемы API: компетенции, дисциплины, учебный план."""
 
-from pydantic import BaseModel, Field, model_validator
+from typing import Annotated
 
-from app.models import CompetencyKind
+from pydantic import BaseModel, Field, StringConstraints, model_validator
+
+from app.models import CompetencyKind, DisciplineKind
 from app.schemas.base import ORM
+
+Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 
 
 class IndicatorIn(BaseModel):
@@ -20,21 +24,20 @@ class IndicatorCreate(IndicatorIn):
     competency_id: int
 
 
-class CompetencyIn(BaseModel):
+class CompetencyUpdate(BaseModel):
     code: str = Field(examples=["ОПК-5"])
     kind: CompetencyKind
     description: str
+
+
+class CompetencyIn(CompetencyUpdate):
+    direction_id: int  # у каждого направления свои компетенции
     indicators: list[IndicatorIn] = []
-
-
-class CompetencyUpdate(BaseModel):
-    code: str
-    kind: CompetencyKind
-    description: str
 
 
 class CompetencyOut(ORM):
     id: int
+    direction_id: int
     code: str
     kind: CompetencyKind
     description: str
@@ -42,13 +45,23 @@ class CompetencyOut(ORM):
 
 
 class DisciplineIn(BaseModel):
-    name: str = Field(examples=["Математика"])
-    competency_ids: list[int] = []
+    name: Name = Field(examples=["Математика"])
+    # Индекс в учебном плане, например Б1.О.02.01; пустой – нет индекса.
+    code: Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)] | None = None
+    kind: DisciplineKind = DisciplineKind.REGULAR
+    competency_ids: list[int] = []  # только компетенции направления дисциплины
+
+
+class DisciplineCreate(DisciplineIn):
+    direction_id: int
 
 
 class DisciplineOut(ORM):
     id: int
+    direction_id: int
     name: str
+    code: str | None
+    kind: DisciplineKind
     competency_ids: list[int]
 
 
@@ -62,8 +75,7 @@ class QuotaOut(ORM, QuotaIn):
 
 
 class CurriculumEntryIn(BaseModel):
-    direction_id: int
-    discipline_id: int
+    discipline_id: int  # направление строки плана – направление дисциплины
     first_semester: int = Field(ge=1, le=12)
     last_semester: int = Field(ge=1, le=12)
     teacher_id: int | None = None  # кто разрабатывает вопросы по дисциплине
@@ -78,6 +90,7 @@ class CurriculumEntryIn(BaseModel):
 
 class CurriculumEntryOut(ORM, CurriculumEntryIn):
     id: int
+    direction_id: int
     quotas: list[QuotaOut]
 
 

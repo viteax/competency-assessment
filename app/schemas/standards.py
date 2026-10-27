@@ -9,6 +9,9 @@ class LaborFunctionIn(BaseModel):
     code: str = Field(examples=["A/01.3"])
     name: str
     competency_ids: list[int] = []
+    # Задано – связи ТФ ⇒ компетенции меняются только у этого направления (competency_ids –
+    # его компетенции), связи других направлений остаются. Не задано – заменяются все.
+    direction_id: int | None = None
 
 
 class LaborFunctionCreate(LaborFunctionIn):

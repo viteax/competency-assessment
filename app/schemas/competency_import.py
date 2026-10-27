@@ -28,6 +28,7 @@ class ImportCompetency(BaseModel):
 
 class ImportPreview(BaseModel):
     filename: str
+    direction_id: int  # с компетенциями какого направления сравнивали
     discipline_name: str | None
     discipline_exists: bool
     competencies: list[ImportCompetency]
@@ -54,6 +55,7 @@ class ImportCompetencyIn(BaseModel):
 
 
 class ImportApply(BaseModel):
+    direction_id: int
     discipline_name: str | None = None
     overwrite_descriptions: bool = False
     competencies: list[ImportCompetencyIn] = Field(min_length=1)

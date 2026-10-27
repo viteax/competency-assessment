@@ -113,10 +113,16 @@ def _attention(
     def add(text: str, target: schemas.Target) -> None:
         items.append(schemas.AttentionItem(text=text, target=target))
 
-    no_teacher = sorted({e.discipline.name for e in entries if e.teacher_id is None})
+    # При нескольких направлениях одинаковые названия и коды различаются кодом направления.
+    several = len({e.direction_id for e in entries}) > 1
+
+    def label(e: models.CurriculumEntry) -> str:
+        return f"{e.discipline.name} ({e.direction.code})" if several else e.discipline.name
+
+    no_teacher = sorted({label(e) for e in entries if e.teacher_id is None})
     if no_teacher:
         add(f"Не закреплены за преподавателем: {_names(no_teacher)}", "curriculum")
-    no_quotas = sorted({e.discipline.name for e in entries if e.teacher_id and not e.quotas})
+    no_quotas = sorted({label(e) for e in entries if e.teacher_id and not e.quotas})
     if no_quotas:
         add(f"Не задано, сколько вопросов разработать: {_names(no_quotas)}", "curriculum")
 
@@ -133,14 +139,16 @@ def _attention(
             "groups",
         )
 
-    empty = sorted(
-        session.scalars(
-            select(models.Competency.code).where(
-                ~models.Competency.id.in_(select(models.Question.competency_id))
-            )
-        ),
-        key=code_key,
-    )
+    rows = session.execute(
+        select(models.Competency.code, models.Direction.code)
+        .join(models.Direction)
+        .where(~models.Competency.id.in_(select(models.Question.competency_id)))
+    ).all()
+    several = len({direction for _, direction in rows}) > 1
+    empty = [
+        f"{code} ({direction})" if several else code
+        for code, direction in sorted(rows, key=lambda r: (r[1], code_key(r[0])))
+    ]
     if empty:
         add(f"Компетенции без вопросов в банке: {_names(empty)}", "bank")
 

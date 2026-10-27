@@ -19,12 +19,13 @@ async def _read(file: UploadFile) -> tuple[str, bytes]:
 
 
 @router.post("/preview", response_model=schemas.ImportPreview)
-async def preview(file: UploadFile, session: SessionDep):
-    """Разбирает файл (.docx, .xlsx, .pdf, .txt) и показывает, что будет создано или обновлено.
-    В БД ничего не пишет."""
+async def preview(file: UploadFile, session: SessionDep, direction_id: int = Form()):
+    """Разбирает файл (.docx, .xlsx, .pdf, .txt) и показывает, что будет создано или обновлено
+    в направлении direction_id. В БД ничего не пишет."""
     filename, data = await _read(file)
     text = competency_import.extract_text(filename, data)
-    return competency_import.preview(session, filename, competency_import.parse_text(text))
+    parsed = competency_import.parse_text(text)
+    return competency_import.preview(session, direction_id, filename, parsed)
 
 
 @router.post("/apply", response_model=schemas.ImportResult)

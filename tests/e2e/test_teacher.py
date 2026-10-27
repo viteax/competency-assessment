@@ -54,7 +54,7 @@ def test_admin_adds_teacher_and_assigns_discipline(admin_page: Page, new_page):
     row = page.locator("tr", has=page.locator("td:text-is('Математика')"))
     row.locator("text=Изменить").click()
     form = page.locator("form.edit-form")
-    form.locator("select").nth(2).select_option(label="Лебедев Олег Игоревич")
+    form.locator("select").nth(1).select_option(label="Лебедев Олег Игоревич")
     form.get_by_label("Вопросов по ОПК-1").fill("4")
     form.get_by_label("Вопросов по УК-1").fill("20")
     form.locator("button:text-is('Сохранить')").click()

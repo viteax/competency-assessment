@@ -1,8 +1,13 @@
 """Модель предметной области.
 
 Учебная часть:      Direction -> Group -> Student (<- User со ролью student)
-Компетенции ФГОС:   Competency (УК/ОПК/ПК) -> Indicator, Discipline <-> Competency
+Компетенции ФГОС:   Direction -> Competency (УК/ОПК/ПК) -> Indicator,
+                    Direction -> Discipline <-> Competency (того же направления)
 Профстандарт:       ProfStandard -> GeneralLaborFunction (ОТФ) -> LaborFunction (ТФ) <-> Competency
+
+Компетенции и дисциплины принадлежат направлению: в разных ОП коды компетенций одни и те же
+(ОПК-1, ПК-5), а формулировки бывают разные. Профстандарты общие, а связь ТФ с компетенциями
+у каждого направления своя – через его компетенции.
 Тестирование:       Question -> AnswerOption, Test -> TestQuestion,
                     Assignment (тест назначен группе) -> Attempt (попытка студента) -> AttemptAnswer
 """
@@ -57,6 +62,15 @@ class CompetencyKind(enum.StrEnum):
     UK = "УК"
     OPK = "ОПК"
     PK = "ПК"
+
+
+class DisciplineKind(enum.StrEnum):
+    """Статус дисциплины в учебном плане."""
+
+    REGULAR = "regular"  # обязательная
+    ELECTIVE = "elective"  # по выбору (ДВ): студент изучает одну из нескольких
+    OPTIONAL = "optional"  # факультатив (ФТД)
+    PRACTICE = "practice"  # практика (Б2)
 
 
 discipline_competency = Table(
@@ -189,9 +203,13 @@ class AuditEntry(Base):
 
 class Competency(Base):
     __tablename__ = "competency"
+    __table_args__ = (
+        UniqueConstraint("direction_id", "code", name="uq_competency_direction_code"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    code: Mapped[str] = mapped_column(String(16), unique=True)  # "ОПК-5"
+    direction_id: Mapped[int] = mapped_column(ForeignKey("direction.id", ondelete="CASCADE"))
+    code: Mapped[str] = mapped_column(String(16))  # "ОПК-5"
     kind: Mapped[CompetencyKind] = mapped_column(
         Enum(CompetencyKind, values_callable=lambda e: [m.value for m in e])
     )
@@ -206,16 +224,20 @@ class Competency(Base):
     labor_functions: Mapped[list["LaborFunction"]] = relationship(
         secondary=labor_function_competency, back_populates="competencies"
     )
+    direction: Mapped[Direction] = relationship()
 
 
 class Indicator(Base):
     """Индикатор достижения компетенции, например ОПК-5.1."""
 
     __tablename__ = "indicator"
+    __table_args__ = (
+        UniqueConstraint("competency_id", "code", name="uq_indicator_competency_code"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     competency_id: Mapped[int] = mapped_column(ForeignKey("competency.id", ondelete="CASCADE"))
-    code: Mapped[str] = mapped_column(String(16), unique=True)
+    code: Mapped[str] = mapped_column(String(16))
     description: Mapped[str] = mapped_column(Text)
 
     competency: Mapped[Competency] = relationship(back_populates="indicators")
@@ -223,13 +245,25 @@ class Indicator(Base):
 
 class Discipline(Base):
     __tablename__ = "discipline"
+    __table_args__ = (
+        UniqueConstraint("direction_id", "name", name="uq_discipline_direction_name"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(255), unique=True)
+    direction_id: Mapped[int] = mapped_column(ForeignKey("direction.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(255))
+    # Индекс в учебном плане, например Б1.В.01.ДВ.01.01 (у заведенных вручную может не быть).
+    code: Mapped[str | None] = mapped_column(String(32))
+    kind: Mapped[DisciplineKind] = mapped_column(
+        Enum(DisciplineKind, values_callable=lambda e: [m.value for m in e]),
+        default=DisciplineKind.REGULAR,
+        server_default=DisciplineKind.REGULAR.value,
+    )
 
     competencies: Mapped[list[Competency]] = relationship(
         secondary=discipline_competency, back_populates="disciplines"
     )
+    direction: Mapped[Direction] = relationship()
 
     @property
     def competency_ids(self) -> list[int]:

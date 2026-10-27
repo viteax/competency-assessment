@@ -62,6 +62,7 @@ def test_case_and_final_dot_are_not_a_change(admin: TestClient):
     created = admin.post(
         "/competencies",
         json={
+            "direction_id": 1,
             "code": "ПК-5",
             "kind": "ПК",
             "description": pk5.description.lower() + ".",
@@ -70,7 +71,9 @@ def test_case_and_final_dot_are_not_a_change(admin: TestClient):
     )
     assert created.status_code == 201, created.text
     response = admin.post(
-        "/import/preview", files={"file": ("opop.pdf", SAMPLE, "application/pdf")}
+        "/import/preview",
+        files={"file": ("opop.pdf", SAMPLE, "application/pdf")},
+        data={"direction_id": "1"},
     )
     assert response.status_code == 200, response.text
     item = next(i for i in response.json()["competencies"] if i["code"] == "ПК-5")

@@ -18,13 +18,21 @@ _QUESTION_LOAD = (
 
 
 def _directions_and_semesters(session: Session, discipline_ids: list[int]) -> tuple[str, str]:
-    entries = session.scalars(
-        select(models.CurriculumEntry)
-        .where(models.CurriculumEntry.discipline_id.in_(discipline_ids))
-        .options(selectinload(models.CurriculumEntry.direction))
+    disciplines = session.scalars(
+        select(models.Discipline)
+        .where(models.Discipline.id.in_(discipline_ids))
+        .options(selectinload(models.Discipline.direction))
     ).all()
-    directions = sorted({f"{e.direction.code} {e.direction.name}" for e in entries})
-    semesters = sorted({e.last_semester for e in entries})
+    directions = sorted({f"{d.direction.code} {d.direction.name}" for d in disciplines})
+    semesters = sorted(
+        set(
+            session.scalars(
+                select(models.CurriculumEntry.last_semester).where(
+                    models.CurriculumEntry.discipline_id.in_(discipline_ids)
+                )
+            )
+        )
+    )
     return "\n".join(directions), ", ".join(map(str, semesters))
 
 

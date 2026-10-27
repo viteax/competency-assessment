@@ -266,3 +266,10 @@ details.card .card { border: none; padding: 0; margin: 12px 0 0; }
 .bar { height: 6px; border-radius: 3px; background: var(--border); margin-top: 4px; min-width: 80px; }
 .bar-fill { height: 100%; border-radius: 3px; background: var(--accent); }
 .bar-fill.full { background: var(--ok); }
+
+/* Справочники направления: выбор направления над вкладкой, коды компетенций метками. */
+.direction-bar { margin: 0 0 12px; }
+.direction-bar label { margin-top: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { font-size: 12px; padding: 1px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); white-space: nowrap; }
+.badge.kind { font-size: 12px; background: var(--bg); color: var(--muted); border: 1px solid var(--border); white-space: nowrap; }

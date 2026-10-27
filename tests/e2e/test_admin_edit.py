@@ -45,7 +45,7 @@ def test_edit_catalogs(admin_page: Page):
     row(page, "A/01.3").locator("text=Изменить").click()
     page.locator("form.edit-form label", has_text=re.compile("^ПК-3$")).locator("input").check()
     page.locator("form.edit-form button:text-is('Сохранить')").click()
-    expect(page.locator("td:text-is('ОПК-1, ПК-1, ПК-3')")).to_be_visible()
+    expect(row(page, "A/01.3").locator(".chip")).to_have_text(["ОПК-1", "ПК-1", "ПК-3"])
 
 
 def test_edit_questions(admin_page: Page):

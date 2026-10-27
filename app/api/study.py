@@ -30,7 +30,7 @@ def update_direction(direction_id: int, data: schemas.DirectionIn, session: Sess
 @router.delete("/directions/{direction_id}", status_code=204)
 def delete_direction(direction_id: int, session: SessionDep):
     direction = get_or_404(session, models.Direction, direction_id)
-    delete_or_conflict(session, direction, "у направления есть группы")
+    delete_or_conflict(session, direction, "у направления есть группы, вопросы или тесты")
 
 
 @router.post("/groups", response_model=schemas.GroupOut, status_code=201)
