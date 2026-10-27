@@ -50,6 +50,7 @@ uv run ruff check . && uv run ruff format --check . # линтер Python
 npm run lint -- --max-warnings 0                    # ESLint фронтенда
 
 uv run alembic revision --autogenerate -m "..."     # новая миграция
+uv run python -m scripts.release 2.0.1             # выпуск: версия + раздел CHANGELOG
 ```
 Миграции проверять и на PostgreSQL: `pg_ctlcluster 16 main start`, база `migcheck`,
 `upgrade head` → `check` → `downgrade` → `upgrade`.
