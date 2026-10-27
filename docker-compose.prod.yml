@@ -1,4 +1,4 @@
-# Продакшен: приложение, PostgreSQL, Caddy (HTTPS) и ежедневные бэкапы.
+# Продакшен: приложение, PostgreSQL, Caddy (HTTPS), ежедневные бэкапы и их копии вне сервера.
 #
 #   cp .env.example .env   # и заполнить
 #   docker compose -f docker-compose.prod.yml up -d
@@ -87,6 +87,24 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    logging: *logging
+
+  offsite:
+    # Раз в час: новые копии из ./backups – в хранилище вне сервера (шифруются до отправки),
+    # сигнал мониторингу, что свежая копия есть. Настройка – deploy/setup-offsite.sh и
+    # HEALTHCHECK_URL; пока не настроено, только пишет об этом в лог.
+    image: rclone/rclone:1.71.0
+    restart: unless-stopped
+    environment:
+      RCLONE_CONFIG: /config/rclone/rclone.conf
+      OFFSITE_KEEP_DAYS: ${OFFSITE_KEEP_DAYS:-90}
+      HEALTHCHECK_URL: ${HEALTHCHECK_URL:-}
+      TZ: ${TZ:-Asia/Tomsk}
+    volumes:
+      - ./deploy/offsite.sh:/usr/local/bin/offsite.sh:ro
+      - ./deploy/rclone:/config/rclone # rclone.conf с ключами – в git не попадает
+      - ${BACKUP_DIR:-./backups}:/backups:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/offsite.sh"]
     logging: *logging
 
 volumes:

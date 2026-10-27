@@ -11,3 +11,4 @@ dist/
 backups/
 node_modules/
 deploy/sites/*.caddy
+deploy/rclone/

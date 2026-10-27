@@ -52,7 +52,7 @@ Python 3.12 (uv), FastAPI, SQLAlchemy 2, PostgreSQL, Pydantic 2, Pytest.
 ## Запуск
 
 **На сервере (продакшен)** – [docs/deploy.md](docs/deploy.md): Docker Compose с PostgreSQL,
-автоматическим HTTPS (Caddy) и ежедневными резервными копиями.
+автоматическим HTTPS (Caddy) и ежедневными резервными копиями, в том числе вне сервера.
 
 **Локально для разработки и демо:**
 
@@ -373,7 +373,7 @@ app/
     js/admin/*.js        экраны администратора, по файлу на экран
 migrations/              ревизии Alembic
 scripts/                 точка входа контейнера, создание администратора, демо-данные
-deploy/                  Caddyfile, резервное копирование и восстановление
+deploy/                  Caddyfile, резервные копии (и вне сервера), восстановление
 docs/deploy.md           развёртывание и эксплуатация
 docker-compose.yml       локальный запуск (dev)
 docker-compose.prod.yml  продакшен
