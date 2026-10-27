@@ -1,0 +1,73 @@
+name: Release
+
+# Кнопка выпуска: Actions → Release → Run workflow → номер версии (docs/deploy.md, «Выпуск версии»).
+# Если версия в main еще не подготовлена, делает то же, что scripts/release.py, и пушит коммит
+# «Release X.Y.Z» в main. Затем ставит тег vX.Y.Z, публикует релиз с разделом из CHANGELOG.md и
+# запускает CI на теге: тесты, образ, deploy-prod с подтверждением в окружении prod.
+# Тег, поставленный токеном Actions, сам CI не запускает – поэтому CI запускается явно.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Версия, например 2.0.2 (исправления – последняя цифра, новое – средняя)"
+        required: true
+
+concurrency: release
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # коммит выпуска, тег и релиз
+      actions: write # запуск CI на теге
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+      - name: Prepare
+        id: prepare
+        run: |
+          VERSION="${VERSION#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "::error::Версия $VERSION уже выпущена. Выпустите следующую."
+            exit 1
+          fi
+          current=$(sed -n 's/^version = "\(.*\)"$/\1/p' pyproject.toml)
+          if [ "$current" = "$VERSION" ]; then
+            echo "Версия $VERSION уже подготовлена в main"
+            exit 0
+          fi
+          python3 -m scripts.release "$VERSION" || {
+            echo "::error::Выпуск не подготовлен (причина выше)."
+            exit 1
+          }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -qam "Release $VERSION"
+          git push origin HEAD:main || {
+            echo "::error::Не удалось запушить коммит выпуска в main. Подготовьте выпуск локально:" \
+              "uv run python -m scripts.release $VERSION, коммит и пуш – и запустите кнопку снова."
+            exit 1
+          }
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+      - name: Tag and release
+        run: |
+          python3 -m scripts.release --notes "$VERSION" > notes.md
+          gh release create "v$VERSION" --target "$(git rev-parse HEAD)" \
+            --title "$VERSION" --notes-file notes.md
+      - name: Start CI
+        run: |
+          gh workflow run ci.yml --ref "v$VERSION"
+          # Коммит выпуска, запушенный токеном Actions, тоже не запускает CI: демо – явно.
+          if [ "${{ steps.prepare.outputs.pushed }}" = true ]; then gh workflow run ci.yml --ref main; fi
+          {
+            echo "### Версия $VERSION выпущена"
+            echo "Дальше: Actions → CI на теге v$VERSION → **Review deployments** → prod →"
+            echo "**Approve and deploy**."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -2,8 +2,10 @@
 становится разделом новой версии с сегодняшней датой.
 
     uv run python -m scripts.release 2.0.1
+    uv run python -m scripts.release --notes 2.0.1   # раздел версии – описание релиза
 
-Дальше – коммит, пуш и тег v2.0.1 (docs/deploy.md, раздел «Выпуск версии»).
+Дальше – коммит, пуш и тег v2.0.1 (docs/deploy.md, раздел «Выпуск версии»). Кнопка Actions →
+Release делает все это сама (.github/workflows/release.yml).
 """
 
 import datetime
@@ -35,7 +37,23 @@ def cut_changelog(changelog: str, version: str, date: datetime.date) -> str:
     return f"{head}{UNRELEASED}\n{section}{sep}{older}"
 
 
+def release_notes(changelog: str, version: str) -> str:
+    """Текст раздела версии без заголовка."""
+    start = re.search(rf"^## \[{re.escape(version)}\].*\n", changelog, re.MULTILINE)
+    if not start:
+        raise ValueError(f"в CHANGELOG.md нет раздела версии {version}")
+    body = changelog[start.end() :].split("\n## [", 1)[0]
+    return body.strip() + "\n"
+
+
 def main() -> None:
+    if len(sys.argv) == 3 and sys.argv[1] == "--notes":
+        changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        try:
+            print(release_notes(changelog, sys.argv[2].removeprefix("v")), end="")
+        except ValueError as exc:
+            sys.exit(f"ошибка: {exc}")
+        return
     if len(sys.argv) != 2:
         sys.exit(__doc__)
     version = sys.argv[1].removeprefix("v")

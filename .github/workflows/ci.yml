@@ -5,6 +5,8 @@ on:
     branches: ["**"]
     tags: ["v*"]
   pull_request:
+  # Запуск кнопкой Release (release.yml): тег, поставленный токеном Actions, CI сам не запускает.
+  workflow_dispatch:
 
 # Версия Ubuntu закреплена: смена образа «ubuntu-latest» не должна внезапно ломать сборку
 # (например, установку браузера для e2e). Обновлять осознанно.
