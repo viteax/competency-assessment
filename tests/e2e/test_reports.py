@@ -41,8 +41,15 @@ def test_excel_and_radars(new_page):
     login(page, "admin", "admin123")
     open_section(page, "Результаты", "По группе")
     expect(page.locator("td:has-text('Иванов Иван Иванович')")).to_be_visible()
+    report = page.locator("a:text-is('Отчет по тесту (Word)')")
+    expect(report).to_be_hidden()  # отчет по форме кафедры – по одному тесту
     page.get_by_label("Тест").select_option(label="Остаточные знания")
     expect(page.locator("th:text-is('ОПК-5')")).to_be_visible()
+    with page.expect_download() as form:
+        report.click()
+    assert form.value.suggested_filename == "Результаты ПИ-21 – Остаточные знания.docx"
+    rows = Document(form.value.path()).tables[0].rows
+    assert [c.text for c in rows[2].cells][7] == "6"  # 3 компетенции по 2 задания
 
     with page.expect_download() as download:
         page.click("text=Скачать Excel")

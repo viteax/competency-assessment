@@ -9,6 +9,8 @@ export async function adminGroupResults(render) {
   const group = h("select", {}, groups.map((g) => h("option", { value: g.id }, g.name)));
   const test = h("select", { "aria-label": "Тест" });
   const excel = h("a", { class: "button", download: "" }, "Скачать Excel");
+  // Отчет по форме кафедры – по одному тесту.
+  const word = h("a", { class: "button", download: "", title: "Результаты проверки уровня сформированности компетенций (форма кафедры)" }, "Отчет по тесту (Word)");
   const out = h("div", { class: "table-wrap" });
   const whom = h("select", { "aria-label": "Чья роза" });
   const charts = h("div");
@@ -57,6 +59,7 @@ export async function adminGroupResults(render) {
     ]);
     report = loaded;
     excel.href = `/reports/groups/${group.value}/competencies.xlsx${query()}`;
+    word.href = `/reports/groups/${group.value}/results.docx${query()}`;
     const codes = [...new Set(report.students.flatMap((s) => s.competencies.map((c) => c.code)))].sort(byCode);
     const tested = report.students.filter((s) => s.competencies.length);
     fill(whom,
@@ -65,12 +68,13 @@ export async function adminGroupResults(render) {
     if (!codes.length) {
       fill(out, h("p", { class: "muted" }, test.value ? "Этот тест группа ещё не проходила" : "Группа ещё не проходила тесты"));
       fill(charts);
-      excel.hidden = true;
+      excel.hidden = word.hidden = true;
       whom.parentElement.hidden = true;
       radarHint.hidden = false;
       return;
     }
     excel.hidden = false;
+    word.hidden = !test.value;
     whom.parentElement.hidden = false;
     radarHint.hidden = true;
     fill(out,
@@ -100,7 +104,7 @@ export async function adminGroupResults(render) {
       h("div", { class: "row" },
         h("div", {}, h("label", {}, "Группа"), group),
         h("div", { class: "grow" }, h("label", {}, "Тест"), test),
-        h("div", {}, excel),
+        h("div", { class: "row" }, excel, word),
         h("div", { class: "pad-bottom" }, toRadar),
       ),
     ),

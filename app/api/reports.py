@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, Response
 
 from app import models, schemas
 from app.api.deps import SessionDep, require_admin
-from app.api.files import XLSX, attachment
+from app.api.files import DOCX, XLSX, attachment
 from app.errors import NotFound
 from app.services import dashboard as dashboard_service
-from app.services import report_export, reports
+from app.services import diagnostic_report, report_export, reports
 from app.services.common import get_or_404
 
 router = APIRouter(prefix="/reports", tags=["Отчёты"], dependencies=[Depends(require_admin)])
@@ -36,6 +36,15 @@ def group_competencies_xlsx(group_id: int, session: SessionDep, test_id: int | N
     group = get_or_404(session, models.Group, group_id)
     content = report_export.group_results_xlsx(session, group.id, test_id)
     return attachment(content, f"Результаты {group.name}.xlsx", XLSX)
+
+
+@router.get("/groups/{group_id}/results.docx", response_class=Response)
+def group_results_docx(group_id: int, test_id: int, session: SessionDep):
+    """Результаты группы по тесту в Word по форме кафедры «Результаты проверки уровня
+    сформированности компетенций»: по студенту – задания закрытого и открытого типа, номера
+    неверных открытых заданий, итог и процент; доля выполнивших 70% и более заданий."""
+    content, filename = diagnostic_report.group_test_document(session, group_id, test_id)
+    return attachment(content, filename, DOCX)
 
 
 @router.get("/groups/{group_id}/profile", response_model=schemas.Profile)

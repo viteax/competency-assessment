@@ -45,6 +45,12 @@ def _sections(questions: list[models.Question]) -> list[Section]:
     return [Section(competency=qs[0].competency, questions=qs) for qs in groups]
 
 
+def in_document_order(questions: list[models.Question]) -> list[models.Question]:
+    """Вопросы варианта в порядке документа Word: по компетенциям, внутри – как в варианте.
+    По этим номерам задания называют в отчетах."""
+    return [q for section in _sections(questions) for q in section.questions]
+
+
 def _filename(name: str, key: bool) -> str:
     safe = "".join(ch for ch in name if ch not in '\\/:*?"<>|').strip() or "задания"
     return f"{safe} – ключ.docx" if key else f"{safe}.docx"

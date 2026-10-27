@@ -53,6 +53,8 @@
 }
 
 * { box-sizing: border-box; }
+/* hidden скрывает и элементы со своим display (ссылки-кнопки a.button и т. п.). */
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
