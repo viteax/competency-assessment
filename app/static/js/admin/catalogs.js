@@ -26,6 +26,8 @@ function fieldInput(field, value) {
     return el;
   }
   if (field.type === "checkboxes") {
+    // Пустой список без пояснения выглядит как ошибка: говорим, откуда взять варианты.
+    if (!field.options.length) return h("div", { class: "muted small" }, field.empty || "Выбрать пока не из чего.");
     const selected = new Set(value || []);
     return h(
       "div",
@@ -230,13 +232,15 @@ export const CATALOGS = {
     const competencies = await api("/competencies");
     const comps = byId(competencies);
     return crudSection({
-      hint: "Какие компетенции формирует дисциплина учебного плана.",
       load: () => api("/disciplines"),
       label: (r) => r.name,
       columns: [["Дисциплина", (r) => r.name], ["Компетенции", (r) => codes(r.competency_ids, comps)]],
       fields: [
         { name: "name", label: "Название" },
-        { name: "competency_ids", label: "Компетенции", type: "checkboxes", options: competencies.map((c) => [c.id, c.code]) },
+        {
+          name: "competency_ids", label: "Компетенции", type: "checkboxes", options: competencies.map((c) => [c.id, c.code]),
+          empty: "Компетенций пока нет: загрузите их на вкладке «Загрузка из ОПОП / РПД» или добавьте на вкладке «Компетенции». Дисциплину можно сохранить и без них, а компетенции отметить позже.",
+        },
       ],
       toForm: (r) => r,
       create: (d) => api("/disciplines", { method: "POST", body: d }),
@@ -443,7 +447,7 @@ export const CATALOGS = {
         { name: "general_function_id", label: "ОТФ", type: "select", options: generals.map((g) => [g.id, `${g.standard.code} · ОТФ ${g.code}. ${g.name}`]) },
         { name: "code", label: "Код, например A/01.3" },
         { name: "name", label: "Название", type: "textarea" },
-        { name: "competency_ids", label: "Нужные компетенции", type: "checkboxes", options: competencies.map((c) => [c.id, c.code]) },
+        { name: "competency_ids", label: "Нужные компетенции", type: "checkboxes", options: competencies.map((c) => [c.id, c.code]), empty: "Компетенций пока нет: загрузите их на вкладке «Загрузка из ОПОП / РПД» или добавьте на вкладке «Компетенции»." },
       ],
       toForm: (r) => r,
       create: (d) => api("/labor-functions", { method: "POST", body: d }),
