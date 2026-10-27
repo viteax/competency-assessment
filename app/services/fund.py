@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app import models
 from app.errors import NotFound
-from app.services.common import get_or_404
+from app.services.common import code_key, get_or_404
 from app.services.word_export import FundHeader, Section, build
 
 _QUESTION_LOAD = (
@@ -33,7 +33,7 @@ def _sections(questions: list[models.Question]) -> list[Section]:
     by_competency: dict[int, list[models.Question]] = defaultdict(list)
     for q in questions:
         by_competency[q.competency_id].append(q)
-    groups = sorted(by_competency.values(), key=lambda qs: qs[0].competency.code)
+    groups = sorted(by_competency.values(), key=lambda qs: code_key(qs[0].competency.code))
     return [Section(competency=qs[0].competency, questions=qs) for qs in groups]
 
 

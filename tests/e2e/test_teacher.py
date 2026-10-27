@@ -60,7 +60,7 @@ def test_admin_adds_teacher_and_assigns_discipline(admin_page: Page, new_page):
     form.locator("button:text-is('Сохранить')").click()
     row = page.locator("tr", has=page.locator("td:text-is('Математика')"))
     expect(row).to_contain_text("Лебедев Олег Игоревич")
-    expect(row).to_contain_text("ОПК-1: 4, УК-1: 20")
+    expect(row).to_contain_text("УК-1: 20, ОПК-1: 4")
 
     teacher = new_page()
     login(teacher, "lebedev", temp)

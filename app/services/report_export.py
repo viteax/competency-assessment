@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.services import app_settings, reports
+from app.services.common import code_key
 
 GREEN = PatternFill("solid", fgColor="E5F5EC")
 RED = PatternFill("solid", fgColor="FDEEE5")
@@ -31,7 +32,8 @@ def group_results_xlsx(session: Session, group_id: int, test_id: int | None = No
     threshold = app_settings.mastery_threshold(session)
     test = session.get(models.Test, test_id) if test_id is not None else None
     competencies = sorted(
-        {(c.code, c.competency_id) for s in report.students for c in s.competencies}
+        {(c.code, c.competency_id) for s in report.students for c in s.competencies},
+        key=lambda pair: code_key(pair[0]),
     )
 
     wb = Workbook()

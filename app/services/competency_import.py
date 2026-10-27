@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, selectinload
 from app import models, schemas
 from app.errors import DomainError
 from app.services import files
+from app.services.common import code_key
 
 SUPPORTED = (".docx", ".xlsx", ".pdf", ".txt")
 
@@ -133,13 +134,8 @@ def parse_text(text: str) -> ParsedDocument:
     discipline = _DISCIPLINE_RE.search(text)
     return ParsedDocument(
         discipline_name=_clean(discipline.group("name")) if discipline else None,
-        competencies=dict(sorted(competencies.items(), key=lambda kv: _sort_key(kv[0]))),
+        competencies=dict(sorted(competencies.items(), key=lambda kv: code_key(kv[0]))),
     )
-
-
-def _sort_key(code: str) -> tuple[int, int]:
-    kind, num = code.split("-")
-    return (["УК", "ОПК", "ПК"].index(kind), int(num))
 
 
 # --- предпросмотр и сохранение ---------------------------------------------

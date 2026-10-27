@@ -1,6 +1,6 @@
 // База: универсальная таблица с формой и описания всех разделов базы.
 
-import { api, byId, errorBox, fill, h, passwordNotice, temporaryPassword } from "../core.js";
+import { api, byCode, byId, errorBox, fill, h, passwordNotice, temporaryPassword } from "../core.js";
 
 // Поле формы → элемент ввода. Значение читается через readField.
 function fieldInput(field, value) {
@@ -166,7 +166,7 @@ async function crudSection(cfg) {
   );
 }
 
-const codes = (ids, map) => ids.map((id) => map.get(id)?.code).filter(Boolean).sort().join(", ") || "–";
+const codes = (ids, map) => ids.map((id) => map.get(id)?.code).filter(Boolean).sort(byCode).join(", ") || "–";
 
 export const CATALOGS = {
   async "Направления"() {
@@ -348,7 +348,7 @@ export const CATALOGS = {
         ["Преподаватель", (r) => teacherNames.get(r.teacher_id) || "–"],
         ["Вопросов по компетенциям", (r) => r.quotas
           .map((q) => [comps.get(q.competency_id)?.code || "?", q.questions])
-          .sort(([a], [b]) => a.localeCompare(b, "ru"))
+          .sort(([a], [b]) => byCode(a, b))
           .map(([code, n]) => `${code}: ${n}`).join(", ") || "–"],
       ],
       fields: [

@@ -8,7 +8,14 @@ from app import models, schemas
 from app.api.deps import SessionDep, require_admin
 from app.api.files import DOCX, attachment
 from app.services import fund
-from app.services.common import delete_or_conflict, get_many_or_404, get_or_404, save, update_fields
+from app.services.common import (
+    code_key,
+    delete_or_conflict,
+    get_many_or_404,
+    get_or_404,
+    save,
+    update_fields,
+)
 
 router = APIRouter(tags=["Компетенции"], dependencies=[Depends(require_admin)])
 
@@ -28,14 +35,10 @@ def create_competency(data: schemas.CompetencyIn, session: SessionDep):
 
 @router.get("/competencies", response_model=list[schemas.CompetencyOut])
 def list_competencies(session: SessionDep, kind: models.CompetencyKind | None = None):
-    stmt = (
-        select(models.Competency)
-        .order_by(models.Competency.code)
-        .options(selectinload(models.Competency.indicators))
-    )
+    stmt = select(models.Competency).options(selectinload(models.Competency.indicators))
     if kind is not None:
         stmt = stmt.where(models.Competency.kind == kind)
-    return session.scalars(stmt).all()
+    return sorted(session.scalars(stmt), key=lambda c: code_key(c.code))
 
 
 @router.put("/competencies/{competency_id}", response_model=schemas.CompetencyOut)
@@ -55,10 +58,10 @@ def delete_competency(competency_id: int, session: SessionDep):
 
 @router.get("/indicators", response_model=list[schemas.IndicatorOut])
 def list_indicators(session: SessionDep, competency_id: int | None = None):
-    stmt = select(models.Indicator).order_by(models.Indicator.code)
+    stmt = select(models.Indicator)
     if competency_id is not None:
         stmt = stmt.where(models.Indicator.competency_id == competency_id)
-    return session.scalars(stmt).all()
+    return sorted(session.scalars(stmt), key=lambda i: code_key(i.code))
 
 
 @router.post("/indicators", response_model=schemas.IndicatorOut, status_code=201)

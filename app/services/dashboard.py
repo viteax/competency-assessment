@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app import models, schemas
+from app.services.common import code_key
 from app.services.teaching import entries_progress
 
 RECENT_ASSIGNMENTS = 5
@@ -132,12 +133,13 @@ def _attention(
             "groups",
         )
 
-    empty = list(
+    empty = sorted(
         session.scalars(
-            select(models.Competency.code)
-            .where(~models.Competency.id.in_(select(models.Question.competency_id)))
-            .order_by(models.Competency.code)
-        )
+            select(models.Competency.code).where(
+                ~models.Competency.id.in_(select(models.Question.competency_id))
+            )
+        ),
+        key=code_key,
     )
     if empty:
         add(f"Компетенции без вопросов в банке: {_names(empty)}", "bank")

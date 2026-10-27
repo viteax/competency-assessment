@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 from pydantic import BaseModel
@@ -7,6 +8,18 @@ from sqlalchemy.orm import Session
 
 from app.db import Base
 from app.errors import Conflict, NotFound
+
+_CODE_GROUPS = ("УК", "ОПК", "ПК")
+
+
+def code_key(code: str) -> tuple:
+    """Порядок кодов как в ФГОС: УК, ОПК, ПК, номера по числу (ОПК-2 раньше ОПК-10).
+
+    Подходит и для индикаторов (УК-1.2 раньше УК-1.10) и для любых других кодов.
+    """
+    letters = re.match(r"[^\W\d_]*", code).group().upper()
+    group = _CODE_GROUPS.index(letters) if letters in _CODE_GROUPS else len(_CODE_GROUPS)
+    return (group, *(int(p) if p.isdigit() else p for p in re.split(r"(\d+)", code)))
 
 
 def get_or_404[M: Base](session: Session, model: type[M], obj_id: int) -> M:

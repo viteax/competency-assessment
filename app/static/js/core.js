@@ -64,6 +64,16 @@ export function masteryBadge(result) {
 
 export const byId = (rows) => new Map(rows.map((r) => [r.id, r]));
 
+// Порядок кодов как в ФГОС: УК, ОПК, ПК, номера по числу (ОПК-2 раньше ОПК-10).
+// Тот же порядок, что у code_key на сервере.
+const CODE_GROUPS = ["УК", "ОПК", "ПК"];
+const codeGroup = (code) => {
+  const i = CODE_GROUPS.indexOf((code.match(/^\p{L}*/u)[0] || "").toUpperCase());
+  return i === -1 ? CODE_GROUPS.length : i;
+};
+export const byCode = (a, b) =>
+  codeGroup(a) - codeGroup(b) || a.localeCompare(b, "ru", { numeric: true });
+
 export function downloadCsv(filename, rows) {
   const escape = (v) => `"${String(v ?? "").replaceAll('"', '""')}"`;
   const text = "﻿" + rows.map((r) => r.map(escape).join(";")).join("\r\n");

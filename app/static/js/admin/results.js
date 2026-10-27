@@ -1,6 +1,6 @@
 // Отчёты администратора: результаты группы и ПК → ОТФ по студенту.
 
-import { api, fill, h, masteryBadge } from "../core.js";
+import { api, byCode, fill, h, masteryBadge } from "../core.js";
 import { profileCharts } from "../radar.js";
 import { laborFunctionsView } from "../reports.js";
 
@@ -57,7 +57,7 @@ export async function adminGroupResults(render) {
     ]);
     report = loaded;
     excel.href = `/reports/groups/${group.value}/competencies.xlsx${query()}`;
-    const codes = [...new Set(report.students.flatMap((s) => s.competencies.map((c) => c.code)))].sort();
+    const codes = [...new Set(report.students.flatMap((s) => s.competencies.map((c) => c.code)))].sort(byCode);
     const tested = report.students.filter((s) => s.competencies.length);
     fill(whom,
       h("option", { value: "" }, "Вся группа (среднее)"),

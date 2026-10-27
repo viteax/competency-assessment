@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app import models, schemas
 from app.services import app_settings
-from app.services.common import get_or_404
+from app.services.common import code_key, get_or_404
 
 
 def _finished_attempts(student_ids: list[int], test_id: int | None):
@@ -64,10 +64,10 @@ def _results_by_student(
         .join(models.Attempt, models.Attempt.id == models.AttemptAnswer.attempt_id)
         .where(*_finished_attempts(student_ids, test_id))
         .group_by(models.Attempt.student_id, models.Competency.id)
-        .order_by(models.Competency.code)
     )
     results: dict[int, list[schemas.CompetencyResult]] = {sid: [] for sid in student_ids}
-    for student_id, competency, correct, total in session.execute(stmt):
+    rows = sorted(session.execute(stmt), key=lambda row: code_key(row[1].code))
+    for student_id, competency, correct, total in rows:
         results[student_id].append(_result(competency, correct, total, threshold))
     return results
 
@@ -84,7 +84,9 @@ def attempt_results(session: Session, attempt: models.Attempt) -> list[schemas.C
         counts[competency.id][1] += 1
     return [
         _result(competencies[cid], correct, total, threshold)
-        for cid, (correct, total) in sorted(counts.items(), key=lambda kv: competencies[kv[0]].code)
+        for cid, (correct, total) in sorted(
+            counts.items(), key=lambda kv: code_key(competencies[kv[0]].code)
+        )
     ]
 
 
@@ -216,7 +218,7 @@ def profile(
                 measured=len(ratios[cid]),
                 total=len(student_ids),
             )
-            for cid in sorted(level, key=lambda cid: names[cid][0])
+            for cid in sorted(level, key=lambda cid: code_key(names[cid][0]))
         ],
         labor_functions=tf_axes,
     )
@@ -254,7 +256,7 @@ def labor_function_report(
                     labor_function_id=lf.id,
                     code=lf.code,
                     name=lf.name,
-                    competency_codes=sorted(c.code for c in lf.competencies),
+                    competency_codes=sorted((c.code for c in lf.competencies), key=code_key),
                     covered=bool(required) and required <= mastered,
                 )
             )

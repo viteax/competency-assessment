@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app import models, schemas
 from app.errors import DomainError, Forbidden, NotFound
+from app.services.common import code_key
 
 
 def entries_of(session: Session, teacher: models.User) -> list[models.CurriculumEntry]:
@@ -78,7 +79,7 @@ def entries_progress(
                 required=quotas.get(c.id, 0),
                 done=counts[(e.discipline_id, c.id)],
             )
-            for c in sorted(e.discipline.competencies, key=lambda c: c.code)
+            for c in sorted(e.discipline.competencies, key=lambda c: code_key(c.code))
         ]
         result.append(
             schemas.TeacherDiscipline(
