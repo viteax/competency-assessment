@@ -273,3 +273,6 @@ details.card .card { border: none; padding: 0; margin: 12px 0 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .chip { font-size: 12px; padding: 1px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); white-space: nowrap; }
 .badge.kind { font-size: 12px; background: var(--bg); color: var(--muted); border: 1px solid var(--border); white-space: nowrap; }
+.plan-tree, .plan-tree ul { margin: 6px 0; padding-left: 18px; }
+.plan-tree li { margin: 4px 0; }
+.plan-tree .chips { display: inline-flex; vertical-align: middle; }

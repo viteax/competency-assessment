@@ -8,7 +8,13 @@ from fastapi import APIRouter, Depends, Form, UploadFile
 from app import schemas
 from app.api.deps import SessionDep, require_admin
 from app.errors import DomainError
-from app.services import competency_import, files, student_columns, student_import
+from app.services import (
+    competency_import,
+    files,
+    plan_import,
+    student_columns,
+    student_import,
+)
 
 router = APIRouter(prefix="/import", tags=["Импорт"], dependencies=[Depends(require_admin)])
 
@@ -32,6 +38,26 @@ async def preview(file: UploadFile, session: SessionDep, direction_id: int = For
 def apply(data: schemas.ImportApply, session: SessionDep):
     """Сохраняет проверенный администратором результат предпросмотра."""
     return competency_import.apply(session, data)
+
+
+@router.post("/plan/preview", response_model=schemas.PlanPreview)
+async def preview_plan(file: UploadFile, session: SessionDep):
+    """Учебный план из «Планов» (.xlsx): что будет создано или дополнено – направление,
+    компетенции, дисциплины с семестрами и статусом, профстандарты, ОТФ, ТФ и их связи с
+    компетенциями. В БД ничего не пишет."""
+    filename, data = await _read(file)
+    files.file_kind(filename, data, (".xlsx",))
+    return plan_import.preview(session, filename, plan_import.parse(data))
+
+
+@router.post("/plan/apply", response_model=schemas.PlanResult)
+async def apply_plan(
+    file: UploadFile, session: SessionDep, overwrite_descriptions: bool = Form(default=False)
+):
+    """Загружает тот же файл: создает недостающее и дополняет существующее, ничего не удаляет."""
+    filename, data = await _read(file)
+    files.file_kind(filename, data, (".xlsx",))
+    return plan_import.apply(session, plan_import.parse(data), overwrite_descriptions)
 
 
 @router.post("/students/preview", response_model=schemas.StudentImportPreview)

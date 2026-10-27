@@ -55,16 +55,29 @@ def csv_rows(text: str) -> list[list[str]]:
     return list(csv.reader(io.StringIO(text), dialect))
 
 
-def xlsx_rows(data: bytes, all_sheets: bool = False) -> list[list[str]]:
+def _cell_text(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))  # 2.0 → «2»: числа из Excel – как в таблице
+    return str(value)
+
+
+def xlsx_sheets(data: bytes) -> dict[str, list[list[str]]]:
+    """Все листы книги: название → строки, ячейки – текстом (пустые – "")."""
     from openpyxl import load_workbook
 
     workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
-    sheets = workbook.worksheets if all_sheets else workbook.worksheets[:1]
-    return [
-        ["" if v is None else str(v) for v in row]
-        for sheet in sheets
-        for row in sheet.iter_rows(values_only=True)
-    ]
+    return {
+        sheet.title: [[_cell_text(v) for v in row] for row in sheet.iter_rows(values_only=True)]
+        for sheet in workbook.worksheets
+    }
+
+
+def xlsx_rows(data: bytes) -> list[list[str]]:
+    """Строки первого листа."""
+    sheets = xlsx_sheets(data)
+    return next(iter(sheets.values()), [])
 
 
 def docx_text(data: bytes) -> str:

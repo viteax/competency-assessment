@@ -21,8 +21,9 @@ from sqlalchemy.orm import Session, selectinload
 
 from app import models, schemas
 from app.errors import DomainError
-from app.services import files
+from app.services import files, plan_import
 from app.services.common import code_key, get_or_404
+from app.services.wording import clean_wording, differs
 
 SUPPORTED = (".docx", ".xlsx", ".pdf", ".txt")
 
@@ -53,12 +54,6 @@ _DISCIPLINE_RE = re.compile(
 # Где формулировка точно кончилась: пустая строка или шапка следующей таблицы.
 _END_RE = re.compile(r"\n\s*\n|код и наименование|наименование категории", re.IGNORECASE)
 
-# Подписи колонок и служебные слова, которые не являются формулировкой.
-_NOISE_RE = re.compile(
-    r"^(код и наименование.*|наименование.*компетенци.*|индикатор.*достижени.*компетенци.*)$",
-    re.IGNORECASE,
-)
-
 
 @dataclass
 class ParsedCompetency:
@@ -83,8 +78,19 @@ def extract_text(filename: str, data: bytes) -> str:
         if ext == ".docx":
             return files.docx_text(data)
         if ext == ".xlsx":
-            rows = files.xlsx_rows(data, all_sheets=True)
-            return "\n".join(cell for row in rows for cell in row if cell)
+            sheets = files.xlsx_sheets(data)
+            if plan_import.is_plan(sheets):
+                raise DomainError(
+                    "это учебный план из «Планов» – загрузите его на вкладке «Загрузка УП»: "
+                    "оттуда берутся и компетенции, и дисциплины с семестрами, и ТФ"
+                )
+            # Строка таблицы – отдельный абзац: формулировка не перетекает в соседние строки
+            # и на другие листы (parse_text обрывает ее на пустой строке).
+            return "\n\n".join(
+                "\n".join(cell for cell in row if cell.strip())
+                for rows in sheets.values()
+                for row in rows
+            )
         if ext == ".pdf":
             return _pdf_text(data)
         return files.decode_text(data)
@@ -185,18 +191,6 @@ def _pdf_text(data: bytes) -> str:
 # --- разбор текста ----------------------------------------------------------
 
 
-def _clean(text: str) -> str:
-    # «социально-\nпсихологические» – перенос по дефису внутри ячейки.
-    text = re.sub(r"(?<=[А-Яа-яЁё])-\s*\n\s*(?=[А-Яа-яЁё])", "-", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    text = text.strip(" .:;,–\u2014-|")
-    text = text.removeprefix("– ").removeprefix("\u2014 ")
-    if _NOISE_RE.match(text):
-        return ""
-    # Формулировки в документах пишут то с прописной, то со строчной («способностью к…»).
-    return text[:1].upper() + text[1:2000]
-
-
 def _better(current: str, candidate: str) -> str:
     """Из нескольких упоминаний кода оставляем самую содержательную формулировку."""
     if not candidate:
@@ -220,7 +214,7 @@ def parse_text(text: str) -> ParsedDocument:
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         # Формулировка не перетекает через пустую строку или в шапку следующей таблицы.
         tail = text[m.end() : end]
-        description = _clean(_END_RE.split(tail, maxsplit=1)[0])
+        description = clean_wording(_END_RE.split(tail, maxsplit=1)[0])
         g = m.groupdict()
         if g["a_kind"]:
             parent = competency(g["a_kind"], g["a_num"])
@@ -236,7 +230,7 @@ def parse_text(text: str) -> ParsedDocument:
 
     discipline = _DISCIPLINE_RE.search(text)
     return ParsedDocument(
-        discipline_name=_clean(discipline.group("name")) if discipline else None,
+        discipline_name=clean_wording(discipline.group("name")) if discipline else None,
         competencies=dict(sorted(competencies.items(), key=lambda kv: code_key(kv[0]))),
     )
 
@@ -263,15 +257,6 @@ def _discipline(session: Session, direction_id: int, name: str) -> models.Discip
     )
 
 
-def _differs(new: str, current: str) -> bool:
-    """Отличается ли формулировка по существу: регистр, пробелы и точка в конце не в счет."""
-
-    def norm(text: str) -> str:
-        return " ".join(text.split()).strip(" .;").casefold()
-
-    return bool(new) and norm(new) != norm(current)
-
-
 def preview(
     session: Session, direction_id: int, filename: str, parsed: ParsedDocument
 ) -> schemas.ImportPreview:
@@ -287,13 +272,13 @@ def preview(
                 code=ic,
                 description=desc,
                 exists=ic in current_indicators,
-                changed=ic in current_indicators and _differs(desc, current_indicators[ic]),
+                changed=ic in current_indicators and differs(desc, current_indicators[ic]),
             )
             for ic, desc in sorted(pc.indicators.items(), key=lambda kv: int(kv[0].rsplit(".")[1]))
         ]
         if current is None:
             status = "new"
-        elif any(not i.exists or i.changed for i in indicators) or _differs(
+        elif any(not i.exists or i.changed for i in indicators) or differs(
             pc.description, current.description
         ):
             status = "update"

@@ -18,9 +18,10 @@ export function currentDirection(directions) {
   return directions.find((d) => d.id === saved) || directions[0] || null;
 }
 
-function remember(direction) {
+// Запомнить направление (например, только что загруженное из учебного плана).
+export function rememberDirection(id) {
   try {
-    localStorage.setItem(KEY, String(direction.id));
+    localStorage.setItem(KEY, String(id));
   } catch {
     // не запомнится – не страшно
   }
@@ -35,7 +36,7 @@ export function directionPicker(directions, current, onChange) {
     "aria-label": "Направление",
     onchange: () => {
       const chosen = directions.find((d) => d.id === Number(select.value));
-      remember(chosen);
+      rememberDirection(chosen.id);
       onChange(chosen);
     },
   }, directions.map((d) => h("option", { value: d.id }, directionLabel(d))));
