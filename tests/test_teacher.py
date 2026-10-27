@@ -169,3 +169,23 @@ def test_admin_assigns_teacher_and_validates_quotas(admin: TestClient, login):
     )
     petrov = login("petrov", "strong-teacher-pass")
     assert [d["discipline"] for d in petrov.get("/teacher/disciplines").json()] == ["Математика"]
+
+
+def test_second_teacher_with_same_name_is_rejected(admin: TestClient):
+    def create(username: str, full_name: str):
+        return admin.post(
+            "/users",
+            json={
+                "username": username,
+                "password": "Kafedra-2026!",
+                "role": "teacher",
+                "full_name": full_name,
+            },
+        )
+
+    assert create("666", "Ботаева Лариса Борисовна").status_code == 201
+    # Тот же человек: другой регистр, «ё», порядок слов и лишние пробелы.
+    duplicate = create("999", "  лариса  борисовна БОТАЁВА ")
+    assert duplicate.status_code == 409
+    assert "логин 666" in duplicate.json()["detail"]
+    assert create("1000", "Ботаева Лариса Петровна").status_code == 201

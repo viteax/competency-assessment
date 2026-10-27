@@ -94,6 +94,8 @@ def create_user(data: schemas.UserCreate, session: SessionDep, _: AdminUser):
     auth.validate_new_password(data.password, data.username)
     if data.student_id is not None:
         get_or_404(session, models.Student, data.student_id)
+    if data.full_name and data.full_name.strip():
+        auth.ensure_new_staff_name(session, data.full_name)
     return save(
         session,
         models.User(

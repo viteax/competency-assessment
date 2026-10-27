@@ -10,9 +10,10 @@ from sqlalchemy.orm import Session
 from app import models
 from app.config import settings
 from app.demo import demo_credentials
-from app.errors import DomainError, TooManyRequests, Unauthorized
+from app.errors import Conflict, DomainError, TooManyRequests, Unauthorized
 from app.security import hash_password, verify_password
 from app.services.accounts import generate_password
+from app.services.common import name_key
 from app.services.common_passwords import is_common_password
 
 MIN_PASSWORD_LENGTH = 8
@@ -112,6 +113,20 @@ def find_user(session: Session, login: str) -> models.User | None:
         (u for u in candidates if " ".join(u.username.casefold().replace("ё", "е").split()) == key),
         None,
     )
+
+
+def ensure_new_staff_name(session: Session, full_name: str) -> None:
+    """Вторая учётка преподавателя с тем же ФИО – почти всегда случайный дубль: за ним
+    закрепили бы часть дисциплин, и квоты разошлись бы по двум учёткам."""
+    key = name_key(full_name)
+    staff = session.scalars(
+        select(models.User).where(
+            models.User.role != models.Role.STUDENT, models.User.full_name.is_not(None)
+        )
+    )
+    same = next((u for u in staff if name_key(u.full_name) == key), None)
+    if same is not None:
+        raise Conflict(f"учётная запись «{same.full_name}» уже есть (логин {same.username})")
 
 
 def demo_passwords_in_use(session: Session) -> list[str]:

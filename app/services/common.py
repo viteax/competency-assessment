@@ -22,6 +22,15 @@ def code_key(code: str) -> tuple:
     return (group, *(int(p) if p.isdigit() else p for p in re.split(r"(\d+)", code)))
 
 
+def name_key(full_name: str) -> tuple[str, ...]:
+    """Ключ для сравнения ФИО без учёта порядка слов, регистра и ё/е.
+
+    Moodle часто выводит «Имя Отчество Фамилия», а в деканатских списках «Фамилия Имя
+    Отчество» – это один и тот же человек.
+    """
+    return tuple(sorted(full_name.lower().replace("ё", "е").split()))
+
+
 def get_or_404[M: Base](session: Session, model: type[M], obj_id: int) -> M:
     obj = session.get(model, obj_id)
     if obj is None:

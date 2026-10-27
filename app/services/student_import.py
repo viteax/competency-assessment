@@ -12,17 +12,8 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.errors import DomainError
 from app.services import accounts
-from app.services.common import get_or_404
+from app.services.common import get_or_404, name_key
 from app.services.student_columns import FIELDS, Mapping, Table, guess_mapping, parse_row
-
-
-def name_key(full_name: str) -> tuple[str, ...]:
-    """Ключ для сравнения ФИО без учёта порядка слов, регистра и ё/е.
-
-    Moodle часто выводит «Имя Отчество Фамилия», а в деканатских списках «Фамилия Имя
-    Отчество» – это один и тот же человек.
-    """
-    return tuple(sorted(full_name.lower().replace("ё", "е").split()))
 
 
 def find_existing(session: Session, row: schemas.StudentImportRowIn) -> models.Student | None:
