@@ -1,16 +1,18 @@
 #!/bin/sh
 # Обновление на сервере по команде из GitHub Actions (.github/workflows/ci.yml).
 #
-# Запускается только как принудительная команда SSH-ключа деплоя в authorized_keys:
-#   restrict,command="/opt/competency/deploy/remote-deploy.sh" ssh-ed25519 AAAA... deploy
+# Запускается только как принудительная команда SSH-ключа деплоя в authorized_keys
+# (строку добавляет deploy/setup-cd.sh):
+#   restrict,command="/opt/competency/deploy/remote-deploy.sh" ssh-ed25519 AAAA... competency-deploy
 # Ключ не дает shell: что бы ни прислал клиент, выполнится этот скрипт, а присланная строка
 # придет в SSH_ORIGINAL_COMMAND и разбирается ниже. Допустимы ровно две команды:
 #   demo             – демо-стенд из свежего main
 #   prod 1.2.3       – прод на образ ghcr.io/viteax/competency-assessment:1.2.3
 set -eu
 
-PROD_DIR=/opt/competency
-DEMO_DIR=/opt/competency-demo
+# Прод – копия репозитория, в которой лежит этот скрипт; демо – рядом, с суффиксом -demo.
+PROD_DIR=$(cd "$(dirname "$0")/.." && pwd)
+DEMO_DIR="$PROD_DIR-demo"
 IMAGE=ghcr.io/viteax/competency-assessment
 
 set -f # без подстановки имен файлов: строка пришла снаружи
@@ -24,7 +26,9 @@ demo)
     cd "$DEMO_DIR"
     git fetch -q origin main
     git reset -q --hard origin/main
-    docker compose -f docker-compose.demo.yml up -d --build --remove-orphans
+    docker compose -f docker-compose.demo.yml up -d --build --remove-orphans --wait
+    # Демо-данные загружаются только в пустую базу: повторный запуск ничего не меняет.
+    docker compose -f docker-compose.demo.yml exec -T demo-api python -m scripts.seed
     echo "demo: $(git rev-parse --short HEAD)"
     ;;
 prod)
@@ -36,11 +40,20 @@ prod)
     cd "$PROD_DIR"
     compose="docker compose -f docker-compose.prod.yml"
 
+    git fetch -q --tags origin
+    # В версиях до автоматического обновления нет этого скрипта: после переключения на них
+    # ключ деплоя перестал бы работать. На такие версии откатывайте вручную.
+    git cat-file -e "v$version:deploy/remote-deploy.sh" 2>/dev/null || {
+        echo "v$version не найдена или старше автоматического обновления," \
+            "откатывайте вручную (docs/deploy.md, раздел 7)" >&2
+        exit 2
+    }
+
     echo "→ резервная копия перед обновлением"
     $compose exec -T backup sh /usr/local/bin/backup.sh
 
     echo "→ код и конфигурация версии v$version"
-    git fetch -q --tags origin
+    caddyfile=$(git rev-parse HEAD:deploy/Caddyfile)
     git checkout -q "v$version"
 
     echo "→ образ $IMAGE:$version"
@@ -51,6 +64,8 @@ prod)
     fi
     $compose pull api
     $compose up -d --remove-orphans # миграции применятся при старте api
+    # Caddyfile подключен в контейнер файлом: новую версию Caddy увидит только после перезапуска.
+    [ "$(git rev-parse HEAD:deploy/Caddyfile)" = "$caddyfile" ] || $compose restart caddy
     echo "prod: v$version"
     ;;
 *)

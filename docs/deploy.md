@@ -18,8 +18,8 @@ PostgreSQL, Caddy (HTTPS) и ежедневные резервные копии.
 ## 2. Установка
 
 ```bash
-git clone https://github.com/viteax/competency-assessment.git
-cd competency-assessment
+git clone https://github.com/viteax/competency-assessment.git /opt/competency
+cd /opt/competency
 cp .env.example .env
 ```
 
@@ -118,7 +118,7 @@ deploy/restore.sh backups/competency-2026-10-13_0330.dump
 ## 7. Обновление
 
 ```bash
-cd competency-assessment
+cd /opt/competency
 docker compose -f docker-compose.prod.yml exec backup sh /usr/local/bin/backup.sh   # копия
 git pull
 docker compose -f docker-compose.prod.yml up -d --build
@@ -135,12 +135,13 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 Копия системы с выдуманными данными и публичными демо-учетками – показать, как все устроено,
 не пуская в прод. Работает на том же сервере рядом с продом: своя база, общий только Caddy.
+Код лежит рядом с копией прода, в папке с суффиксом `-demo` (`/opt/competency-demo`).
+
+Демо поднимает скрипт настройки из раздела 9. Вручную – так:
 
 ```bash
 git clone https://github.com/viteax/competency-assessment.git /opt/competency-demo
-cd /opt/competency-demo
-docker compose -f docker-compose.demo.yml up -d --build
-docker compose -f docker-compose.demo.yml exec demo-api python -m scripts.seed
+SSH_ORIGINAL_COMMAND=demo sh /opt/competency/deploy/remote-deploy.sh   # сборка, запуск, демо-данные
 ```
 
 Адрес демо – отдельный файл для Caddy прода (в git его нет, у каждого сервера свой):
@@ -151,12 +152,15 @@ demo.example.ru {
 	reverse_proxy demo-api:8000
 }
 CADDY
-cd /opt/competency && docker compose -f docker-compose.prod.yml exec caddy caddy reload --config /etc/caddy/Caddyfile
+cd /opt/competency && docker compose -f docker-compose.prod.yml restart caddy
 ```
+
+Без своего домена подойдет адрес вида `demo.<IP сервера>.sslip.io`: он сам указывает на сервер,
+и Caddy получит для него сертификат.
 
 > На демо пароли публичные (`admin` / `admin123`): любой, у кого есть ссылка, войдет
 > администратором. Реальные данные туда не загружайте. Сбросить демо к исходному состоянию:
-> `docker compose -f docker-compose.demo.yml down -v`, затем снова `up` и `seed`.
+> `docker compose -f docker-compose.demo.yml down -v`, затем снова `remote-deploy.sh` (см. выше).
 
 ## 9. Автоматическое обновление (CD)
 
@@ -167,46 +171,49 @@ cd /opt/competency && docker compose -f docker-compose.prod.yml exec caddy caddy
   из GitHub Container Registry, перезапуск, миграции при старте. Если в окружении `production`
   включено подтверждение, обновление ждет нажатия кнопки в GitHub.
 
-Выпуск версии: поправить версию и `CHANGELOG.md`, затем `git tag v1.2.3 && git push --tags`.
+Выпуск версии: поправить версию в `pyproject.toml` и `CHANGELOG.md`, затем
+`git tag v1.2.3 && git push --tags`.
 
 ### Настройка (один раз)
 
-**1. Ключ деплоя** (на своем компьютере, без пароля – его будет использовать GitHub):
+**1. На сервере** – в копии прода, когда прод уже работает (разделы 2–3):
 
 ```bash
-ssh-keygen -t ed25519 -N "" -C deploy -f deploy_key
+cd /opt/competency && git pull
+sudo sh deploy/setup-cd.sh demo.example.ru
 ```
 
-**2. На сервере** – разрешить этому ключу только запуск скрипта обновления, без shell. Добавьте
-в `~/.ssh/authorized_keys` строку, подставив содержимое `deploy_key.pub`:
+Скрипт поднимает демо-стенд и дает ему адрес в Caddy, создает ключ деплоя и печатает значения
+для GitHub. Ключ разрешает только запуск `deploy/remote-deploy.sh` (`restrict,command=...`
+в `/root/.ssh/authorized_keys`), shell на сервере он не открывает. Приватный ключ скрипт нигде
+не сохраняет – он есть только в выводе. Если сервер за NAT, вторым аргументом укажите внешний IP,
+по которому к нему подключаются. Повторный запуск безопасен и заменяет ключ новым.
 
-```
-restrict,command="/opt/competency/deploy/remote-deploy.sh" ssh-ed25519 AAAA... deploy
-```
-
-**3. В GitHub** – Settings → Secrets and variables → Actions:
+**2. В GitHub** – Settings → Secrets and variables → Actions, значения из вывода скрипта:
 
 | Тип | Имя | Значение |
 | :-- | :-- | :-- |
-| Secret | `DEPLOY_SSH_KEY` | содержимое приватного `deploy_key` |
-| Secret | `DEPLOY_KNOWN_HOSTS` | вывод `ssh-keyscan <IP сервера>` |
+| Secret | `DEPLOY_SSH_KEY` | приватный ключ деплоя |
+| Secret | `DEPLOY_KNOWN_HOSTS` | ключ сервера – защита от подмены сервера |
 | Variable | `DEPLOY_HOST` | IP или домен сервера |
 | Variable | `PROD_URL` | `https://<домен прода>` – проверка `/ready` после обновления |
 | Variable | `DEMO_URL` | `https://<домен демо>` |
 
 Без `DEPLOY_HOST` задачи деплоя пропускаются, CI работает как раньше.
 
-**4. Подтверждение прода** (рекомендуется): Settings → Environments → `production` →
+**3. Подтверждение прода** (рекомендуется): Settings → Environments → `production` →
 Required reviewers – добавить себя. Окружение появится после первого запуска задачи.
 
-**5. Образ в GHCR должен быть публичным**, иначе сервер не скачает его без входа: после первого
-тега – страница пакета на GitHub → Package settings → Change visibility → Public.
+Образ в GHCR уже публичный, сервер скачивает его без входа.
 
-После настройки удалите `deploy_key` с компьютера: он хранится только в секретах GitHub.
+**Проверка:** любой пуш в `main` – в Actions появится задача `deploy-demo`. Прод – после первого
+тега.
 
 **Откат прода** – перезапустить («Re-run») задачу деплоя предыдущего тега в GitHub Actions или
-на сервере: `SSH_ORIGINAL_COMMAND="prod 1.2.2" deploy/remote-deploy.sh`. Если новая версия
-успела изменить схему базы, восстановите копию, сделанную перед обновлением (раздел 6).
+на сервере: `SSH_ORIGINAL_COMMAND="prod 1.2.2" sh deploy/remote-deploy.sh`. Если новая версия
+успела изменить схему базы, восстановите копию, сделанную перед обновлением (раздел 6). На версии
+до 1.1.0 автоматического обновления не было, на них откатывайте вручную (раздел 7): скрипт такие
+версии не примет, иначе ключ деплоя перестал бы работать.
 
 ## 10. Чек-лист безопасности
 
