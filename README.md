@@ -193,7 +193,7 @@ uv run alembic downgrade -1                                  # откатить 
 Тесты используют SQLite в памяти, PostgreSQL для них не нужен:
 
 ```bash
-uv run pytest
+uv run pytest -n auto   # тесты параллельно на всех ядрах; без -n – по одному
 uv run ruff check . && uv run ruff format --check .
 ```
 
@@ -203,7 +203,7 @@ uv run ruff check . && uv run ruff format --check .
 
 ```bash
 uv run playwright install chromium   # один раз
-uv run pytest -m e2e
+uv run pytest -m e2e -n auto
 ```
 
 Если Chromium уже установлен, можно указать его вместо скачивания: `E2E_CHROMIUM=/путь/к/chrome`.

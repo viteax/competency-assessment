@@ -20,7 +20,7 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: uv run pytest -q
+      - run: uv run pytest -q -n auto
 
   e2e:
     # Браузерные сценарии: настоящий сервер и Chromium (tests/e2e).
@@ -32,8 +32,17 @@ jobs:
           # Задачи идут параллельно: кэш зависимостей сохраняет одна, остальные только читают.
           save-cache: ${{ github.job == 'test' }}
       - run: uv sync --locked
-      - run: uv run playwright install --with-deps chromium
-      - run: uv run pytest -m e2e -q
+      # Браузер – из кэша по версии Playwright. Системные пакеты (--with-deps) не ставим: на
+      # раннере они уже есть, а apt-зеркало иногда отвечает минутами.
+      - id: playwright
+        run: echo "version=$(uv run python -c 'import importlib.metadata as m; print(m.version("playwright"))')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ steps.playwright.outputs.version }}-chromium-shell
+      - run: uv run playwright install --only-shell chromium
+      # Каждый тест поднимает свой сервер и свою копию базы, поэтому тесты идут параллельно.
+      - run: uv run pytest -m e2e -q -n auto
 
   frontend:
     # ESLint для веб-интерфейса (app/static); сборки нет, node нужен только для проверки.

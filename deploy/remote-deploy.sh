@@ -26,6 +26,11 @@ demo)
     cd "$DEMO_DIR"
     git fetch -q origin main
     git reset -q --hard origin/main
+    # Свой постоянный SECRET_KEY: без него сессии демо сбрасываются при каждом обновлении.
+    [ -f .env ] || (
+        umask 077
+        echo "SECRET_KEY=$(head -c 48 /dev/urandom | base64 | tr -d '\n/+=')" > .env
+    )
     docker compose -f docker-compose.demo.yml up -d --build --remove-orphans --wait
     # Демо-данные загружаются только в пустую базу: повторный запуск ничего не меняет.
     docker compose -f docker-compose.demo.yml exec -T demo-api python -m scripts.seed

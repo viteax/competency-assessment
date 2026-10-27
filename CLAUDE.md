@@ -44,8 +44,8 @@ uv sync && npm ci                                   # зависимости
 ENVIRONMENT=dev DATABASE_URL=sqlite:///./competency.db uv run python -m scripts.seed
 ENVIRONMENT=dev DATABASE_URL=sqlite:///./competency.db uv run uvicorn app.main:app --reload
 
-uv run pytest -q                                    # юнит-тесты
-E2E_CHROMIUM=/opt/pw-browsers/chromium uv run pytest -m e2e   # браузерные тесты (Playwright)
+uv run pytest -q -n auto                            # юнит-тесты (параллельно)
+E2E_CHROMIUM=/opt/pw-browsers/chromium uv run pytest -m e2e -n auto   # браузерные (Playwright)
 uv run ruff check . && uv run ruff format --check . # линтер Python
 npm run lint -- --max-warnings 0                    # ESLint фронтенда
 
