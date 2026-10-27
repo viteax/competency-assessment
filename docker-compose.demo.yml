@@ -1,7 +1,9 @@
 # Демо-стенд с публичными демо-учетками и выдуманными данными (scripts/seed.py).
 # Работает рядом с продом на том же сервере: своя база, общий только Caddy прода.
 #
-#   docker compose -f docker-compose.demo.yml up -d --build
+# Обычно демо обновляет deploy/remote-deploy.sh готовым образом из CI (DEMO_IMAGE в .env).
+# Собрать на месте из текущего кода:
+#   DEMO_IMAGE=competency-demo:local docker compose -f docker-compose.demo.yml up -d --build
 #   docker compose -f docker-compose.demo.yml exec demo-api python -m scripts.seed
 #
 # Имена сервисов demo-api и demo-db не совпадают с api и db прода: оба стека видят общую
@@ -26,6 +28,7 @@ services:
     mem_limit: 256m
 
   demo-api:
+    image: ${DEMO_IMAGE:-competency-demo:local}
     build: .
     restart: unless-stopped
     # SECRET_KEY демо – в .env рядом (создает deploy/remote-deploy.sh), чтобы сессии

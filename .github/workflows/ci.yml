@@ -99,10 +99,13 @@ jobs:
       - run: uv run python -m scripts.seed
 
   docker:
-    # Собирает образ на каждом пуше и проверяет, что он запускается. На тегах v* публикует
-    # его в GitHub Container Registry: ghcr.io/<владелец>/competency-assessment.
+    # Собирает образ на каждом пуше и проверяет, что он запускается. Публикует его в GitHub
+    # Container Registry (ghcr.io/<владелец>/competency-assessment): на тегах v* – как версию
+    # для прода, в main – как sha-<коммит> для демо-стенда.
     runs-on: ubuntu-24.04
     needs: [test, e2e, frontend, migrations]
+    env:
+      PUBLISH: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
     permissions:
       contents: read
       packages: write
@@ -111,6 +114,7 @@ jobs:
       - uses: docker/setup-buildx-action@v4
       - name: Simulate a Windows checkout (CRLF in scripts)
         # Образ должен запускаться, даже если скрипты пришли с концами строк Windows.
+        # Опубликованный образ собирается из нетронутых файлов (шаг Restore ниже).
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: sed -i 's/$/\r/' scripts/*.sh
       - id: meta
@@ -121,6 +125,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha
       - name: Build
         uses: docker/build-push-action@v7
@@ -143,13 +148,16 @@ jobs:
           curl -fsS localhost:8000/ready
           curl -fsS localhost:8000/ui/ | grep -q "js/main.js"
           docker exec app id -u | grep -qx 10001  # не root
-      - if: startsWith(github.ref, 'refs/tags/v')
+      - name: Restore scripts
+        if: env.PUBLISH == 'true'
+        run: git checkout -- scripts
+      - if: env.PUBLISH == 'true'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - if: startsWith(github.ref, 'refs/tags/v')
+      - if: env.PUBLISH == 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -163,7 +171,7 @@ jobs:
   # Ключ SSH дает только запуск deploy/remote-deploy.sh, shell на сервере он не открывает.
 
   deploy-demo:
-    # Каждый зеленый пуш в main – на демо-стенд.
+    # Каждый зеленый пуш в main – на демо-стенд, образом sha-<коммит> из задачи docker.
     if: github.ref == 'refs/heads/main' && vars.DEPLOY_HOST != ''
     needs: [docker, audit]
     runs-on: ubuntu-24.04
@@ -195,7 +203,7 @@ jobs:
             exit 1
           }
           echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
-          ssh -o BatchMode=yes root@${{ vars.DEPLOY_HOST }} demo
+          ssh -o BatchMode=yes root@${{ vars.DEPLOY_HOST }} demo "${GITHUB_SHA::7}"
       - name: Check
         if: vars.DEMO_URL != ''
         run: |

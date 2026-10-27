@@ -6,7 +6,8 @@
 #   restrict,command="/opt/competency/deploy/remote-deploy.sh" ssh-ed25519 AAAA... competency-deploy
 # Ключ не дает shell: что бы ни прислал клиент, выполнится этот скрипт, а присланная строка
 # придет в SSH_ORIGINAL_COMMAND и разбирается ниже. Допустимы ровно две команды:
-#   demo             – демо-стенд из свежего main
+#   demo [коммит]    – демо-стенд: коммит main и его образ ghcr.io/...:sha-<коммит> из CI;
+#                      без коммита – свежий main, образ собирается на сервере (дольше)
 #   prod 1.2.3       – прод на образ ghcr.io/viteax/competency-assessment:1.2.3
 set -eu
 
@@ -23,17 +24,36 @@ version="${2:-}"
 
 case "$target" in
 demo)
+    # Коммит – 7–40 шестнадцатеричных знаков: строка приходит снаружи.
+    commit="$version"
+    [ -z "$commit" ] || echo "$commit" | grep -Eqx '[0-9a-f]{7,40}' || {
+        echo "ожидается коммит, получено: '$commit'" >&2
+        exit 2
+    }
     cd "$DEMO_DIR"
     git fetch -q origin main
-    git reset -q --hard origin/main
+    git reset -q --hard "${commit:-origin/main}"
     # Свой постоянный SECRET_KEY: без него сессии демо сбрасываются при каждом обновлении.
     [ -f .env ] || (
         umask 077
         echo "SECRET_KEY=$(head -c 48 /dev/urandom | base64 | tr -d '\n/+=')" > .env
     )
-    docker compose -f docker-compose.demo.yml up -d --build --remove-orphans --wait
+    compose="docker compose -f docker-compose.demo.yml"
+    if [ -n "$commit" ]; then
+        # Образ уже собран и проверен в CI: только скачать (секунды вместо сборки).
+        image="$IMAGE:sha-$(echo "$commit" | cut -c1-7)"
+        if grep -q '^DEMO_IMAGE=' .env; then
+            sed -i "s|^DEMO_IMAGE=.*|DEMO_IMAGE=$image|" .env
+        else
+            echo "DEMO_IMAGE=$image" >> .env
+        fi
+        $compose pull -q demo-api
+        $compose up -d --remove-orphans --wait
+    else
+        DEMO_IMAGE=competency-demo:local $compose up -d --build --remove-orphans --wait
+    fi
     # Демо-данные загружаются только в пустую базу: повторный запуск ничего не меняет.
-    docker compose -f docker-compose.demo.yml exec -T demo-api python -m scripts.seed
+    $compose exec -T demo-api python -m scripts.seed
     echo "demo: $(git rev-parse --short HEAD)"
     ;;
 prod)
@@ -80,7 +100,7 @@ prod)
     echo "prod: v$version"
     ;;
 *)
-    echo "использование: demo | prod <версия>" >&2
+    echo "использование: demo [коммит] | prod <версия>" >&2
     exit 2
     ;;
 esac

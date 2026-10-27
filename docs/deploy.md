@@ -141,7 +141,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ```bash
 git clone https://github.com/viteax/competency-assessment.git /opt/competency-demo
-SSH_ORIGINAL_COMMAND=demo sh /opt/competency/deploy/remote-deploy.sh   # сборка, запуск, демо-данные
+SSH_ORIGINAL_COMMAND=demo sh /opt/competency/deploy/remote-deploy.sh   # сборка на месте, запуск, демо-данные
 ```
 
 Адрес демо – отдельный файл для Caddy прода (в git его нет, у каждого сервера свой):
@@ -166,7 +166,9 @@ cd /opt/competency && docker compose -f docker-compose.prod.yml restart caddy
 
 После настройки ниже GitHub Actions обновляет сервер сам:
 
-- **пуш в `main`** (после зеленых проверок CI) – демо-стенд пересобирается из свежего кода;
+- **пуш в `main`** (после зеленых проверок CI) – демо-стенд переходит на этот коммит и его
+  образ `ghcr.io/viteax/competency-assessment:sha-<коммит>`, собранный и проверенный в CI
+  (на сервере ничего не собирается);
 - **тег `v1.2.3`** – прод: резервная копия, затем образ `ghcr.io/viteax/competency-assessment:1.2.3`
   из GitHub Container Registry, перезапуск, миграции при старте. Если в окружении `prod`
   включено подтверждение, обновление ждет нажатия кнопки в GitHub.
