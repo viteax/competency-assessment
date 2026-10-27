@@ -167,11 +167,15 @@ jobs:
           KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           install -m 700 -d ~/.ssh
-          # Ключ, скопированный из терминала, часто приносит CR и пробелы по краям строк.
-          printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
-            > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          # Ключ – одна строка base64 из deploy/setup-cd.sh (переносы и пробелы при копировании
+          # не мешают) или обычный файл ключа, у которого убираем CR и пробелы по краям строк.
+          if printf '%s' "$SSH_KEY" | grep -q BEGIN; then
+            printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
+          else
+            printf '%s' "$SSH_KEY" | tr -d '[:space:]' | base64 -d
+          fi > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
           ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null || {
-            echo "::error::DEPLOY_SSH_KEY не читается: скопируйте ключ целиком, от BEGIN до END"
+            echo "::error::DEPLOY_SSH_KEY не читается: вставьте строку из вывода deploy/setup-cd.sh"
             exit 1
           }
           echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
@@ -199,11 +203,15 @@ jobs:
           KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           install -m 700 -d ~/.ssh
-          # Ключ, скопированный из терминала, часто приносит CR и пробелы по краям строк.
-          printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
-            > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          # Ключ – одна строка base64 из deploy/setup-cd.sh (переносы и пробелы при копировании
+          # не мешают) или обычный файл ключа, у которого убираем CR и пробелы по краям строк.
+          if printf '%s' "$SSH_KEY" | grep -q BEGIN; then
+            printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
+          else
+            printf '%s' "$SSH_KEY" | tr -d '[:space:]' | base64 -d
+          fi > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
           ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null || {
-            echo "::error::DEPLOY_SSH_KEY не читается: скопируйте ключ целиком, от BEGIN до END"
+            echo "::error::DEPLOY_SSH_KEY не читается: вставьте строку из вывода deploy/setup-cd.sh"
             exit 1
           }
           echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts

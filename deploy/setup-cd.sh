@@ -54,8 +54,8 @@ cat <<INFO
 
 Готово. Внесите в GitHub: Settings → Secrets and variables → Actions.
 
-Secret DEPLOY_SSH_KEY:
-$(cat "$keys/key")
+Secret DEPLOY_SSH_KEY (приватный ключ одной строкой base64 – скопируйте ее целиком):
+$(base64 -w0 "$keys/key")
 
 Secret DEPLOY_KNOWN_HOSTS:
 $host $(cut -d' ' -f1,2 /etc/ssh/ssh_host_ed25519_key.pub)

@@ -193,7 +193,7 @@ sudo sh deploy/setup-cd.sh demo.example.ru
 
 | Тип | Имя | Значение |
 | :-- | :-- | :-- |
-| Secret | `DEPLOY_SSH_KEY` | приватный ключ деплоя |
+| Secret | `DEPLOY_SSH_KEY` | приватный ключ деплоя – длинная строка base64 |
 | Secret | `DEPLOY_KNOWN_HOSTS` | ключ сервера – защита от подмены сервера |
 | Variable | `DEPLOY_HOST` | IP или домен сервера |
 | Variable | `PROD_URL` | `https://<домен прода>` – проверка `/ready` после обновления |
