@@ -276,3 +276,5 @@ details.card .card { border: none; padding: 0; margin: 12px 0 0; }
 .plan-tree, .plan-tree ul { margin: 6px 0; padding-left: 18px; }
 .plan-tree li { margin: 4px 0; }
 .plan-tree .chips { display: inline-flex; vertical-align: middle; }
+/* Текст задания из нескольких абзацев (например, загруженный из ФОС) – с переносами строк. */
+.pre-line, .question p { white-space: pre-line; }

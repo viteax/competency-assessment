@@ -3,17 +3,21 @@
 
 import { api, byId, DIFFICULTIES, errorBox, fill, h, QUESTION_KINDS } from "../core.js";
 import { currentDirection, directionPicker } from "./directions.js";
+import { fundImportCard } from "./fund-import.js";
 
 // У каждого направления свои компетенции и дисциплины: банк показывается по направлению.
 export async function adminQuestions(render, direction = null) {
   const directions = await api("/directions");
   direction = direction || currentDirection(directions);
   const query = direction ? `?direction_id=${direction.id}` : "";
-  const [competencies, disciplines] = await Promise.all([api(`/competencies${query}`), api(`/disciplines${query}`)]);
+  const loadLists = async () => {
+    const [competencies, disciplines] = await Promise.all([api(`/competencies${query}`), api(`/disciplines${query}`)]);
+    return { competencies, disciplines };
+  };
   await questionBank(render, {
     title: "Банк вопросов",
-    competencies,
-    disciplines,
+    ...(await loadLists()),
+    loadLists,
     directionId: direction?.id,
     intro: directions.length > 1 ? directionPicker(directions, direction, (chosen) => adminQuestions(render, chosen)) : null,
     fundUrl: (id, key) => `/disciplines/${id}/fund.docx${key ? "?key=true" : ""}`,
@@ -45,7 +49,7 @@ function questionsTable(questions, { comps, discs, lockedDiscipline, onEdit, onD
     h("tr", {}, heads.filter((t) => t !== null).map((t) => h("th", {}, t))),
     questions.map((q) =>
       h("tr", {},
-        h("td", { class: "wrap main" }, q.text, q.in_use ? [" ", h("span", { class: "badge ok" }, "в тестах")] : null),
+        h("td", { class: "wrap main" }, h("span", { class: "pre-line" }, q.text), q.in_use ? [" ", h("span", { class: "badge ok" }, "в тестах")] : null),
         h("td", { class: "wrap small" }, QUESTION_KINDS[q.kind], q.difficulty === "advanced" ? h("div", { class: "muted" }, "повышенный") : null),
         h("td", {}, comps.get(q.competency_id)?.code || "–"),
         lockedDiscipline ? null : h("td", { class: "wrap" }, discs.get(q.discipline_id)?.name || "–"),
@@ -131,16 +135,27 @@ function questionForm(q, { competencies, disciplines, lockedDiscipline, defaults
 // opts: title, competencies, disciplines, fundUrl(disciplineId, key),
 //       lockedDiscipline (id) – только эта дисциплина, intro – блок над таблицей,
 //       directionId – вопросы только этого направления,
+//       loadLists() – заново получить компетенции и дисциплины (после загрузки из ФОС),
 //       onChange() – после сохранения или удаления вопроса.
 export async function questionBank(render, opts) {
-  const { competencies, disciplines, lockedDiscipline = null } = opts;
-  const comps = byId(competencies);
-  const discs = byId(disciplines);
+  const { lockedDiscipline = null } = opts;
+  let { competencies, disciplines } = opts;
+  let comps = byId(competencies);
+  let discs = byId(disciplines);
 
-  const filterCompetency = h("select", {}, h("option", { value: "" }, "Все компетенции"),
-    competencies.map((c) => h("option", { value: c.id }, c.code)));
-  const filterDiscipline = h("select", { "aria-label": "Дисциплина" }, h("option", { value: "" }, "Все дисциплины"),
-    disciplines.map((d) => h("option", { value: d.id }, d.name)));
+  const filterCompetency = h("select", {});
+  const filterDiscipline = h("select", { "aria-label": "Дисциплина" });
+  // Списки фильтров (выбранное значение сохраняется, если оно еще есть).
+  function fillFilters() {
+    const [competency, discipline] = [filterCompetency.value, filterDiscipline.value];
+    fill(filterCompetency, h("option", { value: "" }, "Все компетенции"),
+      competencies.map((c) => h("option", { value: c.id }, c.code)));
+    fill(filterDiscipline, h("option", { value: "" }, "Все дисциплины"),
+      disciplines.map((d) => h("option", { value: d.id }, d.name)));
+    filterCompetency.value = comps.has(Number(competency)) ? competency : "";
+    filterDiscipline.value = discs.has(Number(discipline)) ? discipline : "";
+  }
+  fillFilters();
   if (lockedDiscipline) filterDiscipline.value = String(lockedDiscipline);
   const search = h("input", { type: "search", placeholder: "Поиск по тексту задания", "aria-label": "Поиск" });
   const err = errorBox();
@@ -165,6 +180,25 @@ export async function questionBank(render, opts) {
     } catch (e) {
       err.show(e);
     }
+  }
+
+  function openImport() {
+    fill(formSlot, fundImportCard({
+      directionId: opts.directionId,
+      disciplineId: lockedDiscipline,
+      onDone: async () => {
+        if (opts.loadLists) {
+          ({ competencies, disciplines } = await opts.loadLists());
+          comps = byId(competencies);
+          discs = byId(disciplines);
+          fillFilters();
+        }
+        await refresh();
+        await opts.onChange?.();
+      },
+      onCancel: () => fill(formSlot),
+    }));
+    formSlot.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   function openForm(q) {
@@ -207,6 +241,7 @@ export async function questionBank(render, opts) {
         h("div", {}, h("label", {}, "Компетенция"), filterCompetency),
         lockedDiscipline ? null : h("div", {}, h("label", {}, "Дисциплина"), filterDiscipline),
         h("button", { class: "primary", onclick: () => openForm(null) }, "Новый вопрос"),
+        h("button", { onclick: openImport }, "Загрузить из ФОС (Word)"),
       ),
       fund.el,
       err.el,

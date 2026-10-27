@@ -19,7 +19,7 @@ def _check_links(session: Session, data: schemas.QuestionIn) -> None:
             )
 
 
-def _build_options(data: schemas.QuestionIn) -> list[models.AnswerOption]:
+def build_options(data: schemas.QuestionIn) -> list[models.AnswerOption]:
     """Варианты в порядке списка (для последовательности это правильный порядок)."""
     open_kind = data.kind == models.QuestionKind.OPEN
     options = [
@@ -41,7 +41,7 @@ def create_question(session: Session, data: schemas.QuestionIn) -> models.Questi
         text=data.text,
         kind=data.kind,
         difficulty=data.difficulty,
-        options=_build_options(data),
+        options=build_options(data),
     )
     return save(session, question)
 
@@ -87,7 +87,7 @@ def update_question(
         question.options = []
         session.flush()  # старые варианты удаляются до вставки новых (ссылки match)
         question.kind = data.kind
-        question.options = _build_options(data)
+        question.options = build_options(data)
     question.competency_id = data.competency_id
     question.indicator_id = data.indicator_id
     question.discipline_id = data.discipline_id

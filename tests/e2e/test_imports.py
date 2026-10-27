@@ -2,7 +2,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from tests.e2e.conftest import login, logout, open_section
-from tests.import_samples import matrix_xlsx, plan_xlsx, rpd_docx
+from tests.import_samples import fund_docx, matrix_xlsx, plan_xlsx, rpd_docx
 
 pytestmark = pytest.mark.e2e
 
@@ -58,6 +58,21 @@ def test_plan_import(admin_page: Page):
     row = page.locator("tr", has=page.locator("td", has_text="Сети"))
     expect(row.locator(".badge.kind")).to_have_text("по выбору")
     expect(row.locator(".chip")).to_have_text(["ПК-1"])
+
+
+def test_fund_import(admin_page: Page):
+    page = admin_page
+    open_section(page, "Банк вопросов")
+    page.click("text=Загрузить из ФОС (Word)")
+    upload(page, "Архитектура ПО.docx", fund_docx(), "application/octet-stream")
+    expect(page.locator("text=Заданий: 5 – новых 4, уже в банке 0, не разобрано 1")).to_be_visible()
+    page.click("details summary:text-is('Задания')")
+    expect(page.locator("td", has_text="Класс → Шаблон для создания объектов.")).to_be_visible()
+    page.click("text=Загрузить новые вопросы (4)")
+    expect(page.locator(".success")).to_contain_text("Добавлено вопросов: 4")
+
+    page.get_by_label("Дисциплина").select_option(label="Архитектура ПО")
+    expect(page.locator("text=Вопросов: 4")).to_be_visible()
 
 
 def test_student_import_and_first_login(new_page):
