@@ -62,12 +62,19 @@ function questionsTable(questions, { comps, discs, lockedDiscipline, onEdit, onD
   );
 }
 
+// Длинные формулировки в выпадающем списке раскрываются на весь экран – обрезаем.
+const shortText = (t, max = 70) => (t.length > max ? `${t.slice(0, max).trimEnd()}…` : t);
+
 // Форма вопроса (q – существующий или null). defaults – компетенция и дисциплина из фильтров.
 function questionForm(q, { competencies, disciplines, lockedDiscipline, defaults, onSaved, onCancel }) {
   const locked = Boolean(q?.in_use);
   const formErr = errorBox();
   const competency = h("select", { required: true, disabled: locked, "aria-label": "Компетенция" },
-    competencies.map((c) => h("option", { value: c.id }, `${c.code} – ${c.description}`)));
+    competencies.map((c) => h("option", { value: c.id, title: c.description }, shortText(`${c.code} – ${c.description}`))));
+  const competencyFull = h("p", { class: "hint" });
+  const showCompetency = () => {
+    competencyFull.textContent = competencies.find((c) => String(c.id) === competency.value)?.description || "";
+  };
   const discipline = h("select", { disabled: Boolean(lockedDiscipline), "aria-label": "Дисциплина вопроса" },
     lockedDiscipline ? null : h("option", { value: "" }, "Без дисциплины"),
     disciplines.map((d) => h("option", { value: d.id }, d.name)));
@@ -89,6 +96,8 @@ function questionForm(q, { competencies, disciplines, lockedDiscipline, defaults
     if (defaults.discipline) discipline.value = defaults.discipline;
   }
   if (lockedDiscipline) discipline.value = String(lockedDiscipline);
+  showCompetency();
+  competency.addEventListener("change", showCompetency);
   editor.draw(kind.value, q);
   kind.addEventListener("change", () => editor.draw(kind.value, null));
 
@@ -120,7 +129,7 @@ function questionForm(q, { competencies, disciplines, lockedDiscipline, defaults
       h("div", {}, h("label", {}, "Тип задания"), kind),
       h("div", {}, h("label", {}, "Уровень сложности"), difficulty),
     ),
-    h("label", {}, "Компетенция"), competency,
+    h("label", {}, "Компетенция"), competency, competencyFull,
     lockedDiscipline ? null : [h("label", {}, "Дисциплина"), discipline],
     h("label", {}, "Текст задания"), text,
     editor.el,
