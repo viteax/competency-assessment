@@ -87,12 +87,15 @@ def authenticate(
     session: Session, username: str, password: str, ip: str, trusted_device: bool = False
 ) -> models.User:
     """Проверяет логин и пароль с учётом защиты от подбора (см. throttle)."""
-    throttle(session, username, ip, trusted_device)
+    # Студент входит по ФИО в любом написании (find_user), поэтому и неудачи считаем по
+    # нормализованному ключу – иначе «Иванов Иван» и «иванов  иван» были бы разными счётчиками.
+    key = " ".join(username.casefold().replace("ё", "е").split())[:64]
+    throttle(session, key, ip, trusted_device)
     user = find_user(session, username)
     if not verify_password(password, user.password_hash if user else _DUMMY_HASH) or user is None:
-        record_failure(session, username, ip)
+        record_failure(session, key, ip)
         raise Unauthorized("неверный логин или пароль")
-    session.execute(delete(models.LoginFailure).where(models.LoginFailure.username == username))
+    session.execute(delete(models.LoginFailure).where(models.LoginFailure.username == key))
     session.commit()
     return user
 

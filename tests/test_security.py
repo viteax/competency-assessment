@@ -25,6 +25,33 @@ def fail_logins(client: TestClient, username: str, times: int) -> None:
         assert token_login(client, username, "wrong-password").status_code == 401
 
 
+def test_slowdown_ignores_spelling_of_full_name_login(admin: TestClient, client: TestClient):
+    group = client.get("/auth/groups").json()[0]["id"]
+    admin.post("/students", json={"full_name": "Ёлкина Алёна Сергеевна", "group_id": group})
+    registered = client.post(
+        "/auth/register",
+        json={
+            "group_id": group,
+            "full_name": "Ёлкина Алёна Сергеевна",
+            "password": "Свой-пароль-2026",
+        },
+    )
+    assert registered.status_code == 201, registered.text
+
+    spellings = [
+        "Ёлкина Алёна Сергеевна",
+        "ёлкина алёна сергеевна",
+        "Елкина  Алена Сергеевна",
+        "ЕЛКИНА АЛЕНА  СЕРГЕЕВНА",
+        " елкина алена сергеевна ",
+    ]
+    assert len(spellings) == settings.login_slowdown_after
+    for spelling in spellings:
+        assert token_login(client, spelling, "wrong-password").status_code == 401
+    blocked = token_login(client, "Ёлкина Алёна Сергеевна", "Свой-пароль-2026")
+    assert blocked.status_code == 429
+
+
 def test_login_slows_down_after_failures(client: TestClient):
     fail_logins(client, "student2", settings.login_slowdown_after)
     blocked = token_login(client, "student2", "student123")  # даже верный пароль – подождать
