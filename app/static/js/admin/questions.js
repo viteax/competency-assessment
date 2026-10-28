@@ -2,14 +2,12 @@
 // дисциплины (questionBank с lockedDiscipline).
 
 import { api, byId, DIFFICULTIES, errorBox, fill, h, QUESTION_KINDS } from "../core.js";
-import { currentDirection, directionPicker } from "./directions.js";
+import { withDirection } from "./directions.js";
 import { fundImportCard } from "./fund-import.js";
 
-// У каждого направления свои компетенции и дисциплины: банк показывается по направлению.
-export async function adminQuestions(render, direction = null) {
-  const directions = await api("/directions");
-  direction = direction || currentDirection(directions);
-  const query = direction ? `?direction_id=${direction.id}` : "";
+// У каждого направления свои компетенции и дисциплины: банк показывается по направлению из шапки.
+export const adminQuestions = withDirection("Банк вопросов", async (render, direction) => {
+  const query = `?direction_id=${direction.id}`;
   const loadLists = async () => {
     const [competencies, disciplines] = await Promise.all([api(`/competencies${query}`), api(`/disciplines${query}`)]);
     return { competencies, disciplines };
@@ -18,11 +16,10 @@ export async function adminQuestions(render, direction = null) {
     title: "Банк вопросов",
     ...(await loadLists()),
     loadLists,
-    directionId: direction?.id,
-    intro: directions.length > 1 ? directionPicker(directions, direction, (chosen) => adminQuestions(render, chosen)) : null,
+    directionId: direction.id,
     fundUrl: (id, key) => `/disciplines/${id}/fund.docx${key ? "?key=true" : ""}`,
   });
-}
+});
 
 // Ссылки «ФОМ дисциплины» и «ФОМ с ответами»; update(id) – для выбранной дисциплины.
 function fundLinks(fundUrl) {

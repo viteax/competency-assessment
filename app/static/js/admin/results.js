@@ -1,11 +1,16 @@
-// Отчёты администратора: результаты группы и ПК → ОТФ по студенту.
+// Отчёты администратора: результаты группы и карточка студента (роза ветров и ПК → ОТФ).
 
-import { api, byCode, fill, h, masteryBadge } from "../core.js";
+import { api, byCode, fill, go, h, masteryBadge, screenAt } from "../core.js";
 import { profileCharts } from "../radar.js";
 import { laborFunctionsView } from "../reports.js";
+import { loadTests, withDirection } from "./directions.js";
 
-export async function adminGroupResults(render) {
-  const [groups, tests] = await Promise.all([api("/groups"), api("/tests")]);
+// Выбор переживает уход в карточку студента и возврат.
+let lastGroup = "";
+let lastTest = "";
+
+export const adminGroupResults = withDirection("Результаты", async (render, direction) => {
+  const [groups, tests] = await Promise.all([api(`/groups?direction_id=${direction.id}`), loadTests(direction)]);
   const group = h("select", {}, groups.map((g) => h("option", { value: g.id }, g.name)));
   const test = h("select", { "aria-label": "Тест" });
   const excel = h("a", { class: "button", download: "" }, "Скачать Excel");
@@ -15,7 +20,7 @@ export async function adminGroupResults(render) {
   const whom = h("select", { "aria-label": "Чья роза" });
   const charts = h("div");
   const radarHint = h("p", { class: "notice" },
-    "Появится, когда студенты сдадут тест: назначьте его во вкладке «Назначить тест», студент проходит его в «Мои тесты». Для диаграммы нужно минимум 3 компетенции.");
+    "Появится, когда студенты сдадут тест: назначьте его в «Тесты → Новый тест», студент проходит его в «Мои тесты». Для диаграммы нужно минимум 3 компетенции.");
   const radarSection = h("section", {},
     h("h2", {}, "Роза ветров"),
     h("div", { class: "card" },
@@ -79,13 +84,15 @@ export async function adminGroupResults(render) {
     radarHint.hidden = true;
     fill(out,
       h("p", { class: "muted small mt-0" },
-        `«N из M» – верных ответов из заданных. Зелёным – компетенция сформирована (от ${Math.round(settings.mastery_threshold * 100)}% верных; порог меняется в «Справочники → Настройки»).`),
+        `«N из M» – верных ответов из заданных. Зелёным – компетенция сформирована (от ${Math.round(settings.mastery_threshold * 100)}% верных; порог меняется в «Система → Настройки»).`),
       h("table", {},
         h("tr", {}, h("th", {}, "Студент"), h("th", {}, "Дата"), codes.map((c) => h("th", {}, c))),
         report.students.map((s) => {
           const byCode = new Map(s.competencies.map((c) => [c.code, c]));
           return h("tr", {},
-            h("td", {}, s.full_name),
+            h("td", {}, s.competencies.length
+              ? h("button", { class: "link bare text-left", title: "Карточка студента", onclick: () => go(studentCard(s.student_id)) }, s.full_name)
+              : s.full_name),
             h("td", {}, s.tested_at ? new Date(s.tested_at).toLocaleDateString("ru-RU") : h("span", { class: "muted" }, "–")),
             codes.map((c) => h("td", {}, byCode.has(c) ? masteryBadge(byCode.get(c)) : h("span", { class: "muted" }, "–"))),
           );
@@ -95,8 +102,8 @@ export async function adminGroupResults(render) {
     await drawCharts();
   }
 
-  group.addEventListener("change", () => { drawTests(); draw(); });
-  test.addEventListener("change", draw);
+  group.addEventListener("change", () => { lastGroup = group.value; lastTest = ""; drawTests(); draw(); });
+  test.addEventListener("change", () => { lastTest = test.value; draw(); });
   whom.addEventListener("change", drawCharts);
   render(
     h("h1", {}, "Результаты группы"),
@@ -112,28 +119,29 @@ export async function adminGroupResults(render) {
     radarSection,
   );
   if (groups.length) {
+    if (groups.some((g) => String(g.id) === lastGroup)) group.value = lastGroup;
     drawTests();
+    if (lastTest) test.value = lastTest; // нет такого теста в списке – остаётся «Все»
     await draw();
   }
-}
+});
 
-export async function adminLaborFunctions(render) {
-  const students = await api("/students");
-  const student = h("select", {}, students.map((s) => h("option", { value: s.id }, s.full_name)));
-  const out = h("div");
-  async function draw() {
-    const report = await api(`/reports/students/${student.value}/labor-functions`);
-    fill(out, laborFunctionsView(report));
-  }
-  student.addEventListener("change", draw);
-  render(
-    h("h1", {}, "ПК → ОТФ: трудовые функции студента"),
-    h("div", { class: "card" },
-      h("label", {}, "Студент"),
-      student,
+// Карточка студента: роза ветров и трудовые функции. Адрес #/results/student/<id>.
+export function studentCard(id) {
+  return screenAt(`results/student/${id}`, async (render) => {
+    const student = (await api("/students")).find((st) => st.id === id);
+    if (!student) return render(h("h1", {}, "Студент не найден"));
+    const [profile, laborFunctions] = await Promise.all([
+      api(`/reports/groups/${student.group_id}/profile?student_id=${id}`),
+      api(`/reports/students/${id}/labor-functions`),
+    ]);
+    render(
+      h("h1", {}, student.full_name),
+      h("p", {}, h("button", { class: "link bare", onclick: () => go(adminGroupResults) }, "← Результаты группы")),
+      profileCharts(profile, student.full_name),
+      h("h2", {}, "ПК → ОТФ: трудовые функции"),
       h("p", { class: "muted" }, "ТФ закрыта, если сформированы все связанные с ней компетенции."),
-    ),
-    out,
-  );
-  if (students.length) await draw();
+      laborFunctionsView(laborFunctions),
+    );
+  }, adminGroupResults);
 }

@@ -3,7 +3,7 @@
 // вопросы только из завершённых дисциплин, в вариантах – по числу студентов группы.
 
 import { api, errorBox, fill, h } from "../core.js";
-import { kindBadge } from "./directions.js";
+import { kindBadge, loadTests, withDirection } from "./directions.js";
 
 const KINDS = ["УК", "ОПК", "ПК"];
 const semesters = (d) => (d.first_semester === d.last_semester ? `${d.first_semester}` : `${d.first_semester}–${d.last_semester}`);
@@ -96,7 +96,7 @@ function disciplineNodes(plan, checks, onChange) {
       : null,
     plan.unplanned.length
       ? h("p", { class: "small error" }, "Без семестров в учебном плане (в тест не попадут): ",
-          plan.unplanned.join(", "), ". Укажите их в «Справочники → Учебный план».")
+          plan.unplanned.join(", "), ". Укажите их в «Подготовка → Учебный план и преподаватели».")
       : null,
   ];
 }
@@ -299,12 +299,13 @@ function existingTestSection({ tests, groupsById }, group) {
 
 // --- экран --------------------------------------------------------------------------
 
-export async function adminAssign(render) {
+export const adminAssign = withDirection("Назначить тест группе", async (render, direction) => {
+  const query = `?direction_id=${direction.id}`;
   const [groups, competencies, questions, tests, students] = await Promise.all([
-    api("/groups"),
-    api("/competencies"),
-    api("/questions"),
-    api("/tests"),
+    api(`/groups${query}`),
+    api(`/competencies${query}`),
+    api(`/questions${query}`),
+    loadTests(direction),
     api("/students"),
   ]);
   const data = { competencies, questions, tests, students, groupsById: new Map(groups.map((g) => [g.id, g])) };
@@ -378,4 +379,4 @@ export async function adminAssign(render) {
   existing.draw();
   switchMode();
   await fresh.loadPlan();
-}
+});

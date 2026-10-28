@@ -39,7 +39,7 @@ def test_excel_and_radars(new_page):
     logout(page)
 
     login(page, "admin", "admin123")
-    open_section(page, "Результаты", "По группе")
+    open_section(page, "Результаты")
     expect(page.locator("td:has-text('Иванов Иван Иванович')")).to_be_visible()
     report = page.locator("a:text-is('Отчет по тесту (Word)')")
     expect(report).to_be_hidden()  # отчет по форме кафедры – по одному тесту
@@ -90,14 +90,14 @@ def test_too_few_axes_explained(admin_page: Page, new_page):
     assign_new_test(page, "Один ОПК", ["ОПК-5"], per_competency=2)
     student = new_page()
     pass_test(student, "student1")
-    open_section(page, "Результаты", "По группе")
+    open_section(page, "Результаты")
     # Одна компетенция и одна ТФ (B/03.4) – для обеих «роз» объяснение вместо диаграммы.
     expect(page.locator("text=Для диаграммы нужно минимум 3 оси, сейчас 1")).to_have_count(2)
 
 
 def test_radar_section_explains_when_empty(admin_page: Page):
     page = admin_page
-    open_section(page, "Результаты", "По группе")
+    open_section(page, "Результаты")
     expect(page.locator(".notice")).to_contain_text("Появится, когда студенты сдадут тест")
     page.click("button:text-is('Роза ветров ↓')")
     expect(page.locator("h2:text-is('Роза ветров')")).to_be_in_viewport()

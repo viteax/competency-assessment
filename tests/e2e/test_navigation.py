@@ -21,22 +21,22 @@ def test_address_back_and_reload(admin_page: Page):
     page = admin_page
     expect(page).to_have_url(re.compile(r"#/home$"))
 
-    open_section(page, "Справочники", "Группы")
-    expect(page).to_have_url(address("catalogs/группы"))
-    open_section(page, "Студенты")
-    expect(page.locator("h1")).to_have_text("Студенты")
+    open_section(page, "Люди", "Студенты")
+    expect(page).to_have_url(address("people/студенты"))
+    open_section(page, "Система")
+    expect(page.locator("h1")).to_have_text("Система")
 
     page.go_back()
-    expect(page.locator("h1")).to_have_text("Справочники")
-    expect(page.locator(".subnav .active")).to_have_text("Группы")
+    expect(page.locator("h1")).to_have_text("Люди")
+    expect(page.locator(".subnav .active")).to_have_text("Студенты")
 
     page.reload()
-    expect(page.locator(".subnav .active")).to_have_text("Группы")
-    expect(page.locator("nav .active")).to_have_text("Справочники")
+    expect(page.locator(".subnav .active")).to_have_text("Студенты")
+    expect(page.locator("nav .active")).to_have_text("Люди")
 
     # Переход по вкладке – тоже шаг истории.
     page.go_back()
-    expect(page.locator(".subnav .active")).to_have_text("Учебный план")
+    expect(page.locator(".subnav .active")).to_have_text("Группы")
     page.go_back()
     expect(page).to_have_url(re.compile(r"#/home$"))
     expect(page.locator("h1")).to_have_text("Главная")
@@ -44,15 +44,15 @@ def test_address_back_and_reload(admin_page: Page):
 
 def test_link_to_tab_and_unknown_address(admin_page: Page):
     page = admin_page
-    page.goto("/ui/#/results/по-группе")
-    expect(page.locator(".subnav .active")).to_have_text("По группе")
+    page.goto("/ui/#/people/студенты")
+    expect(page.locator(".subnav .active")).to_have_text("Студенты")
     page.goto("/ui/#/no-such-screen")
     expect(page).to_have_url(re.compile(r"#/home$"))
 
 
 def test_logout_forgets_address(admin_page: Page):
     page = admin_page
-    open_section(page, "Журнал")
+    open_section(page, "Система", "Журнал")
     logout(page)
     login(page, "student1", "student123")
     expect(page).to_have_url(re.compile(r"#/tests$"))

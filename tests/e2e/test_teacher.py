@@ -43,14 +43,14 @@ def test_teacher_composes_questions(new_page):
 
 def test_admin_adds_teacher_and_assigns_discipline(admin_page: Page, new_page):
     page = admin_page
-    open_section(page, "Справочники", "Преподаватели")
+    open_section(page, "Люди", "Преподаватели")
     page.get_by_label("ФИО преподавателя").fill("Лебедев Олег Игоревич")
     page.get_by_label("Логин преподавателя").fill("lebedev")
     page.click("form >> button:text-is('Добавить')")
     expect(page.locator(".notice")).to_contain_text("временный пароль")
     temp = re.search(r"временный пароль (\S+)", page.inner_text(".notice")).group(1)
 
-    page.click(".subnav >> text=Учебный план")
+    open_section(page, "Подготовка", "Учебный план и преподаватели")
     row = page.locator("tr", has=page.locator("td:text-is('Математика')"))
     row.locator("text=Изменить").click()
     form = page.locator("form.edit-form")

@@ -1,8 +1,8 @@
-// Справочники: универсальная таблица с формой и описания всех справочников. Компетенции,
-// дисциплины, учебный план и ТФ ⇒ компетенции – по направлению (их функции получают его).
+// Универсальная таблица с формой и описания справочников. Группы, компетенции, дисциплины,
+// учебный план и ТФ ⇒ компетенции – по направлению (их функции получают его из шапки).
 
 import { api, byCode, byId, errorBox, fill, h, passwordNotice, temporaryPassword } from "../core.js";
-import { DISCIPLINE_KINDS, kindBadge } from "./directions.js";
+import { DISCIPLINE_KINDS, kindBadge, refreshDirectionBar } from "./directions.js";
 
 // Поле формы → элемент ввода. Значение читается через readField.
 function fieldInput(field, value) {
@@ -184,7 +184,7 @@ const byPlanOrder = (a, b) =>
   planKey(a.code || "").localeCompare(planKey(b.code || ""), "ru", { numeric: true }) ||
   a.name.localeCompare(b.name, "ru");
 
-const NO_COMPETENCIES = "Компетенций пока нет: загрузите их на вкладке «Загрузка из ОПОП / РПД» или добавьте на вкладке «Компетенции».";
+const NO_COMPETENCIES = "Компетенций пока нет: загрузите их во вкладке «Загрузить документ» или добавьте во вкладке «Компетенции».";
 
 export const CATALOGS = {
   async "Направления"() {
@@ -195,17 +195,19 @@ export const CATALOGS = {
       columns: [["Код", (r) => r.code], ["Название", (r) => r.name]],
       fields: [{ name: "code", label: "Код" }, { name: "name", label: "Название" }],
       toForm: (r) => r,
-      create: (d) => api("/directions", { method: "POST", body: d }),
-      update: (r, d) => api(`/directions/${r.id}`, { method: "PUT", body: d }),
-      remove: (r) => api(`/directions/${r.id}`, { method: "DELETE" }),
+      create: (d) => api("/directions", { method: "POST", body: d }).then(refreshDirectionBar),
+      update: (r, d) => api(`/directions/${r.id}`, { method: "PUT", body: d }).then(refreshDirectionBar),
+      remove: (r) => api(`/directions/${r.id}`, { method: "DELETE" }).then(refreshDirectionBar),
     });
   },
 
-  async "Группы"() {
+  async "Группы"(direction) {
     const directions = await api("/directions");
     const dirs = byId(directions);
+    // Направление из шапки – первым в списке, чтобы новая группа создавалась в нём.
+    const options = [direction, ...directions.filter((d) => d.id !== direction.id)];
     return crudSection({
-      load: () => api("/groups"),
+      load: () => api(`/groups?direction_id=${direction.id}`),
       label: (r) => r.name,
       hint: "По году набора система сама считает текущий семестр группы – от него зависит, какие дисциплины попадут в тест на остаточные знания.",
       columns: [
@@ -216,7 +218,7 @@ export const CATALOGS = {
       ],
       fields: [
         { name: "name", label: "Название" },
-        { name: "direction_id", label: "Направление", type: "select", options: directions.map((d) => [d.id, `${d.code} ${d.name}`]) },
+        { name: "direction_id", label: "Направление", type: "select", options: options.map((d) => [d.id, `${d.code} ${d.name}`]) },
         { name: "start_year", label: "Год набора (необязательно)", type: "number", min: 2000, max: 2100, required: false, placeholder: "например, 2024" },
       ],
       toForm: (r) => r,
@@ -329,7 +331,7 @@ export const CATALOGS = {
     }
     await draw();
     return h("div", {},
-      h("p", { class: "muted" }, "Преподаватели (ППС и сотрудники кафедры) входят под своим логином и составляют тестовые вопросы по закреплённым за ними дисциплинам. Дисциплины закрепляются в «Учебном плане»."),
+      h("p", { class: "muted" }, "Преподаватели (ППС и сотрудники кафедры) входят под своим логином и составляют тестовые вопросы по закреплённым за ними дисциплинам. Дисциплины закрепляются в «Подготовка → Учебный план и преподаватели»."),
       h("div", { class: "card" }, notice, err.el, list),
       h("form", {
         class: "card",

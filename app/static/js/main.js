@@ -1,23 +1,25 @@
 // Точка входа: вход в систему, меню по роли, тема оформления.
 
-import { adminAudit } from "./admin/audit.js";
+import { mountDirectionBar, unmountDirectionBar } from "./admin/directions.js";
 import { adminHome } from "./admin/home.js";
-import { catalogsPage, resultsPage, studentsPage, testsPage } from "./admin/pages.js";
+import { peoplePage, prepPage, systemPage, testsPage } from "./admin/pages.js";
 import { adminQuestions } from "./admin/questions.js";
-import { api, clearAddress, errorBox, fill, h, openAddress, render, setMenu, setUnauthorizedHandler } from "./core.js";
+import { adminGroupResults, studentCard } from "./admin/results.js";
+import { api, clearAddress, errorBox, fill, h, openAddress, reload, render, setMenu, setUnauthorizedHandler } from "./core.js";
 import { studentResults, studentTests, testScreen } from "./student.js";
 import { disciplineScreen, teacherDisciplines } from "./teacher.js";
 
 // Пункт меню: [название, экран, адрес в строке браузера (#/адрес)].
-// Порядок – как идёт работа: общая картина, тесты, результаты, вопросы, студенты, справочники.
+// Порядок – цикл работы кафедры: подготовить направление, наполнить банк вопросов, собрать и
+// назначить тест, посмотреть результаты; люди и система – вспомогательные разделы.
 const ADMIN_MENU = [
   ["Главная", adminHome, "home"],
-  ["Тесты", testsPage, "tests"],
-  ["Результаты", resultsPage, "results"],
+  ["Подготовка", prepPage, "prep"],
   ["Банк вопросов", adminQuestions, "questions"],
-  ["Студенты", studentsPage, "students"],
-  ["Справочники", catalogsPage, "catalogs"],
-  ["Журнал", adminAudit, "audit"],
+  ["Тесты", testsPage, "tests"],
+  ["Результаты", adminGroupResults, "results"],
+  ["Люди", peoplePage, "people"],
+  ["Система", systemPage, "system"],
 ];
 
 const TEACHER_MENU = [["Мои дисциплины", teacherDisciplines, "disciplines"]];
@@ -28,14 +30,16 @@ const STUDENT_MENU = [
   ["Мои результаты", studentResults, "results"],
 ];
 
-// Экраны вне меню с параметром в адресе: #/test/5 – прохождение теста по назначению 5.
+// Экраны с параметром в адресе: #/test/5 – прохождение теста по назначению 5,
+// #/results/student/7 – карточка студента.
 const ROUTES = {
-  admin: {},
+  admin: { results: (param) => /^student\/\d+$/.test(param) && studentCard(Number(param.slice(8))) },
   teacher: { discipline: disciplineScreen },
   student: { test: testScreen },
 };
 
 const who = document.getElementById("who");
+const directionSlot = document.getElementById("direction");
 
 async function logout() {
   try {
@@ -50,6 +54,7 @@ async function logout() {
 function clearHeader() {
   setMenu([]);
   fill(document.getElementById("nav"));
+  unmountDirectionBar();
   fill(who);
 }
 
@@ -194,6 +199,9 @@ async function start() {
   );
   const menu = { admin: ADMIN_MENU, teacher: TEACHER_MENU, student: STUDENT_MENU }[me.role];
   setMenu(menu, ROUTES[me.role]);
+  // Направление выбирается в шапке один раз на весь кабинет администратора.
+  if (me.role === "admin") await mountDirectionBar(directionSlot, reload);
+  else unmountDirectionBar();
   await openAddress();
 }
 

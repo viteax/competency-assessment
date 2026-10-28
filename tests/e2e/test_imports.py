@@ -21,13 +21,13 @@ def upload(page: Page, name: str, content: bytes, mime: str) -> None:
 
 def test_competency_import(admin_page: Page):
     page = admin_page
-    open_section(page, "Справочники", "Загрузка из ОПОП / РПД")
+    open_section(page, "Подготовка", "Загрузить документ")
     upload(page, "rpd.docx", rpd_docx(), "application/octet-stream")
     expect(page.locator("text=найдено компетенций")).to_be_visible()
     page.click("text=Импортировать выбранные")
     expect(page.locator("text=Импорт выполнен")).to_be_visible()
 
-    open_section(page, "Справочники", "Загрузка из ОПОП / РПД")
+    open_section(page, "Подготовка", "Загрузить документ")
     upload(page, "matrix.xlsx", matrix_xlsx(), "application/octet-stream")
     expect(page.locator("text=найдено компетенций")).to_be_visible()
     page.click("text=Импортировать выбранные")
@@ -42,7 +42,7 @@ def test_competency_import(admin_page: Page):
 
 def test_plan_import(admin_page: Page):
     page = admin_page
-    open_section(page, "Справочники", "Загрузка УП")
+    open_section(page, "Подготовка", "Загрузить документ")
     upload(page, "09.03.01_2023.plx.xlsx", plan_xlsx(), "application/octet-stream")
     expect(page.locator("text=учебный план 09.03.01 Информатика")).to_be_visible()
     expect(page.locator("text=Направления еще нет – оно будет создано.")).to_be_visible()
@@ -78,7 +78,7 @@ def test_fund_import(admin_page: Page):
 def test_student_import_and_first_login(new_page):
     page = new_page(accept_downloads=True)
     login(page, "admin", "admin123")
-    open_section(page, "Студенты", "Загрузить из Excel / СДО")
+    open_section(page, "Люди", "Загрузить список")
     expect(page.locator("text=Загрузите список студентов")).to_be_visible()
     upload(page, "participants.csv", SDO_PARTICIPANTS.encode(), "text/csv")
     # Иванов уже есть в группе, преподаватель не студент – новых один

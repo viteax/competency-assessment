@@ -19,9 +19,9 @@ def test_admin_lands_on_home_with_key_facts(admin_page: Page):
     # «Требует внимания» ведёт прямо туда, где это исправить.
     item = page.locator(".attention li", has_text="Не закреплены за преподавателем")
     item.locator("button").click()
-    expect(page.locator("h1")).to_have_text("Справочники")
-    expect(page.locator(".subnav .active")).to_have_text("Учебный план")
-    expect(page.locator("nav .active")).to_have_text("Справочники")
+    expect(page.locator("h1")).to_have_text("Подготовка")
+    expect(page.locator(".subnav .active")).to_have_text("Учебный план и преподаватели")
+    expect(page.locator("nav .active")).to_have_text("Подготовка")
 
     page.click("nav >> text=Главная")
     page.click("button:text-is('Собрать и назначить тест')")
@@ -33,20 +33,20 @@ def test_menu_is_short_and_in_work_order(admin_page: Page):
     items = admin_page.locator("nav button").all_inner_texts()
     assert items == [
         "Главная",
+        "Подготовка",
+        "Банк вопросов",
         "Тесты",
         "Результаты",
-        "Банк вопросов",
-        "Студенты",
-        "Справочники",
-        "Журнал",
+        "Люди",
+        "Система",
     ]
 
 
 def test_clicking_open_tab_keeps_typed_text(admin_page: Page):
     page = admin_page
-    open_section(page, "Студенты", "Список по группам")
+    open_section(page, "Люди", "Студенты")
     name = page.locator("form", has_text="Добавить студента").locator("input").first
     name.fill("Орлова Вера Игоревна")
-    page.click(".subnav >> text=Список по группам")
+    page.click(".subnav >> text=Студенты")
     page.wait_for_timeout(300)
     expect(name).to_have_value("Орлова Вера Игоревна")
