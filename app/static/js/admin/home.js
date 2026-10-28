@@ -1,16 +1,17 @@
 // Главная администратора: общая картина, что требует внимания и быстрые действия.
 
 import { api, go, h } from "../core.js";
-import { catalogsPage, resultsPage, studentsPage, testsPage } from "./pages.js";
+import { peoplePage, prepPage, testsPage } from "./pages.js";
 import { adminQuestions } from "./questions.js";
+import { adminGroupResults } from "./results.js";
 
 // Куда ведут ссылки из «Требует внимания» (target из GET /reports/dashboard).
 const TARGETS = {
-  curriculum: ["Открыть учебный план", () => go(catalogsPage.at("Учебный план"), catalogsPage)],
-  groups: ["Открыть группы", () => go(catalogsPage.at("Группы"), catalogsPage)],
-  students: ["Открыть студентов", () => go(studentsPage.at("Список по группам"), studentsPage)],
+  curriculum: ["Открыть учебный план", () => go(prepPage.at("Учебный план и преподаватели"), prepPage)],
+  groups: ["Открыть группы", () => go(peoplePage.at("Группы"), peoplePage)],
+  students: ["Открыть студентов", () => go(peoplePage.at("Студенты"), peoplePage)],
   bank: ["Открыть банк вопросов", () => go(adminQuestions)],
-  labor_functions: ["Открыть ТФ ⇒ компетенции", () => go(catalogsPage.at("ТФ ⇒ компетенции"), catalogsPage)],
+  labor_functions: ["Открыть ТФ ⇒ компетенции", () => go(prepPage.at("ТФ ⇒ компетенции"), prepPage)],
   tests: ["Собрать тест", () => go(testsPage.at("Новый тест"), testsPage)],
 };
 
@@ -55,7 +56,7 @@ function assignmentsCard(assignments) {
           h("tr", {}, ["Тест", "Группа", "Сдали"].map((t) => h("th", {}, t))),
           assignments.map((a) => h("tr", {},
             h("td", { class: "wrap main" },
-              h("button", { class: "link bare text-left", title: "Открыть результаты", onclick: () => go(resultsPage.at("По группе"), resultsPage) }, a.test),
+              h("button", { class: "link bare text-left", title: "Открыть результаты", onclick: () => go(adminGroupResults) }, a.test),
               h("div", { class: "muted small" }, `назначен ${new Date(a.assigned_at).toLocaleDateString("ru-RU")}`)),
             h("td", {}, a.group),
             h("td", {}, `${a.finished} из ${a.students}`, bar(a.finished, a.students))))))
@@ -80,7 +81,7 @@ function teachersCard(teachers) {
               h("td", { class: "wrap" }, t.teacher),
               h("td", {}, t.required ? `${t.done} из ${t.required}` : h("span", { class: "muted" }, "квота не задана"), t.required ? bar(t.done, t.required) : null))))),
         ]
-      : h("p", { class: "muted mb-0" }, "Дисциплины ещё не закреплены за преподавателями – это делается в «Справочники → Учебный план»."));
+      : h("p", { class: "muted mb-0" }, "Дисциплины ещё не закреплены за преподавателями – это делается в «Подготовка → Учебный план и преподаватели»."));
 }
 
 export async function adminHome(render) {
@@ -92,9 +93,9 @@ export async function adminHome(render) {
     h("h1", {}, "Главная"),
     h("div", { class: "row mb-s" },
       h("button", { class: "primary", onclick: () => go(testsPage.at("Новый тест"), testsPage) }, "Собрать и назначить тест"),
-      h("button", { onclick: () => go(resultsPage.at("По группе"), resultsPage) }, "Результаты"),
+      h("button", { onclick: () => go(adminGroupResults) }, "Результаты"),
       h("button", { onclick: () => go(adminQuestions) }, "Банк вопросов"),
-      h("button", { onclick: () => go(studentsPage.at("Загрузить из Excel / СДО"), studentsPage) }, "Загрузить студентов"),
+      h("button", { onclick: () => go(peoplePage.at("Загрузить список"), peoplePage) }, "Загрузить студентов"),
     ),
     h("div", { class: "tiles" },
       tile(c.students, plural(c.students, "студент", "студента", "студентов"),

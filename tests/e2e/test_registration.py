@@ -19,7 +19,7 @@ def register(page: Page, group: str, full_name: str, password: str) -> None:
 
 def test_student_registers_by_full_name(admin_page: Page):
     page = admin_page
-    open_section(page, "Студенты", "Список по группам")
+    open_section(page, "Люди", "Студенты")
     form = page.locator("form", has_text="Добавить студента")
     form.locator("input").nth(0).fill("Зайцева Ольга Петровна")
     form.locator("button:text-is('Добавить')").click()
@@ -42,6 +42,6 @@ def test_student_registers_by_full_name(admin_page: Page):
 
     page.click("text=Уже есть учётная запись")
     login(page, "admin", "admin123")
-    open_section(page, "Студенты", "Список по группам")
+    open_section(page, "Люди", "Студенты")
     student = page.locator("tr", has=page.locator("td:text-is('Зайцева Ольга Петровна')"))
     expect(student).to_contain_text("создана")

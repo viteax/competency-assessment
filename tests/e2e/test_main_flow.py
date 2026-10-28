@@ -33,16 +33,17 @@ def test_assign_take_and_review(admin_page: Page):
 
     logout(page)
     login(page, "admin", "admin123")
-    open_section(page, "Результаты", "По группе")
+    open_section(page, "Результаты")
     expect(page.locator("td:has-text('Иванов Иван Иванович')")).to_be_visible()
-    open_section(page, "Результаты", "Трудовые функции студента")
+    page.click("td button:text-is('Иванов Иван Иванович')")  # карточка студента
+    expect(page.locator("h1")).to_have_text("Иванов Иван Иванович")
     expect(page.locator("text=ОТФ A").first).to_be_visible()
 
 
 def test_mobile_has_no_horizontal_scroll(admin_page: Page):
     page = admin_page
     page.set_viewport_size({"width": 390, "height": 800})
-    for tab in ["Главная", "Результаты", "Справочники", "Банк вопросов"]:
+    for tab in ["Главная", "Результаты", "Подготовка", "Банк вопросов"]:
         page.click(f"nav >> text={tab}")
         page.wait_for_load_state("networkidle")
         assert page.evaluate("document.documentElement.scrollWidth") <= 390, tab
@@ -80,11 +81,11 @@ def test_slow_screen_does_not_cover_newer_one(admin_page: Page):
 
     with page.expect_request(tests):
         open_section(page, "Тесты", "Новый тест")
-    open_section(page, "Студенты")
-    expect(page.locator("h1")).to_have_text("Студенты")
+    open_section(page, "Люди")
+    expect(page.locator("h1")).to_have_text("Люди")
 
     with page.expect_response(tests):
         for route in held:
             route.continue_()
     page.wait_for_timeout(300)  # опоздавший экран отрисовался бы сразу после ответа
-    expect(page.locator("h1")).to_have_text("Студенты")
+    expect(page.locator("h1")).to_have_text("Люди")

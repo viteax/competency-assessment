@@ -3,7 +3,7 @@
 // предпросмотр, потом тот же файл отправляется на сохранение.
 
 import { api, byCode, errorBox, fill, go, h } from "../core.js";
-import { kindBadge, rememberDirection } from "./directions.js";
+import { kindBadge, refreshDirectionBar, rememberDirection } from "./directions.js";
 
 const STATUS = {
   new: ["новая", "ok"],
@@ -69,9 +69,8 @@ function standardList(standards) {
 
 function resultCard(result) {
   const open = (tab) => async () => {
-    rememberDirection(result.direction_id);
-    const { catalogsPage } = await import("./pages.js"); // pages.js подключает этот модуль сам
-    go(catalogsPage.at(tab), catalogsPage);
+    const { prepPage } = await import("./pages.js"); // pages.js подключает этот модуль сам
+    go(prepPage.at(tab), prepPage);
   };
   return h("div", { class: "card" },
     h("h2", {}, "Учебный план загружен"),
@@ -82,20 +81,18 @@ function resultCard(result) {
       h("li", {}, `Профстандартов новых: ${result.created_standards}, ОТФ: ${result.created_general_functions}, ТФ: ${result.created_labor_functions}`),
       h("li", {}, `Новых связей ТФ ⇒ компетенции: ${result.linked_labor_functions}`),
     ),
-    h("p", { class: "muted" }, "Дальше: добавьте группы направления с годом набора («Группы») и закрепите дисциплины за преподавателями («Учебный план»)."),
+    h("p", { class: "muted" }, "Направление выбрано в шапке. Дальше: добавьте его группы с годом набора («Люди → Группы») и закрепите дисциплины за преподавателями («Учебный план и преподаватели»)."),
     h("div", { class: "row" },
       h("button", { onclick: open("Дисциплины") }, "Открыть дисциплины"),
-      h("button", { onclick: open("Учебный план") }, "Открыть учебный план"),
+      h("button", { onclick: open("Учебный план и преподаватели") }, "Открыть учебный план"),
       h("button", { onclick: open("ТФ ⇒ компетенции") }, "Открыть ТФ ⇒ компетенции"),
     ),
   );
 }
 
-export function planImportView() {
-  const err = errorBox();
-  const file = h("input", { type: "file", accept: ".xlsx", required: true, "aria-label": "Файл учебного плана" });
-  const previewSlot = h("div");
-
+// Разбор учебного плана из file на месте: предпросмотр рисуется в slot. Если документ не план,
+// бросает ошибку сервера. Нажатие «Загрузить» отправляет тот же файл на сохранение.
+export async function previewPlan(file, slot) {
   const formWith = (extra = {}) => {
     const form = new FormData();
     form.append("file", file.files[0]);
@@ -107,7 +104,7 @@ export function planImportView() {
     const applyErr = errorBox();
     const overwrite = h("input", { type: "checkbox" });
     const d = p.direction;
-    fill(previewSlot, h("div", { class: "card" },
+    fill(slot, h("div", { class: "card" },
       h("h2", {}, `«${p.filename}»: учебный план ${d.code} ${d.name}`),
       h("p", { class: "muted" },
         [d.profile ? `Профиль: ${d.profile}. ` : "", d.year ? `Год начала подготовки: ${d.year}. ` : ""].join(""),
@@ -128,7 +125,9 @@ export function planImportView() {
             event.target.disabled = true;
             try {
               const result = await api("/import/plan/apply", { method: "POST", multipart: formWith({ overwrite_descriptions: overwrite.checked }) });
-              fill(previewSlot, resultCard(result));
+              rememberDirection(result.direction_id); // шапка переключается на загруженное направление
+              await refreshDirectionBar();
+              fill(slot, resultCard(result));
             } catch (e) {
               applyErr.show(e);
               event.target.disabled = false;
@@ -140,29 +139,5 @@ export function planImportView() {
     ));
   }
 
-  async function upload(event) {
-    event.preventDefault();
-    err.clear();
-    fill(previewSlot);
-    if (!file.files.length) return;
-    try {
-      showPreview(await api("/import/plan/preview", { method: "POST", multipart: formWith() }));
-    } catch (e) {
-      err.show(e);
-    }
-  }
-
-  return [
-    h("form", { class: "card", onsubmit: upload },
-      h("p", { class: "muted mt-0" },
-        "Загрузите учебный план – Excel-выгрузку из программы «Планы» (файл вида 09.03.01_2023_….plx.xlsx). ",
-        "Из листов «Титул», «План» и «Компетенции» берутся направление, компетенции, дисциплины с семестрами ",
-        "и статусом (по выбору, факультатив, практика), с листа профстандартов – ОТФ, ТФ и нужные для них компетенции. ",
-        "Перед сохранением можно проверить, что будет загружено; ничего не удаляется, повторная загрузка ничего не меняет."),
-      file,
-      h("div", { class: "mt-m" }, h("button", { class: "primary" }, "Разобрать файл")),
-      err.el,
-    ),
-    previewSlot,
-  ];
+  showPreview(await api("/import/plan/preview", { method: "POST", multipart: formWith() }));
 }

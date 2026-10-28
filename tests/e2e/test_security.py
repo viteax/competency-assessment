@@ -15,7 +15,7 @@ def test_session_cookie_is_not_readable_by_scripts(admin_page: Page):
 
 def test_temporary_password_lifecycle(admin_page: Page):
     page = admin_page
-    open_section(page, "Студенты", "Список по группам")
+    open_section(page, "Люди", "Студенты")
     form = page.locator("form", has_text="Добавить студента")
     form.locator("input").nth(0).fill("Орлова Вера Игоревна")  # ФИО
     form.locator("input").nth(1).fill("orlova")  # логин
@@ -35,12 +35,12 @@ def test_temporary_password_lifecycle(admin_page: Page):
 
     logout(page)
     login(page, "admin", "admin123")
-    open_section(page, "Студенты", "Список по группам")
+    open_section(page, "Люди", "Студенты")
     student = page.locator("tr", has=page.locator("td:text-is('Орлова Вера Игоревна')"))
     student.locator("text=Сбросить пароль").click()
     expect(page.locator(".notice")).to_contain_text("временный пароль")
 
-    page.click("nav >> text=Журнал")
+    open_section(page, "Система", "Журнал")
     expect(page.locator("td:has-text('Сброс пароля')").first).to_be_visible()
     expect(page.locator("td:has-text('reset-password')").first).to_be_visible()  # путь – мелко
 

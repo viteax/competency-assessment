@@ -2,6 +2,7 @@
 // удалить тест, пока его никто не открывал.
 
 import { api, errorBox, fill, h, QUESTION_KINDS } from "../core.js";
+import { loadTests, withDirection } from "./directions.js";
 
 // Есть ли вопросы, которые входят больше чем в один вариант.
 const overlaps = (t) => {
@@ -9,11 +10,12 @@ const overlaps = (t) => {
   return new Set(ids).size < ids.length;
 };
 
-export async function adminTests(render) {
+export const adminTests = withDirection("Тесты", async (render, direction) => {
+  const query = `?direction_id=${direction.id}`;
   const [tests, competencies, disciplines] = await Promise.all([
-    api("/tests"),
-    api("/competencies"),
-    api("/disciplines"),
+    loadTests(direction),
+    api(`/competencies${query}`),
+    api(`/disciplines${query}`),
   ]);
   const codes = new Map(competencies.map((c) => [c.id, c.code]));
   const disciplineNames = new Map(disciplines.map((d) => [d.id, d.name]));
@@ -33,7 +35,7 @@ export async function adminTests(render) {
             h("td", {}, new Date(t.created_at).toLocaleDateString("ru-RU")),
             h("td", { class: "actions" }, h("button", { class: "link", onclick: () => open(t.id) }, "Открыть")),
           )))
-      : h("p", { class: "muted" }, "Тестов пока нет – соберите первый во вкладке «Назначить тест»."));
+      : h("p", { class: "muted" }, "Тестов пока нет – соберите первый во вкладке «Новый тест»."));
   }
 
   async function open(testId) {
@@ -137,7 +139,7 @@ export async function adminTests(render) {
     detail,
   );
   drawTable();
-}
+});
 
 // Правильный ответ на вопрос любого типа (для преподавателя).
 function answerKey(q) {

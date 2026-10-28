@@ -23,7 +23,7 @@ def test_edit_catalogs(admin_page: Page):
     page = admin_page
     assign_new_test(page, "Входной контроль", ["ПК-1"])
 
-    open_section(page, "Справочники", "Компетенции")
+    open_section(page, "Подготовка", "Компетенции")
     page.click(".card >> button:text-is('Добавить')")
     form = page.locator("form.edit-form")
     form.locator("input").nth(0).fill("ПК-3")
@@ -100,15 +100,15 @@ def test_mastery_threshold_setting(admin_page: Page):
     logout(page)
     login(page, "admin", "admin123")
 
-    open_section(page, "Справочники", "Настройки")
+    open_section(page, "Система", "Настройки")
     field = page.locator("form input[type=number]")
     expect(field).to_have_value("60")
     field.fill("75")
     page.click("button:text-is('Сохранить')")
     expect(page.locator(".success")).to_contain_text("от 75%")
 
-    open_section(page, "Результаты", "По группе")
+    open_section(page, "Результаты")
     expect(page.locator("text=компетенция сформирована (от 75% верных")).to_be_visible()
     page.reload()
-    open_section(page, "Справочники", "Настройки")
+    open_section(page, "Система", "Настройки")
     expect(page.locator("form input[type=number]")).to_have_value("75")

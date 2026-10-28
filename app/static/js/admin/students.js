@@ -1,9 +1,10 @@
 // Студенты группы и их учётные записи: добавление, правка, сброс пароля, удаление.
 
 import { api, errorBox, fill, h, passwordNotice, temporaryPassword } from "../core.js";
+import { withDirection } from "./directions.js";
 
-export async function adminStudents(render) {
-  const groups = await api("/groups");
+export const adminStudents = withDirection("Студенты", async (render, direction) => {
+  const groups = await api(`/groups?direction_id=${direction.id}`);
   const groupNames = new Map(groups.map((g) => [g.id, g.name]));
   const group = h("select", {}, groups.map((g) => h("option", { value: g.id }, g.name)));
   const table = h("div", { class: "table-wrap" });
@@ -156,7 +157,7 @@ export async function adminStudents(render) {
       },
     },
       h("h2", {}, "Добавить студента в выбранную группу"),
-      h("p", { class: "muted small mt-0" }, "Если указать логин, сгенерируется временный пароль. Без логина студент зарегистрируется сам: выберет группу и введёт ФИО. Список группы удобнее загрузить во вкладке «Импорт»."),
+      h("p", { class: "muted small mt-0" }, "Если указать логин, сгенерируется временный пароль. Без логина студент зарегистрируется сам: выберет группу и введёт ФИО. Список группы удобнее загрузить во вкладке «Загрузить список»."),
       h("label", {}, "ФИО"), fullName,
       h("div", { class: "row" },
         h("div", {}, h("label", {}, "Логин (необязательно)"), username),
@@ -167,4 +168,4 @@ export async function adminStudents(render) {
     ),
   );
   if (groups.length) await drawStudents();
-}
+});

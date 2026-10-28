@@ -8,27 +8,9 @@ const IMPORT_STATUS = {
   same: ["без изменений", ""],
 };
 
-// Компетенции загружаются в направление direction (их сравнивают с его компетенциями).
-export function competencyImportView(direction) {
-  const err = errorBox();
-  const file = h("input", { type: "file", accept: ".docx,.xlsx,.pdf,.txt", required: true });
-  const previewSlot = h("div");
-
-  async function upload(event) {
-    event.preventDefault();
-    err.clear();
-    fill(previewSlot);
-    if (!file.files.length) return;
-    const form = new FormData();
-    form.append("file", file.files[0]);
-    form.append("direction_id", direction.id);
-    try {
-      showPreview(await api("/import/preview", { method: "POST", multipart: form }));
-    } catch (e) {
-      err.show(e);
-    }
-  }
-
+// Разбор документа ОПОП / РПД из file на месте: компетенции сравниваются с компетенциями
+// направления direction, предпросмотр рисуется в previewSlot. Ошибка сервера – исключение.
+export async function previewCompetencies(direction, file, previewSlot) {
   function showPreview(p) {
     const applyErr = errorBox();
     const discipline = h("input", { type: "text", value: p.discipline_name || "", placeholder: "не привязывать к дисциплине" });
@@ -123,8 +105,8 @@ export function competencyImportView(direction) {
                     h("button", {
                       // pages.js сам подключает этот модуль, поэтому импорт – по требованию.
                       onclick: async () => {
-                        const { catalogsPage } = await import("./pages.js");
-                        go(catalogsPage.at("Компетенции"), catalogsPage);
+                        const { prepPage } = await import("./pages.js");
+                        go(prepPage.at("Компетенции"), prepPage);
                       },
                     }, "Открыть компетенции"),
                   ));
@@ -141,18 +123,10 @@ export function competencyImportView(direction) {
     rows.forEach(({ description }) => autoHeight(description));
   }
 
-  return [
-    h("form", { class: "card", onsubmit: upload },
-      h("p", { class: "muted mt-0" },
-        "Загрузите РПД, матрицу компетенций или другой документ ОПОП (.docx, .xlsx, .pdf, .txt). ",
-        "В тексте ищутся коды УК-…, ОПК-…, ПК-… и индикаторы (УК-1.1, ИУК-1.1, ИД-1.УК-1) с формулировками. ",
-        "Перед сохранением результат можно проверить и поправить; ничего не удаляется."),
-      file,
-      h("div", { class: "mt-m" }, h("button", { class: "primary" }, "Разобрать файл")),
-      err.el,
-    ),
-    previewSlot,
-  ];
+  const form = new FormData();
+  form.append("file", file.files[0]);
+  form.append("direction_id", direction.id);
+  showPreview(await api("/import/preview", { method: "POST", multipart: form }));
 }
 
 const STUDENT_FIELDS = [

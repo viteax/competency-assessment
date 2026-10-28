@@ -1,6 +1,6 @@
-// Справочники направления: компетенции, дисциплины, учебный план и связи ТФ ⇒ компетенции
-// у каждого направления свои. Выбранное направление общее для вкладок справочников и банка
-// вопросов и запоминается в браузере.
+// Направление кабинета администратора: компетенции, дисциплины, учебный план, группы, банк
+// вопросов и тесты у каждого направления свои. Выбранное в шапке направление запоминается
+// в браузере.
 
 import { api, fill, h } from "../core.js";
 
@@ -44,23 +44,60 @@ export function directionPicker(directions, current, onChange) {
   return h("div", { class: "direction-bar" }, h("label", {}, "Направление"), select);
 }
 
-// Вкладка справочника направления: сверху выбор направления, ниже tab(direction).
+// Направление выбирается один раз в шапке (панель ниже) и общее для всего кабинета.
+let bar = null; // элемент шапки, куда рисуется выбор направления
+let onSwitch = () => {};
+
+export const NO_DIRECTION = "Сначала добавьте направление подготовки в «Система → Направления» или загрузите учебный план в «Подготовка → Загрузить документ»: компетенции, дисциплины, группы и тесты привязаны к направлению.";
+
+export async function activeDirection() {
+  return currentDirection(await api("/directions"));
+}
+
+// Панель выбора в шапке; onChange вызывается после смены направления.
+export function mountDirectionBar(slot, onChange) {
+  bar = slot;
+  onSwitch = onChange;
+  return refreshDirectionBar();
+}
+
+export function unmountDirectionBar() {
+  if (bar) fill(bar);
+  bar = null;
+}
+
+// Перерисовать панель: направление добавили, удалили или загрузили из учебного плана.
+export async function refreshDirectionBar() {
+  if (!bar) return;
+  const directions = await api("/directions");
+  const current = currentDirection(directions);
+  fill(bar, current ? directionPicker(directions, current, onSwitch) : null);
+}
+
+// Экран направления: screen(render, direction); без направления – подсказка под заголовком.
+export function withDirection(title, screen) {
+  return async (render) => {
+    const direction = await activeDirection();
+    if (direction) return screen(render, direction);
+    render(h("h1", {}, title), h("p", { class: "muted" }, NO_DIRECTION));
+  };
+}
+
+// Вкладка направления: tab(direction) для выбранного в шапке направления.
 export function directionTab(tab) {
   return async () => {
-    const directions = await api("/directions");
-    if (!directions.length) {
-      return h("p", { class: "muted" }, "Сначала добавьте направление подготовки на вкладке «Направления»: компетенции, дисциплины и учебный план у каждого направления свои.");
-    }
-    let current = currentDirection(directions);
-    const slot = h("div");
-    const draw = async () => fill(slot, await tab(current));
-    const picker = directionPicker(directions, current, async (chosen) => {
-      current = chosen;
-      await draw();
-    });
-    await draw();
-    return h("div", {}, picker, slot);
+    const direction = await activeDirection();
+    return direction ? tab(direction) : h("p", { class: "muted" }, NO_DIRECTION);
   };
+}
+
+// Тесты направления: те, что по его дисциплинам или назначены его группам.
+export async function loadTests(direction) {
+  const query = `?direction_id=${direction.id}`;
+  const [tests, disciplines, groups] = await Promise.all([api("/tests"), api(`/disciplines${query}`), api(`/groups${query}`)]);
+  const disciplineIds = new Set(disciplines.map((d) => d.id));
+  const groupIds = new Set(groups.map((g) => g.id));
+  return tests.filter((t) => t.discipline_ids.some((id) => disciplineIds.has(id)) || t.group_ids.some((id) => groupIds.has(id)));
 }
 
 // --- статус дисциплины в учебном плане ------------------------------------------------

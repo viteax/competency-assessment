@@ -28,11 +28,15 @@ export function fill(el, ...nodes) {
   );
 }
 
+// Открытый экран и подсвеченный пункт меню: reload() рисует его заново.
+let openScreen = null;
+
 // Номер текущего экрана: растёт при каждом переходе (go) и при показе экранов вне меню.
 let screen = 0;
 
 // Экран вне меню (вход, смена пароля).
 export function render(...nodes) {
+  openScreen = null;
   leaving();
   leaving = () => {};
   screen += 1;
@@ -165,7 +169,7 @@ export function openAddress() {
   const param = rest.join("/");
   const item = menu.find(([, , path]) => path === name);
   const view = item
-    ? (param && item[1].tab?.(param)) || item[1]
+    ? (param && (item[1].tab?.(param) || routes[name]?.(param))) || item[1]
     : (param && routes[name]?.(param)) || menu[0][1];
   return go(view, undefined, { replace: true });
 }
@@ -173,6 +177,11 @@ export function openAddress() {
 window.addEventListener("popstate", () => {
   if (menu.length) openAddress();
 });
+
+// Перерисовывает текущий экран (например, после смены направления в шапке).
+export function reload() {
+  return openScreen && go(openScreen[0], openScreen[1], { replace: true });
+}
 
 // Что сделать при уходе с текущего экрана (например, сохранить несохранённое).
 let leaving = () => {};
@@ -185,6 +194,7 @@ export function onLeave(handler) {
 export function go(view, menuItem = view.menu ?? view, { replace = false } = {}) {
   leaving();
   leaving = () => {};
+  openScreen = [view, menuItem];
   setAddress(view.path, replace);
   fill(nav, menu.map(([title, v]) =>
     h("button", { class: `link ${v === menuItem ? "active" : ""}`, onclick: () => go(v) }, title)));
