@@ -67,7 +67,9 @@ def install(app: FastAPI) -> None:
 
         # (id, логин) кладёт в request.state зависимость get_current_user.
         actor = getattr(request.state, "actor", None)
-        if actor is not None and request.method not in _SAFE_METHODS:
+        # Автосохранение черновика теста (каждые несколько секунд) в журнал не пишем.
+        is_draft = request.url.path.endswith("/draft")
+        if actor is not None and request.method not in _SAFE_METHODS and not is_draft:
             await run_in_threadpool(_record, app, actor, request, response.status_code)
 
         if request.url.path not in _QUIET:

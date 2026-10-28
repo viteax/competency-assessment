@@ -64,3 +64,15 @@ def test_draft_of_another_student_is_not_found(admin: TestClient, student: TestC
     other = login("student2", "student123")
     response = other.put(f"/me/attempts/{started['attempt_id']}/draft", json={"answers": []})
     assert response.status_code == 404
+
+
+def test_draft_saves_are_not_audited_but_submit_is(admin: TestClient, student: TestClient):
+    started = _start(admin, student)
+    attempt = started["attempt_id"]
+    assert student.put(f"/me/attempts/{attempt}/draft", json={"answers": []}).status_code == 204
+    paths = [e["path"] for e in admin.get("/audit", params={"username": "student1"}).json()]
+    assert not any(p.endswith("/draft") for p in paths)
+
+    assert student.post(f"/me/attempts/{attempt}/submit", json={"answers": []}).status_code == 200
+    paths = [e["path"] for e in admin.get("/audit", params={"username": "student1"}).json()]
+    assert f"/me/attempts/{attempt}/submit" in paths
