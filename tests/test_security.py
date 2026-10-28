@@ -187,6 +187,7 @@ def test_security_headers(client: TestClient):
     assert page.headers["X-Frame-Options"] == "DENY"
     csp = page.headers["Content-Security-Policy"]
     assert "default-src 'self'" in csp and "script-src" not in csp  # скрипты только свои
+    assert "unsafe-inline" not in csp  # ни inline-скриптов, ни inline-стилей
     assert "Content-Security-Policy" not in client.get("/docs").headers  # Swagger с CDN
 
 
