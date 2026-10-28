@@ -38,6 +38,7 @@ services:
     environment:
       ENVIRONMENT: prod
       DATABASE_URL: postgresql+psycopg://competency:${POSTGRES_PASSWORD}@db:5432/competency
+      TZ: ${TZ:-Asia/Tomsk}  # «сегодня» для семестров групп – по местному времени, а не UTC
     depends_on:
       db:
         condition: service_healthy
