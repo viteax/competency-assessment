@@ -79,7 +79,7 @@ def test_results_keep_selected_group_after_student_card(admin_page: Page):
     assert response.ok, response.text()
     page.reload()
     open_section(page, "Результаты")
-    group = page.get_by_label("Группа", exact=True)
+    group = page.locator("label:text-is('Группа') + select")
     group.select_option(label="ПИ-22")
     student_id = page.request.get("/students").json()[0]["id"]
     page.evaluate(f"location.hash = '#/results/student/{student_id}'")
