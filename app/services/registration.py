@@ -7,6 +7,7 @@
 """
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import models
@@ -14,6 +15,11 @@ from app.errors import Conflict, NotFound
 from app.security import hash_password
 from app.services import auth
 from app.services.common import get_or_404
+
+_ALREADY = (
+    "этот студент уже зарегистрирован. Если вы забыли пароль, обратитесь к "
+    "преподавателю или администратору – он его сбросит"
+)
 
 
 def normalize_name(text: str) -> str:
@@ -44,10 +50,7 @@ def register_student(
         auth.record_failure(session, attempt_key, ip)
         raise
     if session.scalar(select(models.User.id).where(models.User.student_id == student.id)):
-        raise Conflict(
-            "этот студент уже зарегистрирован. Если вы забыли пароль, обратитесь к "
-            "преподавателю или администратору – он его сбросит"
-        )
+        raise Conflict(_ALREADY)
     username = student.full_name
     if session.scalar(select(models.User.id).where(models.User.username == username)):
         username = f"{student.full_name} ({group.name})"  # полный тёзка в другой группе
@@ -59,5 +62,10 @@ def register_student(
         student=student,
     )
     session.add(user)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # Двойной клик: учётку успел создать параллельный запрос – отвечаем как на повтор.
+        session.rollback()
+        raise Conflict(_ALREADY) from None
     return user
