@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     login_slowdown_seconds: int = 30
     login_max_failures_per_ip: int = 300  # потолок с одного адреса (кампус выходит с одного IP)
     login_window_minutes: int = 15
+    # Регистрация: потолок неудачных попыток (ФИО нет в списке) с одного адреса за то же окно.
+    # Паузы нет – при массовой регистрации в начале семестра опечатки неизбежны.
+    registration_max_failures_per_ip: int = 30
 
     @property
     def is_prod(self) -> bool:

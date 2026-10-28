@@ -2,6 +2,7 @@
 
 from fastapi.testclient import TestClient
 
+from app.config import settings
 from tests.helpers import student_id
 
 
@@ -74,11 +75,20 @@ def test_full_namesake_in_another_group(admin: TestClient, client: TestClient):
     assert second.json()["username"] == "Кузнецов Андрей Ильич (ПИ-22)"
 
 
-def test_guessing_names_is_slowed_down(client: TestClient):
+def test_typos_do_not_slow_registration_down(client: TestClient):
     g = group_id(client)
-    statuses = [register(client, g, f"Перебор Номер {i}").status_code for i in range(6)]
-    assert statuses[:5] == [404] * 5
-    assert statuses[5] == 429
+    statuses = [register(client, g, f"Опечатка Номер {i}").status_code for i in range(8)]
+    assert statuses == [404] * 8  # паузы после 5 неудач нет, как у входа
+
+
+def test_guessing_names_hits_a_ceiling(client: TestClient, monkeypatch):
+    monkeypatch.setattr(settings, "registration_max_failures_per_ip", 4)
+    g = group_id(client)
+    statuses = [register(client, g, f"Перебор Номер {i}").status_code for i in range(5)]
+    assert statuses == [404] * 4 + [429]
+    # Вход этим потолком не затронут.
+    ok = client.post("/auth/token", data={"username": "student1", "password": "student123"})
+    assert ok.status_code == 200
 
 
 def test_admin_still_resets_password(admin: TestClient, client: TestClient):
