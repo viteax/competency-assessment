@@ -22,6 +22,7 @@ esac
 """,
     "wget": """#!/bin/sh
 echo "wget $*" >> "$LOG"
+[ -z "${VK_ANSWER:-}" ] || echo "$VK_ANSWER"
 """,
     # docker compose ... для setup-offsite.sh: rclone obscure и проверка копии
     "docker": """#!/bin/sh
@@ -119,6 +120,37 @@ def test_without_storage_only_watches_backups(env):
     result, calls = offsite(env, "--once", HEALTHCHECK_URL="")
     assert result.returncode == 0
     assert not any(call.startswith("wget") for call in calls)
+
+
+def test_vk_reports_ok_once_a_day_and_failure_at_once(env):
+    vk = {"HEALTHCHECK_URL": "", "NOTIFY_VK_TOKEN": "TOKEN", "NOTIFY_VK_USER_ID": "42"}
+
+    def sent(calls):
+        return [c for c in calls if "api.vk.com" in c]
+
+    stale = dump(env, "2026-10-25_0330", hours_ago=30)
+    result, calls = offsite(env, "--once", CONFIGURED="1", **vk)
+    assert result.returncode == 1
+    [message] = sent(calls)
+    assert "user_id=42" in message and "access_token=TOKEN" in message
+    assert "Сбой копий базы" in message and "%0A" in message  # многострочный текст закодирован
+    _, calls = offsite(env, "--once", CONFIGURED="1", **vk)
+    assert not sent(calls)  # тот же сбой через час – без повтора
+
+    stale.unlink()
+    dump(env, "2026-10-27_0330")
+    _, calls = offsite(env, "--once", CONFIGURED="1", **vk)
+    assert len(sent(calls)) == 1 and "в порядке" in sent(calls)[0]
+    _, calls = offsite(env, "--once", CONFIGURED="1", **vk)
+    assert not sent(calls)  # «в порядке» – раз в день
+
+    Path(env["OFFSITE_STATE"] + ".vk-ok").unlink()
+    result, calls = offsite(
+        env, "--once", CONFIGURED="1", VK_ANSWER='{"error":{"error_code":5}}', **vk
+    )
+    assert result.returncode == 0  # отказ VK не мешает копиям, но виден в логе
+    assert "VK отказал" in result.stdout
+    assert not Path(env["OFFSITE_STATE"] + ".vk-ok").exists()  # не отмечено – повторим через час
 
 
 def test_check_compares_copy_downloaded_from_storage(env, tmp_path):

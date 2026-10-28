@@ -93,13 +93,15 @@ services:
   offsite:
     # Раз в час: новые копии из ./backups – в хранилище вне сервера (шифруются до отправки),
     # сигнал мониторингу, что свежая копия есть. Настройка – deploy/setup-offsite.sh и
-    # HEALTHCHECK_URL; пока не настроено, только пишет об этом в лог.
+    # HEALTHCHECK_URL или NOTIFY_VK_*; пока не настроено, только пишет об этом в лог.
     image: rclone/rclone:1.71.0
     restart: unless-stopped
     environment:
       RCLONE_CONFIG: /config/rclone/rclone.conf
       OFFSITE_KEEP_DAYS: ${OFFSITE_KEEP_DAYS:-90}
       HEALTHCHECK_URL: ${HEALTHCHECK_URL:-}
+      NOTIFY_VK_TOKEN: ${NOTIFY_VK_TOKEN:-}
+      NOTIFY_VK_USER_ID: ${NOTIFY_VK_USER_ID:-}
       TZ: ${TZ:-Asia/Tomsk}
     volumes:
       - ./deploy/offsite.sh:/usr/local/bin/offsite.sh:ro

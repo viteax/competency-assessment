@@ -12,7 +12,11 @@
 # час-другой тревоги не поднимет.
 #
 # Хранилище настраивает deploy/setup-offsite.sh (rclone.conf), мониторинг – HEALTHCHECK_URL
-# (healthchecks.io); что не настроено, пропускается. Подробно – docs/deploy.md, раздел 6.
+# (healthchecks.io) и/или сообщения во VK (NOTIFY_VK_TOKEN – токен сообщества с доступом к
+# сообщениям, NOTIFY_VK_USER_ID – кому писать). healthchecks.io не принимает запросы с российских
+# IP, поэтому на таком сервере нужен VK: сбой – сразу (не чаще раза в 6 часов), «все в порядке» –
+# раз в день; нет утреннего сообщения – значит, сломалось само наблюдение. Что не настроено,
+# пропускается. Подробно – docs/deploy.md, раздел 6.
 set -u
 
 BACKUP_DIR="${BACKUP_DIR:-/backups}"
@@ -21,10 +25,30 @@ STATE="${OFFSITE_STATE:-/tmp/offsite-sent}" # отметка времени по
 
 log() { echo "$(date -Iseconds) $*"; }
 
+# Сообщение во VK от имени сообщества: vk "текст".
+vk() {
+    # Тело формы: экранируем то, что ломает разбор (%, &, +, =), переводы строк – %0A.
+    text=$(printf '%s' "$1" | awk 'BEGIN { ORS = "%0A" } { gsub(/%/, "%25"); gsub(/&/, "%26"); gsub(/\+/, "%2B"); gsub(/=/, "%3D"); print }')
+    answer=$(wget -q -O - -T 30 --post-data "access_token=$NOTIFY_VK_TOKEN&user_id=$NOTIFY_VK_USER_ID&random_id=$(date +%s)&v=5.199&message=$text" \
+        https://api.vk.com/method/messages.send) || { log "VK недоступен"; return 1; }
+    case "$answer" in *'"error"'*) log "VK отказал: $answer"; return 1 ;; esac
+}
+
 # Сигнал мониторингу: signal "" "текст" – все в порядке, signal /fail "текст" – сбой.
 signal() {
-    [ -n "${HEALTHCHECK_URL:-}" ] || return 0
-    wget -q -O /dev/null -T 30 --post-data "$2" "$HEALTHCHECK_URL$1" || log "мониторинг недоступен"
+    if [ -n "${HEALTHCHECK_URL:-}" ]; then
+        wget -q -O /dev/null -T 30 --post-data "$2" "$HEALTHCHECK_URL$1" || log "мониторинг недоступен"
+    fi
+    [ -n "${NOTIFY_VK_TOKEN:-}" ] && [ -n "${NOTIFY_VK_USER_ID:-}" ] || return 0
+    if [ "$1" = /fail ]; then
+        [ -z "$(find "$STATE.vk-fail" -mmin -360 2>/dev/null)" ] || return 0
+        vk "Сбой копий базы competency: $2" && touch "$STATE.vk-fail"
+    else
+        rm -f "$STATE.vk-fail" # после восстановления о новом сбое сообщим сразу
+        [ "$(cat "$STATE.vk-ok" 2>/dev/null)" != "$(date +%F)" ] || return 0
+        vk "Копии базы competency в порядке: $2" && date +%F > "$STATE.vk-ok"
+    fi
+    return 0 # сбой уведомления – только в логе, на результат прохода не влияет
 }
 
 configured() { rclone listremotes 2>/dev/null | grep -qx 'offsite:'; }
@@ -76,10 +100,11 @@ case "${1:-}" in
 --once) run_once ;;
 --check) verify ;;
 "")
-    storage="не настроено" monitoring="не настроен"
+    storage="не настроено" monitoring=""
     configured && storage="offsite:, хранить $KEEP_DAYS дней"
-    [ -z "${HEALTHCHECK_URL:-}" ] || monitoring="включен"
-    log "копии вне сервера: $storage; мониторинг: $monitoring"
+    [ -z "${HEALTHCHECK_URL:-}" ] || monitoring="healthchecks.io "
+    [ -z "${NOTIFY_VK_TOKEN:-}" ] || monitoring="${monitoring}VK"
+    log "копии вне сервера: $storage; мониторинг: ${monitoring:-не настроен}"
     while true; do
         run_once || true
         sleep 3600
