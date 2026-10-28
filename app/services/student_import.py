@@ -95,7 +95,7 @@ def preview(
 
 
 def _update_student(
-    student: models.Student, row: schemas.StudentImportRowIn, group: models.Group
+    student: models.Student, row: schemas.StudentImportRowIn, group: models.Group | None
 ) -> bool:
     """Обновляет поля из файла; пустые значения в файле не затирают данные. True – если менялось."""
     changed = False
@@ -169,7 +169,9 @@ def apply(session: Session, data: schemas.StudentImportApply) -> schemas.Student
             )
             session.add(student)
             result.created += 1
-        elif _update_student(student, row, group):
+        elif _update_student(
+            student, row, group if row.group else None
+        ):  # без группы в файле – не переносим
             result.updated += 1
         else:
             result.unchanged += 1

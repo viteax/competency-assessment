@@ -189,6 +189,32 @@ def test_existing_student_matched_by_name_and_group(admin: TestClient):
     assert (result["created"], result["updated"], result["accounts"]) == (0, 1, [])
 
 
+def test_row_without_group_does_not_move_existing_student(admin: TestClient):
+    group_a = next(g for g in admin.get("/groups").json() if g["name"] == "ПИ-21")
+    group_b = admin.post(
+        "/groups", json={"name": "ПИ-22", "direction_id": group_a["direction_id"]}
+    ).json()
+    created = admin.post(
+        "/students",
+        json={
+            "full_name": "Петров Пётр",
+            "group_id": group_a["id"],
+            "email": "petrov@stud.example.ru",
+        },
+    ).json()
+
+    csv_text = "ФИО,Email\nПетров Пётр,petrov@stud.example.ru\n"
+    [row] = upload(admin, "list.csv", csv_text.encode())["rows"]
+    result = admin.post(
+        "/import/students/apply",
+        json={"students": selected({"rows": [row]}), "default_group_id": group_b["id"]},
+    ).json()
+
+    assert (result["created"], result["updated"], result["unchanged"]) == (0, 0, 1)
+    moved = next(s for s in admin.get("/students").json() if s["id"] == created["id"])
+    assert moved["group_id"] == group_a["id"]
+
+
 def test_manual_mapping_and_problems(admin: TestClient):
     text = "a,b,c\nКоролёв Сергей,ПИ-21,x1\n,ПИ-21,x2\nЛебедев Иван,ПИ-21,x1\n"
     p = upload(admin, "raw.csv", text.encode(), {"full_name": 0, "group": 1, "external_id": 2})
