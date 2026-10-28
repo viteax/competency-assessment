@@ -30,8 +30,10 @@ function tile(value, label, sub) {
 
 function bar(done, total) {
   const share = total ? Math.min(done / total, 1) : 0;
-  return h("div", { class: "bar", role: "img", "aria-label": `${done} из ${total}` },
-    h("div", { class: `bar-fill ${share >= 1 ? "full" : ""}`, style: `width:${Math.round(share * 100)}%` }));
+  const fillEl = h("div", { class: `bar-fill ${share >= 1 ? "full" : ""}` });
+  // Через CSSOM, а не атрибутом style: CSP запрещает inline-стили.
+  fillEl.style.width = `${Math.round(share * 100)}%`;
+  return h("div", { class: "bar", role: "img", "aria-label": `${done} из ${total}` }, fillEl);
 }
 
 function attentionCard(items) {

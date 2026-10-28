@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from math import comb, prod
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app import models, schemas
@@ -277,23 +278,31 @@ def start_attempt(
     if assignment is None or assignment.group_id != student.group_id:
         raise NotFound(f"назначение {assignment_id} не найдено")
 
-    attempt = session.scalar(
-        select(models.Attempt).where(
-            models.Attempt.assignment_id == assignment.id,
-            models.Attempt.student_id == student.id,
+    def existing() -> models.Attempt | None:
+        return session.scalar(
+            select(models.Attempt).where(
+                models.Attempt.assignment_id == assignment.id,
+                models.Attempt.student_id == student.id,
+            )
         )
-    )
+
+    attempt = existing()
     if attempt is not None and attempt.finished_at is not None:
         raise Conflict("тест уже пройден")
     if attempt is None:
-        attempt = save(
-            session,
-            models.Attempt(
-                assignment_id=assignment.id,
-                student_id=student.id,
-                variant=_choose_variant(session, assignment),
-            ),
-        )
+        try:
+            attempt = save(
+                session,
+                models.Attempt(
+                    assignment_id=assignment.id,
+                    student_id=student.id,
+                    variant=_choose_variant(session, assignment),
+                ),
+            )
+        except IntegrityError:
+            # Двойной клик или две вкладки: попытку успел создать параллельный запрос.
+            session.rollback()
+            attempt = existing()
     questions = _test_questions(session, assignment.test_id, attempt.variant)
     return attempt, _shuffled_for(attempt, questions)
 

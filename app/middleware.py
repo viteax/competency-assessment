@@ -16,10 +16,10 @@ from app.logging_setup import request_id_var
 
 log = logging.getLogger("app.request")
 
-# Интерфейс не подключает ничего стороннего, поэтому политика строгая. Inline-стили
-# разрешены: интерфейс задаёт отступы атрибутом style, а исполняемого кода в них нет.
+# Интерфейс не подключает ничего стороннего и не использует inline-код и inline-стили
+# (размеры задаются через el.style, а не атрибутом style), поэтому политика строгая.
 _CSP = (
-    "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
+    "default-src 'self'; img-src 'self' data: blob:; "
     "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 )
 # Swagger UI грузит скрипты с CDN – на документацию CSP не распространяем.

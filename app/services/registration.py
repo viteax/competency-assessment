@@ -6,14 +6,23 @@
 сбросить пароль.
 """
 
-from sqlalchemy import select
+from datetime import timedelta
+
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import models
-from app.errors import Conflict, NotFound
+from app.config import settings
+from app.errors import Conflict, NotFound, TooManyRequests
 from app.security import hash_password
 from app.services import auth
 from app.services.common import get_or_404
+
+_ALREADY = (
+    "этот студент уже зарегистрирован. Если вы забыли пароль, обратитесь к "
+    "преподавателю или администратору – он его сбросит"
+)
 
 
 def normalize_name(text: str) -> str:
@@ -31,12 +40,27 @@ def find_student(session: Session, group: models.Group, full_name: str) -> model
     return student
 
 
+def _throttle(session: Session, attempt_key: str) -> None:
+    """Потолок неудач с одного адреса: перебирать ФИО однокурсников можно лишь ограниченно.
+    Паузы, как у входа, нет – кампус выходит с одного IP, и опечатки одних замедлили бы всех."""
+    since = models.utcnow() - timedelta(minutes=settings.login_window_minutes)
+    failures = session.scalar(
+        select(func.count())
+        .select_from(models.LoginFailure)
+        .where(models.LoginFailure.username == attempt_key, models.LoginFailure.created_at >= since)
+    )
+    if failures >= settings.registration_max_failures_per_ip:
+        raise TooManyRequests(
+            "слишком много неудачных попыток регистрации с этого адреса – попробуйте позже",
+            headers={"Retry-After": str(settings.login_window_minutes * 60)},
+        )
+
+
 def register_student(
     session: Session, group_id: int, full_name: str, password: str, ip: str
 ) -> models.User:
-    # Замедление как у входа: перебирать ФИО однокурсников так же долго, как пароли.
     attempt_key = f"регистрация {ip}"
-    auth.throttle(session, attempt_key, ip)
+    _throttle(session, attempt_key)
     group = get_or_404(session, models.Group, group_id)
     try:
         student = find_student(session, group, full_name)
@@ -44,10 +68,7 @@ def register_student(
         auth.record_failure(session, attempt_key, ip)
         raise
     if session.scalar(select(models.User.id).where(models.User.student_id == student.id)):
-        raise Conflict(
-            "этот студент уже зарегистрирован. Если вы забыли пароль, обратитесь к "
-            "преподавателю или администратору – он его сбросит"
-        )
+        raise Conflict(_ALREADY)
     username = student.full_name
     if session.scalar(select(models.User.id).where(models.User.username == username)):
         username = f"{student.full_name} ({group.name})"  # полный тёзка в другой группе
@@ -59,5 +80,10 @@ def register_student(
         student=student,
     )
     session.add(user)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # Двойной клик: учётку успел создать параллельный запрос – отвечаем как на повтор.
+        session.rollback()
+        raise Conflict(_ALREADY) from None
     return user
