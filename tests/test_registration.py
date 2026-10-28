@@ -81,6 +81,11 @@ def test_typos_do_not_slow_registration_down(client: TestClient):
     assert statuses == [404] * 8  # паузы после 5 неудач нет, как у входа
 
 
+def test_registration_ceiling_is_as_high_as_login_one():
+    # Весь кампус – один IP: низкий потолок закрыл бы регистрацию всему вузу.
+    assert settings.registration_max_failures_per_ip >= settings.login_max_failures_per_ip
+
+
 def test_guessing_names_hits_a_ceiling(client: TestClient, monkeypatch):
     monkeypatch.setattr(settings, "registration_max_failures_per_ip", 4)
     g = group_id(client)
