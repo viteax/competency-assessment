@@ -5,6 +5,10 @@ import { profileCharts } from "../radar.js";
 import { laborFunctionsView } from "../reports.js";
 import { loadTests, withDirection } from "./directions.js";
 
+// Выбор переживает уход в карточку студента и возврат.
+let lastGroup = "";
+let lastTest = "";
+
 export const adminGroupResults = withDirection("Результаты", async (render, direction) => {
   const [groups, tests] = await Promise.all([api(`/groups?direction_id=${direction.id}`), loadTests(direction)]);
   const group = h("select", {}, groups.map((g) => h("option", { value: g.id }, g.name)));
@@ -98,8 +102,8 @@ export const adminGroupResults = withDirection("Результаты", async (re
     await drawCharts();
   }
 
-  group.addEventListener("change", () => { drawTests(); draw(); });
-  test.addEventListener("change", draw);
+  group.addEventListener("change", () => { lastGroup = group.value; lastTest = ""; drawTests(); draw(); });
+  test.addEventListener("change", () => { lastTest = test.value; draw(); });
   whom.addEventListener("change", drawCharts);
   render(
     h("h1", {}, "Результаты группы"),
@@ -115,7 +119,9 @@ export const adminGroupResults = withDirection("Результаты", async (re
     radarSection,
   );
   if (groups.length) {
+    if (groups.some((g) => String(g.id) === lastGroup)) group.value = lastGroup;
     drawTests();
+    if (lastTest) test.value = lastTest; // нет такого теста в списке – остаётся «Все»
     await draw();
   }
 });

@@ -71,3 +71,19 @@ def test_student_card_opens_from_results_and_by_address(new_page):
     expect(page.locator("nav .active")).to_have_text("Результаты")
     page.click("text=← Результаты группы")
     expect(page.locator("h1")).to_have_text("Результаты группы")
+
+
+def test_results_keep_selected_group_after_student_card(admin_page: Page):
+    page = admin_page
+    response = page.request.post("/groups", data={"name": "ПИ-22", "direction_id": 1}, headers=JSON)
+    assert response.ok, response.text()
+    page.reload()
+    open_section(page, "Результаты")
+    group = page.get_by_label("Группа", exact=True)
+    group.select_option(label="ПИ-22")
+    student_id = page.request.get("/students").json()[0]["id"]
+    page.evaluate(f"location.hash = '#/results/student/{student_id}'")
+    expect(page.locator("h2:has-text('ПК → ОТФ')")).to_be_visible()
+    page.click("text=← Результаты группы")
+    expect(page.locator("h1")).to_have_text("Результаты группы")
+    expect(group.locator("option:checked")).to_have_text("ПИ-22")

@@ -91,13 +91,15 @@ export function directionTab(tab) {
   };
 }
 
-// Тесты направления: те, что по его дисциплинам или назначены его группам.
+// Тесты направления: те, что по его дисциплинам или назначены его группам; тест без дисциплин и без групп виден везде
+// (иначе его нельзя ни назначить, ни удалить).
 export async function loadTests(direction) {
   const query = `?direction_id=${direction.id}`;
   const [tests, disciplines, groups] = await Promise.all([api("/tests"), api(`/disciplines${query}`), api(`/groups${query}`)]);
   const disciplineIds = new Set(disciplines.map((d) => d.id));
   const groupIds = new Set(groups.map((g) => g.id));
-  return tests.filter((t) => t.discipline_ids.some((id) => disciplineIds.has(id)) || t.group_ids.some((id) => groupIds.has(id)));
+  return tests.filter((t) => t.discipline_ids.some((id) => disciplineIds.has(id)) || t.group_ids.some((id) => groupIds.has(id))
+    || (!t.discipline_ids.length && !t.group_ids.length));
 }
 
 // --- статус дисциплины в учебном плане ------------------------------------------------
