@@ -25,10 +25,12 @@ def _finished_attempts(student_ids: list[int], test_id: int | None):
     return conditions
 
 
-def level_of(ratio: float) -> schemas.CompetencyLevel:
-    if ratio >= 0.8:
+def level_of(ratio: float, threshold: float) -> schemas.CompetencyLevel:
+    """Границы 80% и 40% сдвигаются вместе с порогом «сформирована»: «хорошо развита» не бывает
+    ниже порога, а «требует внимания» – выше него."""
+    if ratio >= max(0.8, threshold):
         return "good"
-    return "forming" if ratio >= 0.4 else "attention"
+    return "attention" if ratio < min(0.4, threshold) else "forming"
 
 
 def _result(
@@ -44,7 +46,7 @@ def _result(
         total=total,
         ratio=round(ratio, 3),
         mastered=ratio >= threshold,
-        level=level_of(ratio),
+        level=level_of(ratio, threshold),
     )
 
 

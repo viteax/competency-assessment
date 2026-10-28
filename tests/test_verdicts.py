@@ -28,7 +28,20 @@ PNG = base64.b64decode(
     ],
 )
 def test_levels(ratio: float, level: str):
-    assert level_of(ratio) == level
+    assert level_of(ratio, 0.6) == level  # порог по умолчанию границ не двигает
+
+
+@pytest.mark.parametrize(
+    ("ratio", "threshold", "level"),
+    [
+        (0.8, 0.9, "forming"),  # ниже порога – не «хорошо развита»
+        (0.9, 0.9, "good"),
+        (0.3, 0.2, "forming"),  # порог ниже 40% – «внимание» только ниже порога
+        (0.1, 0.2, "attention"),
+    ],
+)
+def test_levels_follow_threshold(ratio: float, threshold: float, level: str):
+    assert level_of(ratio, threshold) == level
 
 
 def test_attempt_result_breaks_down_by_competency(admin: TestClient, student: TestClient):
