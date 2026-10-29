@@ -104,3 +104,9 @@ prod)
     exit 2
     ;;
 esac
+
+# Каждый релиз и коммит демо оставлял на диске образ ~340 МБ. Удаляем все теги приложения,
+# кроме запущенных (прод и демо); для отката нужный образ снова скачается из ghcr.io.
+in_use=$(docker ps --format '{{.Image}}')
+docker images "$IMAGE" --format '{{.Repository}}:{{.Tag}}' | grep -vxF "$in_use" |
+    xargs -r docker rmi >/dev/null 2>&1 || true
