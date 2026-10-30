@@ -109,6 +109,12 @@ def create_user(data: schemas.UserCreate, session: SessionDep, _: AdminUser):
     )
 
 
+@router.post("/users/teachers", response_model=schemas.TeachersResult)
+def create_teachers(data: schemas.TeachersIn, session: SessionDep, _: AdminUser):
+    """Преподаватели списком ФИО: логин строится сам, пароли показываются один раз."""
+    return auth.create_teachers(session, data.full_names)
+
+
 @router.get("/users", response_model=list[schemas.UserOut])
 def list_users(session: SessionDep, _: AdminUser):
     return session.scalars(select(models.User).order_by(models.User.username)).all()
