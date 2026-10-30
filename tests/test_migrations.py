@@ -159,7 +159,8 @@ def test_directions_become_plans_without_changes(tmp_path):
             "",
         )
         sql(
-            "INSERT INTO direction (code, name, profile_key, plan_year) VALUES ('15.04.06', 'М', '', 2026)"
+            "INSERT INTO direction (code, name, profile_key, plan_year) "
+            "VALUES ('15.04.06', 'М', '', 2026)"
         )
         with pytest.raises(IntegrityError):
             sql("INSERT INTO direction (code, name, profile_key) VALUES ('15.04.06', 'Д', '')")

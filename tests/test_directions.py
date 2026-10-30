@@ -60,7 +60,8 @@ def test_discipline_takes_only_its_direction_competencies(admin: TestClient, oth
     )
     assert response.status_code == 400
     assert response.json()["detail"] == (
-        "ПК-2 – компетенции другого направления, а нужны компетенции направления 15.04.06"
+        "ПК-2 – компетенции другого учебного плана, а нужны компетенции "
+        "плана 15.04.06 Мехатроника и робототехника"
     )
     quota = admin.post(
         "/curriculum",

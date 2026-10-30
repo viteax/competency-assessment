@@ -100,8 +100,7 @@ def _course(group: models.Group) -> str:
 
 
 def group_legend(group: models.Group) -> str:
-    direction = group.direction
-    return f"Группа {group.name}{_course(group)} · {direction.code} {direction.name}"
+    return f"Группа {group.name}{_course(group)} · {group.direction.label}"
 
 
 def student_legend(student: models.Student) -> list[str]:

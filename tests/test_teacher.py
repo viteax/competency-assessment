@@ -189,3 +189,40 @@ def test_second_teacher_with_same_name_is_rejected(admin: TestClient):
     assert duplicate.status_code == 409
     assert "логин 666" in duplicate.json()["detail"]
     assert create("1000", "Ботаева Лариса Петровна").status_code == 201
+
+
+def test_teacher_sees_plan_year(admin: TestClient, login):
+    plan = admin.post(
+        "/directions", json={"code": "11.03.02", "name": "Связь", "plan_year": 2023}
+    ).json()
+    teacher = admin.post(
+        "/users",
+        json={
+            "username": "plan.teacher",
+            "password": "Temp-pass-4821",
+            "role": "teacher",
+            "full_name": "Планов Пётр Петрович",
+        },
+    ).json()
+    discipline = admin.post(
+        "/disciplines", json={"direction_id": plan["id"], "name": "Волокно"}
+    ).json()
+    entry = admin.post(
+        "/curriculum",
+        json={
+            "direction_id": plan["id"],
+            "discipline_id": discipline["id"],
+            "first_semester": 1,
+            "last_semester": 1,
+            "teacher_id": teacher["id"],
+        },
+    )
+    assert entry.status_code == 201, entry.text
+    client = login("plan.teacher", "Temp-pass-4821")
+    client.post(
+        "/me/password",
+        json={"current_password": "Temp-pass-4821", "new_password": "Long-new-pass-4821"},
+    )
+    client = login("plan.teacher", "Long-new-pass-4821")
+    [found] = client.get("/teacher/disciplines").json()
+    assert found["direction"] == "11.03.02 Связь, 2023"

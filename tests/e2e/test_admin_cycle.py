@@ -26,7 +26,7 @@ def test_direction_in_header_switches_every_screen(admin_page: Page):
     }
     assert page.request.post("/competencies", data=competency, headers=JSON).ok
     page.reload()
-    picker = page.locator("#direction").get_by_label("Направление")
+    picker = page.locator("#direction").get_by_label("Учебный план")
 
     open_section(page, "Подготовка", "Компетенции")
     expect(page.locator("td:text-is('ПК-1')")).to_be_visible()
@@ -87,3 +87,28 @@ def test_results_keep_selected_group_after_student_card(admin_page: Page):
     page.click("text=← Результаты группы")
     expect(page.locator("h1")).to_have_text("Результаты группы")
     expect(group.locator("option:checked")).to_have_text("ПИ-22")
+
+
+def test_two_plans_of_one_code_have_their_own_data(admin_page: Page):
+    page = admin_page
+    plans = [
+        page.request.post(
+            "/directions",
+            data={"code": "11.03.02", "name": "Связь", "plan_year": year},
+            headers=JSON,
+        ).json()
+        for year in (2023, 2026)
+    ]
+    for plan, code in zip(plans, ("ПК-3", "ПК-6"), strict=True):
+        body = {"direction_id": plan["id"], "code": code, "kind": "ПК", "description": "к"}
+        assert page.request.post("/competencies", data=body, headers=JSON).ok
+    page.reload()
+    picker = page.locator("#direction").get_by_label("Учебный план")
+    open_section(page, "Подготовка", "Компетенции")
+
+    picker.select_option(label="11.03.02 Связь, 2023")
+    expect(page.locator("td:text-is('ПК-3')")).to_be_visible()
+    expect(page.locator("td:text-is('ПК-6')")).to_have_count(0)
+    picker.select_option(label="11.03.02 Связь, 2026")
+    expect(page.locator("td:text-is('ПК-6')")).to_be_visible()
+    expect(page.locator("td:text-is('ПК-3')")).to_have_count(0)

@@ -150,7 +150,7 @@ def collect(session: Session, group_id: int, test_id: int) -> DiagnosticReport:
     return DiagnosticReport(
         group=group.name,
         course=course,
-        program=f"{direction.code} {direction.name}",
+        program=direction.label,
         dates=dates,
         competencies=[f"{c.code} {c.description}" for c in competencies],
         labor_functions=[

@@ -23,7 +23,7 @@ def _directions_and_semesters(session: Session, discipline_ids: list[int]) -> tu
         .where(models.Discipline.id.in_(discipline_ids))
         .options(selectinload(models.Discipline.direction))
     ).all()
-    directions = sorted({f"{d.direction.code} {d.direction.name}" for d in disciplines})
+    directions = sorted({d.direction.label for d in disciplines})
     semesters = sorted(
         set(
             session.scalars(

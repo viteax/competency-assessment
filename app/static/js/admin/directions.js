@@ -1,12 +1,11 @@
-// Направление кабинета администратора: компетенции, дисциплины, учебный план, группы, банк
-// вопросов и тесты у каждого направления свои. Выбранное в шапке направление запоминается
-// в браузере.
+// Учебный план кабинета администратора: компетенции, дисциплины, семестры, группы, банк
+// вопросов и тесты у каждого плана свои. Выбранный в шапке план запоминается в браузере.
 
 import { api, fill, h } from "../core.js";
 
 const KEY = "catalog-direction";
 
-export const directionLabel = (d) => `${d.code} ${d.name}`;
+export const directionLabel = (d) => d.label;
 
 export function currentDirection(directions) {
   let saved = null;
@@ -30,10 +29,10 @@ export function rememberDirection(id) {
 // «Направление: …» – выбор, если направлений несколько. onChange(direction) после выбора.
 export function directionPicker(directions, current, onChange) {
   if (directions.length < 2) {
-    return h("p", { class: "direction-bar" }, "Направление: ", h("strong", {}, directionLabel(current)));
+    return h("p", { class: "direction-bar" }, "Учебный план: ", h("strong", {}, directionLabel(current)));
   }
   const select = h("select", {
-    "aria-label": "Направление",
+    "aria-label": "Учебный план",
     onchange: () => {
       const chosen = directions.find((d) => d.id === Number(select.value));
       rememberDirection(chosen.id);
@@ -41,14 +40,14 @@ export function directionPicker(directions, current, onChange) {
     },
   }, directions.map((d) => h("option", { value: d.id }, directionLabel(d))));
   select.value = String(current.id);
-  return h("div", { class: "direction-bar" }, h("label", {}, "Направление"), select);
+  return h("div", { class: "direction-bar" }, h("label", {}, "Учебный план"), select);
 }
 
 // Направление выбирается один раз в шапке (панель ниже) и общее для всего кабинета.
 let bar = null; // элемент шапки, куда рисуется выбор направления
 let onSwitch = () => {};
 
-export const NO_DIRECTION = "Сначала добавьте направление подготовки в «Система → Направления» или загрузите учебный план в «Подготовка → Загрузить документ»: компетенции, дисциплины, группы и тесты привязаны к направлению.";
+export const NO_DIRECTION = "Сначала загрузите учебный план в «Подготовка → Загрузить документ» или добавьте его в «Система → Учебные планы»: компетенции, дисциплины, группы и тесты привязаны к плану.";
 
 export async function activeDirection() {
   return currentDirection(await api("/directions"));

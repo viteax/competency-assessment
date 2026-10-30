@@ -187,13 +187,24 @@ const byPlanOrder = (a, b) =>
 const NO_COMPETENCIES = "Компетенций пока нет: загрузите их во вкладке «Загрузить документ» или добавьте во вкладке «Компетенции».";
 
 export const CATALOGS = {
-  async "Направления"() {
+  async "Учебные планы"() {
     return crudSection({
       load: () => api("/directions"),
-      label: (r) => `${r.code} ${r.name}`,
-      removeWarning: "Вместе с ним удалятся его компетенции, дисциплины и учебный план. Направление с группами или вопросами в банке удалить нельзя.",
-      columns: [["Код", (r) => r.code], ["Название", (r) => r.name]],
-      fields: [{ name: "code", label: "Код" }, { name: "name", label: "Название" }],
+      label: (r) => r.label,
+      removeWarning: "Вместе с ним удалятся его компетенции, дисциплины и семестры. План с группами или вопросами в банке удалить нельзя.",
+      columns: [
+        ["Код", (r) => r.code],
+        ["Название", (r) => r.name],
+        ["Программа", (r) => r.profile || "–"],
+        ["Год плана", (r) => r.plan_year ?? "–"],
+        ["Годы набора", (r) => r.intake_years.join(", ") || "–"],
+      ],
+      fields: [
+        { name: "code", label: "Код" },
+        { name: "name", label: "Название" },
+        { name: "profile", label: "Программа (необязательно)", required: false },
+        { name: "plan_year", label: "Год плана (необязательно)", type: "number", min: 1990, max: 2100, required: false, placeholder: "например, 2025" },
+      ],
       toForm: (r) => r,
       create: (d) => api("/directions", { method: "POST", body: d }).then(refreshDirectionBar),
       update: (r, d) => api(`/directions/${r.id}`, { method: "PUT", body: d }).then(refreshDirectionBar),
@@ -204,7 +215,7 @@ export const CATALOGS = {
   async "Группы"(direction) {
     const directions = await api("/directions");
     const dirs = byId(directions);
-    // Направление из шапки – первым в списке, чтобы новая группа создавалась в нём.
+    // План из шапки – первым в списке, чтобы новая группа создавалась в нём.
     const options = [direction, ...directions.filter((d) => d.id !== direction.id)];
     return crudSection({
       load: () => api(`/groups?direction_id=${direction.id}`),
@@ -212,13 +223,13 @@ export const CATALOGS = {
       hint: "По году набора система сама считает текущий семестр группы – от него зависит, какие дисциплины попадут в тест на остаточные знания.",
       columns: [
         ["Группа", (r) => r.name],
-        ["Направление", (r) => { const d = dirs.get(r.direction_id); return d ? `${d.code} ${d.name}` : "–"; }],
+        ["Учебный план", (r) => dirs.get(r.direction_id)?.label || "–"],
         ["Год набора", (r) => r.start_year ?? "–"],
         ["Семестр сейчас", (r) => r.current_semester ?? "–"],
       ],
       fields: [
         { name: "name", label: "Название" },
-        { name: "direction_id", label: "Направление", type: "select", options: options.map((d) => [d.id, `${d.code} ${d.name}`]) },
+        { name: "direction_id", label: "Учебный план", type: "select", options: options.map((d) => [d.id, d.label]) },
         { name: "start_year", label: "Год набора (необязательно)", type: "number", min: 2000, max: 2100, required: false, placeholder: "например, 2024" },
       ],
       toForm: (r) => r,

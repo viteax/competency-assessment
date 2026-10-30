@@ -69,7 +69,7 @@ def entries_progress(
         }
     )
     result = []
-    for e in sorted(entries, key=lambda e: (e.discipline.name, e.direction.code)):
+    for e in sorted(entries, key=lambda e: (e.discipline.name, e.direction.label)):
         quotas = {q.competency_id: q.questions for q in e.quotas}
         rows = [
             schemas.QuotaProgress(
@@ -86,7 +86,7 @@ def entries_progress(
                 entry_id=e.id,
                 discipline_id=e.discipline_id,
                 discipline=e.discipline.name,
-                direction=f"{e.direction.code} {e.direction.name}",
+                direction=e.direction.label,
                 first_semester=e.first_semester,
                 last_semester=e.last_semester,
                 competencies=rows,

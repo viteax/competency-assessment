@@ -5,7 +5,7 @@ import { api, fill, h } from "../core.js";
 const PAGE = 100;
 
 const RESOURCES = {
-  competencies: "компетенция", curriculum: "строка учебного плана", directions: "направление",
+  competencies: "компетенция", curriculum: "строка учебного плана", directions: "учебный план",
   disciplines: "дисциплина", "general-functions": "ОТФ", groups: "группа", indicators: "индикатор",
   "labor-functions": "трудовая функция", questions: "вопрос", standards: "профстандарт",
   students: "студент", tests: "тест", users: "учётная запись",

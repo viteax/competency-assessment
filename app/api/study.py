@@ -18,7 +18,13 @@ def create_direction(data: schemas.DirectionIn, session: SessionDep):
 
 @router.get("/directions", response_model=list[schemas.DirectionOut])
 def list_directions(session: SessionDep):
-    return session.scalars(select(models.Direction).order_by(models.Direction.code)).all()
+    return session.scalars(
+        select(models.Direction).order_by(
+            models.Direction.code,
+            models.Direction.plan_year.desc().nulls_last(),
+            models.Direction.profile_key,
+        )
+    ).all()
 
 
 @router.put("/directions/{direction_id}", response_model=schemas.DirectionOut)
@@ -30,7 +36,7 @@ def update_direction(direction_id: int, data: schemas.DirectionIn, session: Sess
 @router.delete("/directions/{direction_id}", status_code=204)
 def delete_direction(direction_id: int, session: SessionDep):
     direction = get_or_404(session, models.Direction, direction_id)
-    delete_or_conflict(session, direction, "у направления есть группы, вопросы или тесты")
+    delete_or_conflict(session, direction, "у учебного плана есть группы, вопросы или тесты")
 
 
 @router.post("/groups", response_model=schemas.GroupOut, status_code=201)
