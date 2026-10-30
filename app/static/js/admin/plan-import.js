@@ -67,6 +67,18 @@ function standardList(standards) {
     )));
 }
 
+// Файл можно отнести к существующему плану с незаполненными полями: решает человек.
+function targetChoice(candidates, choice, onChoose) {
+  const name = "plan-target";
+  const radio = (value, text) => h("label", { class: "inline" },
+    h("input", { type: "radio", name, checked: choice === value, onchange: () => onChoose(value) }), text);
+  return h("fieldset", { class: "mt-s" },
+    h("legend", {}, "У этого кода уже есть подходящий учебный план. Что сделать с файлом?"),
+    candidates.map((c) => radio(c.id, `Дополнить «${c.label}»`)),
+    radio("new", "Создать новый учебный план"),
+  );
+}
+
 function resultCard(result) {
   const open = (tab) => async () => {
     const { prepPage } = await import("./pages.js"); // pages.js подключает этот модуль сам
@@ -75,13 +87,13 @@ function resultCard(result) {
   return h("div", { class: "card" },
     h("h2", {}, "Учебный план загружен"),
     h("ul", {},
-      result.created_direction ? h("li", {}, "Направление создано") : null,
+      result.created_direction ? h("li", {}, "Учебный план создан") : null,
       h("li", {}, `Компетенций: новых ${result.created_competencies}, обновлено формулировок ${result.updated_competencies}`),
       h("li", {}, `Дисциплин: новых ${result.created_disciplines}, изменено ${result.updated_disciplines}`),
       h("li", {}, `Профстандартов новых: ${result.created_standards}, ОТФ: ${result.created_general_functions}, ТФ: ${result.created_labor_functions}`),
       h("li", {}, `Новых связей ТФ ⇒ компетенции: ${result.linked_labor_functions}`),
     ),
-    h("p", { class: "muted" }, "Направление выбрано в шапке. Дальше: добавьте его группы с годом набора («Люди → Группы») и закрепите дисциплины за преподавателями («Учебный план и преподаватели»)."),
+    h("p", { class: "muted" }, "Учебный план выбран в шапке. Дальше: добавьте его группы с годом набора («Люди → Группы») и закрепите дисциплины за преподавателями («Учебный план и преподаватели»)."),
     h("div", { class: "row" },
       h("button", { onclick: open("Дисциплины") }, "Открыть дисциплины"),
       h("button", { onclick: open("Учебный план и преподаватели") }, "Открыть учебный план"),
@@ -100,15 +112,27 @@ export async function previewPlan(file, slot) {
     return form;
   };
 
-  function showPreview(p) {
+  // choice: id дополняемого плана, "new" или null, пока человек не выбрал.
+  function showPreview(p, candidates = p.candidates, choice = null) {
     const applyErr = errorBox();
     const overwrite = h("input", { type: "checkbox" });
     const d = p.direction;
     fill(slot, h("div", { class: "card" },
       h("h2", {}, `«${p.filename}»: учебный план ${d.code} ${d.name}`),
+      candidates.length
+        ? targetChoice(candidates, choice, async (value) => {
+            applyErr.clear();
+            try {
+              const merge = value === "new" ? {} : { merge_into: value };
+              showPreview(await api("/import/plan/preview", { method: "POST", multipart: formWith(merge) }), candidates, value);
+            } catch (e) {
+              applyErr.show(e);
+            }
+          })
+        : null,
       h("p", { class: "muted" },
-        [d.profile ? `Профиль: ${d.profile}. ` : "", d.year ? `Год начала подготовки: ${d.year}. ` : ""].join(""),
-        d.id ? "Направление уже есть – план дополнит его справочники." : "Направления еще нет – оно будет создано."),
+        [d.profile ? `Программа: ${d.profile}. ` : "", d.year ? `Год плана: ${d.year}. ` : ""].join(""),
+        d.id ? "Такой учебный план уже есть – файл дополнит его справочники." : "Будет создан новый учебный план."),
       summary(p),
       p.warnings.map((w) => h("p", { class: "error" }, w)),
       h("details", { class: "mt-s" }, h("summary", {}, `Компетенции (${p.competencies.length})`), h("div", { class: "table-wrap mt-s" }, competencyTable(p.competencies))),
@@ -120,12 +144,14 @@ export async function previewPlan(file, slot) {
       h("div", { class: "row mt-l" },
         h("button", {
           class: "primary",
+          disabled: candidates.length > 0 && choice === null,
           onclick: async (event) => {
             applyErr.clear();
             event.target.disabled = true;
+            const target = choice === "new" ? { create_new: true } : choice ? { merge_into: choice } : {};
             try {
-              const result = await api("/import/plan/apply", { method: "POST", multipart: formWith({ overwrite_descriptions: overwrite.checked }) });
-              rememberDirection(result.direction_id); // шапка переключается на загруженное направление
+              const result = await api("/import/plan/apply", { method: "POST", multipart: formWith({ overwrite_descriptions: overwrite.checked, ...target }) });
+              rememberDirection(result.direction_id); // шапка переключается на загруженный план
               await refreshDirectionBar();
               fill(slot, resultCard(result));
             } catch (e) {

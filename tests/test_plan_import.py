@@ -155,7 +155,8 @@ def test_plan_completes_existing_direction(admin: TestClient):
         },
     )
 
-    preview = upload(admin, "/import/plan/preview")
+    merge = {"merge_into": str(direction["id"])}
+    preview = upload(admin, "/import/plan/preview", **merge)
     assert preview["direction"]["name"] == "ИВТ (заведено вручную)"
     item = by_code(preview["competencies"])["УК-1"]
     assert (item["status"], item["existing_description"]) == ("update", "Старая")
@@ -165,7 +166,7 @@ def test_plan_completes_existing_direction(admin: TestClient):
         "+ ОПК-1",
     ]
 
-    result = upload(admin, "/import/plan/apply")
+    result = upload(admin, "/import/plan/apply", **merge)
     assert (result["created_direction"], result["updated_competencies"]) == (False, 0)
     assert result["updated_disciplines"] == 1
     query = {"direction_id": direction["id"]}
@@ -255,3 +256,112 @@ def test_xlsx_wording_ends_with_its_row(admin: TestClient):
 def test_plan_import_requires_admin(student: TestClient, path: str):
     response = student.post(path, files={"file": ("plan.xlsx", plan_xlsx(), XLSX)})
     assert response.status_code == 403
+
+
+# --- несколько учебных планов одного кода --------------------------------------------------
+
+CODE = "09.03.01"
+
+
+def _send(admin: TestClient, path: str, profile="Оптика", year="2023", **form):
+    return admin.post(
+        f"/import/plan/{path}",
+        files={"file": ("plan.xlsx", plan_xlsx(profile, year), XLSX)},
+        data=form,
+    )
+
+
+def _plans(admin: TestClient) -> list[dict]:
+    return [d for d in admin.get("/directions").json() if d["code"] == CODE]
+
+
+def _empty_plan(admin: TestClient, **fields) -> int:
+    body = {"code": CODE, "name": "ИВТ", **fields}
+    return admin.post("/directions", json=body).json()["id"]
+
+
+def test_same_plan_is_updated(admin: TestClient):
+    assert _send(admin, "apply").json()["created_direction"] is True
+    assert _send(admin, "apply").json()["created_direction"] is False
+    assert len(_plans(admin)) == 1
+    assert _plans(admin)[0]["profile"] == "Оптика"
+    assert _plans(admin)[0]["plan_year"] == 2023
+
+
+def test_other_spelling_of_program_is_the_same_plan(admin: TestClient):
+    _send(admin, "apply", profile="Оптика и связь")
+    _send(admin, "apply", profile=" «ОПТИКА  и связь» ")
+    assert len(_plans(admin)) == 1
+
+
+def test_other_year_is_a_new_plan_without_questions(admin: TestClient):
+    first = _send(admin, "apply", year="2023").json()["direction_id"]
+    assert _send(admin, "preview", year="2026").json()["candidates"] == []
+    second = _send(admin, "apply", year="2026").json()
+    assert second["created_direction"] is True
+    assert second["direction_id"] != first
+
+
+def test_other_program_is_a_new_plan_without_questions(admin: TestClient):
+    _send(admin, "apply", profile="Оптика")
+    assert _send(admin, "preview", profile="Квантовая").json()["candidates"] == []
+    assert _send(admin, "apply", profile="Квантовая").status_code == 200
+    assert len(_plans(admin)) == 2
+
+
+def test_plan_with_empty_fields_requires_a_choice(admin: TestClient):
+    plan = _empty_plan(admin)
+    candidates = _send(admin, "preview").json()["candidates"]
+    assert candidates == [{"id": plan, "label": f"{CODE} ИВТ"}]
+    refused = _send(admin, "apply")
+    assert refused.status_code == 400
+    assert "выберите" in refused.json()["detail"]
+    assert len(_plans(admin)) == 1
+
+
+def test_merge_fills_the_empty_fields(admin: TestClient):
+    plan = _empty_plan(admin)
+    result = _send(admin, "apply", merge_into=str(plan)).json()
+    assert result["direction_id"] == plan
+    assert result["created_direction"] is False
+    [found] = _plans(admin)
+    assert (found["profile"], found["plan_year"]) == ("Оптика", 2023)
+
+
+def test_merge_preview_compares_with_chosen_plan(admin: TestClient):
+    plan = _empty_plan(admin)
+    uk1 = {"direction_id": plan, "code": "УК-1", "kind": "УК", "description": "Иное"}
+    assert admin.post("/competencies", json=uk1).status_code == 201
+    preview = _send(admin, "preview", merge_into=str(plan)).json()
+    assert preview["direction"]["id"] == plan
+    statuses = {c["code"]: c["status"] for c in preview["competencies"]}
+    assert statuses["УК-1"] == "update"
+
+
+def test_create_new_keeps_the_empty_plan(admin: TestClient):
+    plan = _empty_plan(admin)
+    result = _send(admin, "apply", create_new="true").json()
+    assert result["created_direction"] is True
+    assert {p["id"] for p in _plans(admin)} == {plan, result["direction_id"]}
+    assert next(p for p in _plans(admin) if p["id"] == plan)["profile"] is None
+
+
+def test_merge_into_a_conflicting_plan_is_refused(admin: TestClient):
+    plan = _empty_plan(admin, profile="Другая")
+    refused = _send(admin, "apply", merge_into=str(plan))
+    assert refused.status_code == 400
+    assert next(p for p in _plans(admin) if p["id"] == plan)["profile"] == "Другая"
+
+
+def test_partial_match_is_a_candidate(admin: TestClient):
+    plan = _empty_plan(admin, profile="Оптика")
+    assert [c["id"] for c in _send(admin, "preview").json()["candidates"]] == [plan]
+
+
+def test_file_without_program_and_year_warns_and_loads(admin: TestClient):
+    preview = _send(admin, "preview", profile=None, year=None).json()
+    assert any("программ" in w for w in preview["warnings"])
+    assert any("год" in w for w in preview["warnings"])
+    assert _send(admin, "apply", profile=None, year=None).status_code == 200
+    [found] = _plans(admin)
+    assert (found["profile"], found["plan_year"]) == (None, None)

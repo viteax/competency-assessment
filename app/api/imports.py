@@ -41,23 +41,31 @@ def apply(data: schemas.ImportApply, session: SessionDep):
 
 
 @router.post("/plan/preview", response_model=schemas.PlanPreview)
-async def preview_plan(file: UploadFile, session: SessionDep):
+async def preview_plan(
+    file: UploadFile, session: SessionDep, merge_into: int | None = Form(default=None)
+):
     """Учебный план из «Планов» (.xlsx): что будет создано или дополнено – направление,
     компетенции, дисциплины с семестрами и статусом, профстандарты, ОТФ, ТФ и их связи с
     компетенциями. В БД ничего не пишет."""
     filename, data = await _read(file)
     files.file_kind(filename, data, (".xlsx",))
-    return plan_import.preview(session, filename, plan_import.parse(data))
+    return plan_import.preview(session, filename, plan_import.parse(data), merge_into)
 
 
 @router.post("/plan/apply", response_model=schemas.PlanResult)
 async def apply_plan(
-    file: UploadFile, session: SessionDep, overwrite_descriptions: bool = Form(default=False)
+    file: UploadFile,
+    session: SessionDep,
+    overwrite_descriptions: bool = Form(default=False),
+    merge_into: int | None = Form(default=None),
+    create_new: bool = Form(default=False),
 ):
     """Загружает тот же файл: создает недостающее и дополняет существующее, ничего не удаляет."""
     filename, data = await _read(file)
     files.file_kind(filename, data, (".xlsx",))
-    return plan_import.apply(session, plan_import.parse(data), overwrite_descriptions)
+    return plan_import.apply(
+        session, plan_import.parse(data), overwrite_descriptions, merge_into, create_new
+    )
 
 
 @router.post("/students/preview", response_model=schemas.StudentImportPreview)

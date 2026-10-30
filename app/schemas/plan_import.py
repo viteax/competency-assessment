@@ -17,6 +17,13 @@ class PlanDirection(BaseModel):
     id: int | None  # есть в базе – его id, нет – будет создано
 
 
+class PlanCandidate(BaseModel):
+    """Существующий план с незаполненными полями, который можно дополнить этим файлом."""
+
+    id: int
+    label: str
+
+
 class PlanCompetencyItem(BaseModel):
     code: str
     description: str
@@ -60,6 +67,7 @@ class PlanStandardItem(BaseModel):
 class PlanPreview(BaseModel):
     filename: str
     direction: PlanDirection
+    candidates: list[PlanCandidate]
     competencies: list[PlanCompetencyItem]
     disciplines: list[PlanDisciplineItem]
     standards: list[PlanStandardItem]
