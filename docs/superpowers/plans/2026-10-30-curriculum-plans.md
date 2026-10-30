@@ -44,10 +44,17 @@
 
 ```python
 def test_two_plans_same_code(admin):
-    a = admin.post("/directions", json={"code": "11.03.02", "name": "Связь", "profile": "Оптика", "plan_year": 2023})
-    b = admin.post("/directions", json={"code": "11.03.02", "name": "Связь", "profile": "Оптика", "plan_year": 2026})
+    a = admin.post(
+        "/directions",
+        json={"code": "11.03.02", "name": "Связь", "profile": "Оптика", "plan_year": 2023},
+    )
+    b = admin.post(
+        "/directions",
+        json={"code": "11.03.02", "name": "Связь", "profile": "Оптика", "plan_year": 2026},
+    )
     assert a.status_code == b.status_code == 201
     assert a.json()["label"] == "11.03.02 Связь, Оптика, 2023"
+
 
 def test_same_triple_conflicts_even_with_empty_fields(admin):
     body = {"code": "11.03.02", "name": "Связь"}
@@ -56,11 +63,15 @@ def test_same_triple_conflicts_even_with_empty_fields(admin):
     assert admin.post("/directions", json={**body, "profile": "опт"}).status_code == 201
     assert admin.post("/directions", json={**body, "profile": " ОПТ "}).status_code == 409
 
+
 def test_profile_key_ignores_spelling():
-    assert profile_key(" «Ёлки»  и Палки ") == profile_key('елки и палки')
+    assert profile_key(" «Ёлки»  и Палки ") == profile_key("елки и палки")
     assert profile_key(None) == ""
 
-def test_intake_years_from_groups(admin): ...  # группы 2025 и 2024 в плане → intake_years == [2024, 2025]
+
+def test_intake_years_from_groups(
+    admin,
+): ...  # группы 2025 и 2024 в плане → intake_years == [2024, 2025]
 ```
 
 Тест миграции: вставить две записи направления на предыдущей ревизии, `upgrade` – поля пустые, данные и `id` на месте; после создания второго плана с тем же кодом `downgrade` падает с ошибкой, в которой есть код направления, и строки не удалены.
@@ -97,17 +108,25 @@ Expected: PASS, новых изменений схемы нет. Если `check
 
 ```python
 # upload(admin, profile, year, **form) – загрузка образца; preview(admin, profile, year) – предпросмотр
-def test_same_triple_updates(admin): ...       # второй раз – created_direction False, планов один
+def test_same_triple_updates(admin): ...  # второй раз – created_direction False, планов один
 def test_spelling_of_profile_no_duplicate(admin): ...  # «ОПТИКА » и «оптика» – один план
-def test_other_year_creates_plan_without_question(admin): ...  # 2023 и 2026: candidates пуст, два плана
+def test_other_year_creates_plan_without_question(
+    admin,
+): ...  # 2023 и 2026: candidates пуст, два плана
 def test_empty_plan_is_candidate(admin):
     admin.post("/directions", json={"code": CODE, "name": "X"})
     assert [c["id"] for c in preview(admin, "П", 2023)["candidates"]]
-    r = upload(admin, "П", 2023)            # ничего не выбрано
+    r = upload(admin, "П", 2023)  # ничего не выбрано
     assert r.status_code == 422 or r.status_code == 409
-def test_merge_into_fills_fields(admin): ...   # merge_into=id: у плана profile и plan_year из файла, id тот же
-def test_create_new_keeps_old(admin): ...      # create_new=true: два плана, старый пуст
-def test_file_without_year_warns(admin): ...   # warnings содержит «год», загрузка проходит, plan_year None
+
+
+def test_merge_into_fills_fields(
+    admin,
+): ...  # merge_into=id: у плана profile и plan_year из файла, id тот же
+def test_create_new_keeps_old(admin): ...  # create_new=true: два плана, старый пуст
+def test_file_without_year_warns(
+    admin,
+): ...  # warnings содержит «год», загрузка проходит, plan_year None
 def test_merge_into_conflicting_plan_rejected(admin): ...  # заполненные поля расходятся – ошибка
 ```
 
@@ -140,10 +159,18 @@ Run: `.venv\Scripts\python.exe -m pytest tests/test_plan_import.py -q`
 def test_move_group_without_assignments(admin): ...  # PUT с другим direction_id – 200
 def test_move_group_with_assignment_conflict(admin): ...  # 409, текст про назначенные тесты
 def test_rename_group_with_assignment_ok(admin): ...  # direction_id тот же – 200
-def test_student_import_new_group_goes_to_selected_plan(admin): ...  # два плана кода, программа в файле совпадает с кодом – группа в выбранном
-def test_fund_prefers_selected_plan(admin): ...  # два плана кода, direction_id=второй – вопросы в нём
-def test_fund_ambiguous_without_match(admin): ...  # выбран план другого кода, с кодом документа два плана – ошибка «выберите план в шапке»
-def test_fund_other_code_single_plan_warns(admin): ...  # единственный план с кодом документа – берётся он, warnings и target_label
+def test_student_import_new_group_goes_to_selected_plan(
+    admin,
+): ...  # два плана кода, программа в файле совпадает с кодом – группа в выбранном
+def test_fund_prefers_selected_plan(
+    admin,
+): ...  # два плана кода, direction_id=второй – вопросы в нём
+def test_fund_ambiguous_without_match(
+    admin,
+): ...  # выбран план другого кода, с кодом документа два плана – ошибка «выберите план в шапке»
+def test_fund_other_code_single_plan_warns(
+    admin,
+): ...  # единственный план с кодом документа – берётся он, warnings и target_label
 ```
 
 - [ ] **Step 2: Запустить, убедиться, что падают**
@@ -168,8 +195,12 @@ def test_fund_other_code_single_plan_warns(admin): ...  # единственны
 - [ ] **Step 1: Тесты**
 
 ```python
-def test_report_and_word_show_plan_label(admin): ...  # у плана profile и plan_year: в шапке Word и заголовке отчёта есть программа и год
-def test_teacher_sees_plan_label(admin, teacher): ...  # в /teacher/disciplines поле direction содержит год
+def test_report_and_word_show_plan_label(
+    admin,
+): ...  # у плана profile и plan_year: в шапке Word и заголовке отчёта есть программа и год
+def test_teacher_sees_plan_label(
+    admin, teacher
+): ...  # в /teacher/disciplines поле direction содержит год
 ```
 
 E2E: загрузить два плана с одним кодом, переключить в шапке, убедиться, что список дисциплин разный. Обновить тексты e2e, где ищется «Направление».
@@ -231,12 +262,19 @@ def test_student_login_not_affected(...): ...  # вход студента по 
 
 ```python
 def test_bulk_creates_with_passwords(admin):
-    r = admin.post("/users/teachers", json={"full_names": ["Иванов Иван Иванович", "", "  Петров   Пётр "]}).json()
+    r = admin.post(
+        "/users/teachers", json={"full_names": ["Иванов Иван Иванович", "", "  Петров   Пётр "]}
+    ).json()
     assert [t["username"] for t in r["created"]] == ["Иванов И.И.", "Петров П."]
     assert all(t["password"] for t in r["created"])
 
-def test_bulk_skips_duplicates_and_keeps_rest(admin): ...  # повтор в списке и уже существующий – в skipped с причиной, новые создаются
-def test_bulk_namesakes_get_number(admin): ...  # «Иванов Иван Ильич» и «Иванов Игорь Ильич» → «Иванов И.И.», «Иванов И.И.2»
+
+def test_bulk_skips_duplicates_and_keeps_rest(
+    admin,
+): ...  # повтор в списке и уже существующий – в skipped с причиной, новые создаются
+def test_bulk_namesakes_get_number(
+    admin,
+): ...  # «Иванов Иван Ильич» и «Иванов Игорь Ильич» → «Иванов И.И.», «Иванов И.И.2»
 def test_bulk_forces_password_change(admin): ...  # must_change_password True
 def test_bulk_requires_admin(client, teacher): ...  # 403
 def test_bulk_short_name_skipped(admin): ...  # логин короче 3 символов – в skipped
