@@ -423,9 +423,7 @@ def _chosen_plan(
     return chosen
 
 
-def _existing(
-    session: Session, plan: ParsedPlan, direction: models.Direction | None
-) -> _Existing:
+def _existing(session: Session, plan: ParsedPlan, direction: models.Direction | None) -> _Existing:
     competencies, disciplines, entries = {}, {}, {}
     if direction is not None:
         competencies = {

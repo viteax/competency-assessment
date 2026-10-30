@@ -33,7 +33,7 @@ function documentPreview(d) {
     h("p", { class: "mt-0" },
       h("strong", {}, d.discipline || "дисциплина не указана"),
       d.discipline && !d.error ? (d.discipline_exists ? " – есть в справочниках" : " – будет добавлена в справочники") : "",
-      h("span", { class: "muted" }, ` · ${d.direction || "направление не указано"}${d.semester ? ` · ${d.semester} семестр` : ""}`)),
+      h("span", { class: "muted" }, ` · ${d.target_label || d.direction || "учебный план не указан"}${d.semester ? ` · ${d.semester} семестр` : ""}`)),
     d.error ? h("p", { class: "error" }, d.error) : null,
     d.competencies.length
       ? h("p", { class: "small" }, "Компетенции: ", d.competencies.map((c, i) => [i ? ", " : "", c.code, c.exists ? "" : " (будет добавлена)"]))
@@ -46,7 +46,7 @@ function documentPreview(d) {
   );
 }
 
-// options: directionId (администратор – направление банка), disciplineId (преподаватель –
+// options: directionId (администратор – учебный план банка), disciplineId (преподаватель –
 // его дисциплина), onDone() – после сохранения, onCancel() – закрыть.
 export function fundImportCard({ directionId = null, disciplineId = null, onDone, onCancel }) {
   const err = errorBox();
@@ -79,7 +79,7 @@ export function fundImportCard({ directionId = null, disciplineId = null, onDone
                 `Добавлено вопросов: ${r.created_questions}. Уже были в банке: ${r.duplicates}. Пропущено (не разобраны): ${r.errors}.`,
                 r.created_disciplines ? ` Добавлено дисциплин: ${r.created_disciplines}.` : "",
                 r.created_competencies ? ` Добавлено компетенций: ${r.created_competencies}.` : "",
-                r.directions.length ? ` Направление: ${r.directions.join(", ")} – выберите его вверху страницы, чтобы увидеть вопросы.` : ""));
+                r.directions.length ? ` Учебный план: ${r.directions.join(", ")} – выберите его вверху страницы, чтобы увидеть вопросы.` : ""));
               await onDone?.();
             } catch (e) {
               applyErr.show(e);

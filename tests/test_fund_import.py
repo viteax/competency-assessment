@@ -124,7 +124,7 @@ def test_new_discipline_and_competency_from_fund(admin: TestClient):
         "errors": 1,
         "created_disciplines": 1,
         "created_competencies": 1,
-        "directions": ["09.03.04"],
+        "directions": ["09.03.04 Программная инженерия"],
     }
     disc = discipline_id(admin, "Архитектура ПО")
     codes = {c["id"]: c["code"] for c in admin.get("/competencies").json()}
@@ -168,7 +168,7 @@ def test_archive_with_several_documents(admin: TestClient):
 def test_document_of_unknown_direction(admin: TestClient):
     data = fund_docx(direction="15.04.06 Мехатроника и робототехника")
     (doc,) = upload(admin, "/questions/import/preview", data).json()["documents"]
-    assert doc["error"].startswith("направление 15.04.06 не найдено")
+    assert doc["error"].startswith("учебный план 15.04.06 не найден")
     assert {q["status"] for q in doc["questions"]} == {"error"}
     result = upload(admin, "/questions/import/apply", data).json()
     assert (result["created_questions"], result["errors"]) == (0, 5)
@@ -254,3 +254,50 @@ def test_same_wording_with_other_answers_is_not_a_duplicate(admin: TestClient):
         "duplicate",
         "error",
     ]
+
+
+# --- несколько учебных планов одного кода --------------------------------------------------
+
+
+def _second_plan(admin: TestClient, code: str = "09.03.04", year: int = 2026) -> dict:
+    body = {"code": code, "name": "Программная инженерия", "plan_year": year}
+    response = admin.post("/directions", json=body)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_selected_plan_wins_among_plans_of_the_code(admin: TestClient):
+    plan = _second_plan(admin)
+    form = {"direction_id": str(plan["id"])}
+    (doc,) = upload(admin, "/questions/import/preview", fund_docx(), **form).json()["documents"]
+    assert doc["direction_id"] == plan["id"]
+    assert doc["target_label"] == plan["label"]
+    assert not any("выбран" in w for w in doc["warnings"])
+    result = upload(admin, "/questions/import/apply", fund_docx(), **form).json()
+    assert result["directions"] == [plan["label"]]
+
+
+def test_several_plans_without_matching_selection_is_an_error(admin: TestClient):
+    _second_plan(admin)
+    other = admin.post("/directions", json={"code": "27.03.04", "name": "УТС"}).json()
+    form = {"direction_id": str(other["id"])}
+    (doc,) = upload(admin, "/questions/import/preview", fund_docx(), **form).json()["documents"]
+    assert "выберите" in doc["error"]
+    assert doc["target_label"] is None
+    result = upload(admin, "/questions/import/apply", fund_docx(), **form).json()
+    assert result["created_questions"] == 0
+
+
+def test_several_plans_without_selection_is_an_error(admin: TestClient):
+    _second_plan(admin)
+    (doc,) = upload(admin, "/questions/import/preview", fund_docx()).json()["documents"]
+    assert "выберите" in doc["error"]
+
+
+def test_other_code_with_single_plan_warns(admin: TestClient):
+    other = admin.post("/directions", json={"code": "27.03.04", "name": "УТС"}).json()
+    form = {"direction_id": str(other["id"])}
+    (doc,) = upload(admin, "/questions/import/preview", fund_docx(), **form).json()["documents"]
+    assert doc["error"] is None
+    assert doc["target_label"].startswith("09.03.04")
+    assert any("не совпадает" in w for w in doc["warnings"])

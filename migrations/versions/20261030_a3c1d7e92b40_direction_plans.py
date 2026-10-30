@@ -28,7 +28,9 @@ SQLITE_NAMES = {"uq": "uq_%(table_name)s_%(column_0_name)s"}
 
 def _code_unique() -> str:
     """Имя безымянного ограничения первой миграции зависит от базы."""
-    return "direction_code_key" if op.get_bind().dialect.name == "postgresql" else "uq_direction_code"
+    return (
+        "direction_code_key" if op.get_bind().dialect.name == "postgresql" else "uq_direction_code"
+    )
 
 
 def upgrade() -> None:

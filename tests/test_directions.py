@@ -217,3 +217,30 @@ def test_intake_years_come_from_groups(admin: TestClient):
         assert admin.post("/groups", json=body).status_code == 201
     found = next(d for d in admin.get("/directions").json() if d["id"] == plan["id"])
     assert found["intake_years"] == [2024, 2025]
+
+
+# --- перевод группы на другой план ---------------------------------------------------------
+
+
+def test_move_group_without_assignments(admin: TestClient):
+    plan = _plan(admin).json()
+    group = next(g for g in admin.get("/groups").json() if g["name"] == "ПИ-21")
+    moved = admin.put(f"/groups/{group['id']}", json={**group, "direction_id": plan["id"]})
+    assert moved.status_code == 200, moved.text
+    assert moved.json()["direction_id"] == plan["id"]
+
+
+def test_move_group_with_assignment_is_refused(admin: TestClient):
+    group = assign(admin, ["ПК-1"])["group"]
+    plan = _plan(admin).json()
+    moved = admin.put(f"/groups/{group['id']}", json={**group, "direction_id": plan["id"]})
+    assert moved.status_code == 409
+    assert "назначены тесты" in moved.json()["detail"]
+    found = next(g for g in admin.get("/groups").json() if g["id"] == group["id"])
+    assert found["direction_id"] == group["direction_id"]
+
+
+def test_rename_group_with_assignment_still_works(admin: TestClient):
+    group = assign(admin, ["ПК-1"])["group"]
+    renamed = admin.put(f"/groups/{group['id']}", json={**group, "start_year": 2021})
+    assert renamed.status_code == 200, renamed.text

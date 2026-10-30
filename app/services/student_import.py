@@ -111,18 +111,21 @@ def _update_student(
 
 
 def direction_for_program(
-    program: str | None, directions: list[models.Direction]
+    program: str | None, directions: list[models.Direction], selected: models.Direction | None
 ) -> models.Direction | None:
-    """Направление по колонке «Образовательная программа»: по коду (09.03.04) или по
-    названию («Программная инженерия»)."""
+    """Учебный план по колонке «Образовательная программа»: по коду (09.03.04) или по
+    названию («Программная инженерия»). У кода может быть несколько планов: выбранный в приоритете,
+    из нескольких других план не угадываем."""
     if not program:
         return None
     code = re.search(r"\d{2}\.\d{2}\.\d{2}", program)
-    for d in directions:
-        if code and d.code == code.group(0):
-            return d
     text = program.casefold()
-    return next((d for d in directions if d.name.casefold() in text), None)
+    matches = [d for d in directions if code and d.code == code.group(0)] or [
+        d for d in directions if d.name.casefold() in text
+    ]
+    if selected in matches:
+        return selected
+    return matches[0] if len(matches) == 1 else None
 
 
 def apply(session: Session, data: schemas.StudentImportApply) -> schemas.StudentImportResult:
@@ -148,10 +151,10 @@ def apply(session: Session, data: schemas.StudentImportApply) -> schemas.Student
                 )
             return default_group
         if row.group not in groups:
-            target = direction_for_program(row.program, directions) or direction
+            target = direction_for_program(row.program, directions, direction) or direction
             if target is None:
                 raise DomainError(
-                    f"группы «{row.group}» нет – выберите направление для новых групп"
+                    f"группы «{row.group}» нет – выберите учебный план для новых групп"
                 )
             groups[row.group] = models.Group(name=row.group, direction=target)
             session.add(groups[row.group])

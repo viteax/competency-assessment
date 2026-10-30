@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app import models, schemas
 from app.api.deps import SessionDep, require_admin
-from app.services import students
+from app.services import catalogs, students
 from app.services.common import delete_or_conflict, get_or_404, save, update_fields
 
 router = APIRouter(tags=["Учебная часть"], dependencies=[Depends(require_admin)])
@@ -51,6 +51,7 @@ def list_groups(session: SessionDep, direction_id: int | None = None):
 def update_group(group_id: int, data: schemas.GroupIn, session: SessionDep):
     group = get_or_404(session, models.Group, group_id)
     get_or_404(session, models.Direction, data.direction_id)
+    catalogs.ensure_group_can_move(session, group, data.direction_id)
     return update_fields(session, group, data)
 
 

@@ -236,7 +236,7 @@ def test_unsupported_and_validation(admin: TestClient, student: TestClient):
     new_group = admin.post(
         "/import/students/apply", json={"students": [{"full_name": "Тест", "group": "НОВАЯ-1"}]}
     )
-    assert new_group.status_code == 400 and "направление" in new_group.json()["detail"]
+    assert new_group.status_code == 400 and "учебный план" in new_group.json()["detail"]
     forbidden = student.post("/import/students/apply", json={"students": [{"full_name": "x"}]})
     assert forbidden.status_code == 403
 
@@ -267,3 +267,19 @@ def test_program_column_sets_direction_of_new_groups(admin: TestClient):
     directions = {d["code"]: d["id"] for d in admin.get("/directions").json()}
     assert groups["УТС-24"] == directions["27.03.04"]
     assert groups["ПИ-24"] == directions["09.03.04"]
+
+
+def test_new_group_goes_to_selected_plan_of_the_code(admin: TestClient):
+    """У кода два плана: группа идёт в выбранный, а не в первый найденный по коду."""
+    first = admin.get("/directions").json()[0]
+    second = admin.post(
+        "/directions", json={"code": first["code"], "name": first["name"], "plan_year": 2026}
+    ).json()
+    rows = [{"full_name": "Орлов Олег Олегович", "group": "ПИ-26", "program": first["code"]}]
+    result = admin.post(
+        "/import/students/apply",
+        json={"students": rows, "create_accounts": False, "direction_id": second["id"]},
+    )
+    assert result.status_code == 200, result.text
+    groups = {g["name"]: g["direction_id"] for g in admin.get("/groups").json()}
+    assert groups["ПИ-26"] == second["id"]

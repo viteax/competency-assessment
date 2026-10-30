@@ -13,6 +13,20 @@ from app.errors import Conflict, DomainError
 from app.services.common import code_key, get_many_or_404, get_or_404, save
 
 
+def ensure_group_can_move(session: Session, group: models.Group, direction_id: int) -> None:
+    """Назначения и попытки ссылаются на вопросы плана, поэтому группа с тестами остаётся в нём."""
+    if group.direction_id == direction_id:
+        return
+    assigned = session.scalar(
+        select(models.Assignment.id).where(models.Assignment.group_id == group.id).limit(1)
+    )
+    if assigned is not None:
+        raise Conflict(
+            f"группе {group.name} уже назначены тесты: они ссылаются на вопросы её учебного "
+            "плана. Перевести такую группу на другой план нельзя"
+        )
+
+
 def competencies_of(session: Session, direction_id: int, ids: list[int]) -> list[models.Competency]:
     """Компетенции по id; все должны относиться к направлению direction_id."""
     competencies = get_many_or_404(session, models.Competency, ids)

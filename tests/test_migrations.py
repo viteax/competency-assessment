@@ -143,13 +143,24 @@ def test_directions_become_plans_without_changes(tmp_path):
     with engine.begin() as connection:
         config.attributes["connection"] = connection
         command.upgrade(config, PLANS_BASE)
-        connection.exec_driver_sql("INSERT INTO direction (id, code, name) VALUES (7, '15.04.06', 'М')")
+        connection.exec_driver_sql(
+            "INSERT INTO direction (id, code, name) VALUES (7, '15.04.06', 'М')"
+        )
         command.upgrade(config, "head")
         sql = connection.exec_driver_sql
-        assert sql("SELECT id, code, name, profile, plan_year, profile_key FROM direction").one() == (
-            7, "15.04.06", "М", None, None, "",
+        assert sql(
+            "SELECT id, code, name, profile, plan_year, profile_key FROM direction"
+        ).one() == (
+            7,
+            "15.04.06",
+            "М",
+            None,
+            None,
+            "",
         )
-        sql("INSERT INTO direction (code, name, profile_key, plan_year) VALUES ('15.04.06', 'М', '', 2026)")
+        sql(
+            "INSERT INTO direction (code, name, profile_key, plan_year) VALUES ('15.04.06', 'М', '', 2026)"
+        )
         with pytest.raises(IntegrityError):
             sql("INSERT INTO direction (code, name, profile_key) VALUES ('15.04.06', 'Д', '')")
 
