@@ -179,3 +179,37 @@ def test_downgrade_refuses_when_code_has_several_plans(tmp_path):
         with pytest.raises(RuntimeError, match="11.03.02"):
             command.downgrade(config, PLANS_BASE)
         assert connection.exec_driver_sql("SELECT COUNT(*) FROM direction").scalar() == 2
+
+
+def test_digit_teacher_logins_become_names(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'm.db'}")
+    config = Config(str(ALEMBIC_INI))
+    with engine.begin() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, "a3c1d7e92b40")
+        people = [
+            (1, "111", "teacher", "Ханкишиева Наиля Рамизовна"),
+            (2, "666", "teacher", "Ботаева Лариса Борисовна"),
+            (3, "999", "teacher", "Ботаева Лариса Борисовна"),
+            (4, "teacher", "teacher", "Тестов Тест"),
+            (5, "1", "admin", "Админов Админ"),
+            (6, "222", "teacher", None),
+        ]
+        for user_id, username, role, full_name in people:
+            connection.exec_driver_sql(
+                "INSERT INTO app_user (id, username, password_hash, role, full_name) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (user_id, username, f"hash{user_id}", role, full_name),
+            )
+        command.upgrade(config, "head")
+        rows = connection.exec_driver_sql(
+            "SELECT username, password_hash FROM app_user ORDER BY id"
+        ).all()
+    assert rows == [
+        ("Ханкишиева Н.Р.", "hash1"),
+        ("Ботаева Л.Б.", "hash2"),
+        ("Ботаева Л.Б.2", "hash3"),
+        ("teacher", "hash4"),
+        ("1", "hash5"),
+        ("222", "hash6"),
+    ]
