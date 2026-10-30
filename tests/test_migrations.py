@@ -2,11 +2,13 @@
 
 from pathlib import Path
 
+import pytest
 from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from sqlalchemy import create_engine, inspect
+from sqlalchemy.exc import IntegrityError
 
 from app.db import Base
 
@@ -130,3 +132,38 @@ def test_catalogs_without_direction_get_a_placeholder(tmp_path):
         "SELECT d.code FROM competency c JOIN direction d ON d.id = c.direction_id"
     ).one() == ("00.00.00",)
     connection.close()
+
+
+PLANS_BASE = "fdfafee8b950"
+
+
+def test_directions_become_plans_without_changes(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'm.db'}")
+    config = Config(str(ALEMBIC_INI))
+    with engine.begin() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, PLANS_BASE)
+        connection.exec_driver_sql("INSERT INTO direction (id, code, name) VALUES (7, '15.04.06', 'М')")
+        command.upgrade(config, "head")
+        sql = connection.exec_driver_sql
+        assert sql("SELECT id, code, name, profile, plan_year, profile_key FROM direction").one() == (
+            7, "15.04.06", "М", None, None, "",
+        )
+        sql("INSERT INTO direction (code, name, profile_key, plan_year) VALUES ('15.04.06', 'М', '', 2026)")
+        with pytest.raises(IntegrityError):
+            sql("INSERT INTO direction (code, name, profile_key) VALUES ('15.04.06', 'Д', '')")
+
+
+def test_downgrade_refuses_when_code_has_several_plans(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'm.db'}")
+    config = Config(str(ALEMBIC_INI))
+    with engine.begin() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, "head")
+        connection.exec_driver_sql(
+            "INSERT INTO direction (code, name, profile_key, plan_year) VALUES "
+            "('11.03.02', 'С', '', 2023), ('11.03.02', 'С', '', 2026)"
+        )
+        with pytest.raises(RuntimeError, match="11.03.02"):
+            command.downgrade(config, PLANS_BASE)
+        assert connection.exec_driver_sql("SELECT COUNT(*) FROM direction").scalar() == 2

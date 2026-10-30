@@ -4,6 +4,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.models import profile_key
 from tests.helpers import assign, by_code, demo_direction, discipline_id, student_id
 
 
@@ -170,3 +171,49 @@ def test_direction_is_deleted_with_its_catalogs_unless_used(admin: TestClient, o
     # Демо-направление не удалить: у него группы и вопросы.
     blocked = admin.delete(f"/directions/{demo_direction(admin)}")
     assert blocked.status_code == 409
+
+
+# --- учебные планы: один код, разные программы и годы ------------------------------------
+
+
+def _plan(admin: TestClient, **fields):
+    return admin.post("/directions", json={"code": "11.03.02", "name": "Связь", **fields})
+
+
+def test_two_plans_of_one_code(admin: TestClient):
+    first = _plan(admin, profile="Оптика", plan_year=2023)
+    second = _plan(admin, profile="Оптика", plan_year=2026)
+    assert first.status_code == second.status_code == 201
+    assert first.json()["label"] == "11.03.02 Связь, Оптика, 2023"
+    assert second.json()["id"] != first.json()["id"]
+
+
+def test_label_omits_empty_parts(admin: TestClient):
+    assert _plan(admin).json()["label"] == "11.03.02 Связь"
+    assert _plan(admin, plan_year=2024).json()["label"] == "11.03.02 Связь, 2024"
+
+
+def test_same_plan_conflicts_with_empty_fields_too(admin: TestClient):
+    assert _plan(admin).status_code == 201
+    assert _plan(admin).status_code == 409
+    assert _plan(admin, profile="Оптика").status_code == 201
+    assert _plan(admin, profile=" ОПТИКА ").status_code == 409
+
+
+def test_blank_profile_is_no_profile(admin: TestClient):
+    assert _plan(admin).status_code == 201
+    assert _plan(admin, profile="   ").status_code == 409
+
+
+def test_profile_key_ignores_spelling():
+    assert profile_key(" «Ёлки»  и Палки ") == profile_key('елки и "палки"')
+    assert profile_key(None) == ""
+
+
+def test_intake_years_come_from_groups(admin: TestClient):
+    plan = _plan(admin).json()
+    for name, year in (("А-1", 2025), ("А-2", 2024), ("А-3", 2025), ("А-4", None)):
+        body = {"name": name, "direction_id": plan["id"], "start_year": year}
+        assert admin.post("/groups", json=body).status_code == 201
+    found = next(d for d in admin.get("/directions").json() if d["id"] == plan["id"])
+    assert found["intake_years"] == [2024, 2025]
