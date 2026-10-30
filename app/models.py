@@ -105,8 +105,8 @@ labor_function_competency = Table(
 
 
 def profile_key(profile: str | None) -> str:
-    """Программа для сравнения: без регистра, кавычек, лишних пробелов и разницы «ё/е»."""
-    cleaned = re.sub(r"[\"'«»„“”]", "", (profile or "").casefold().replace("ё", "е"))
+    """Программа для сравнения: без регистра, знаков препинания, лишних пробелов и разницы «ё/е»."""
+    cleaned = re.sub(r"[^\w\s]", "", (profile or "").casefold().replace("ё", "е"))
     return " ".join(cleaned.split())
 
 

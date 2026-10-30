@@ -51,7 +51,7 @@ def test_plan_import(admin_page: Page):
 
     # Дисциплины открываются по загруженному направлению, в порядке плана, со статусом.
     page.click("text=Открыть дисциплины")
-    chosen = page.get_by_label("Учебный план").locator("option:checked")
+    chosen = page.locator("#direction").get_by_label("Учебный план").locator("option:checked")
     expect(chosen).to_have_text(
         "09.03.01 Информатика и вычислительная техника, "
         "Программное обеспечение робототехнических систем, 2023"
@@ -108,7 +108,7 @@ def test_plan_import_asks_about_plan_with_empty_fields(admin_page: Page):
     upload(page, "plan.plx.xlsx", plan_xlsx(), "application/octet-stream")
     save = page.locator("button:text-is('Загрузить учебный план')")
     expect(save).to_be_disabled()
-    page.get_by_label("Создать новый учебный план").check()
+    page.get_by_label("Создать новый учебный план").click()  # карточка перерисовывается
     expect(save).to_be_enabled()
     expect(page.get_by_label("Создать новый учебный план")).to_be_checked()
     save.click()

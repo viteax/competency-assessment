@@ -13,6 +13,7 @@ router = APIRouter(tags=["Учебная часть"], dependencies=[Depends(req
 
 @router.post("/directions", response_model=schemas.DirectionOut, status_code=201)
 def create_direction(data: schemas.DirectionIn, session: SessionDep):
+    catalogs.ensure_plan_is_free(session, data)
     return save(session, models.Direction(**data.model_dump()))
 
 
@@ -30,6 +31,7 @@ def list_directions(session: SessionDep):
 @router.put("/directions/{direction_id}", response_model=schemas.DirectionOut)
 def update_direction(direction_id: int, data: schemas.DirectionIn, session: SessionDep):
     direction = get_or_404(session, models.Direction, direction_id)
+    catalogs.ensure_plan_is_free(session, data, direction.id)
     return update_fields(session, direction, data)
 
 

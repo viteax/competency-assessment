@@ -245,3 +245,25 @@ def test_rename_group_with_assignment_still_works(admin: TestClient):
     group = assign(admin, ["ПК-1"])["group"]
     renamed = admin.put(f"/groups/{group['id']}", json={**group, "start_year": 2021})
     assert renamed.status_code == 200, renamed.text
+
+
+def test_duplicate_plan_message_names_the_plan(admin: TestClient):
+    _plan(admin, plan_year=2023)
+    other = _plan(admin, plan_year=2026).json()
+    created = _plan(admin, plan_year=2023)
+    assert created.status_code == 409
+    assert created.json()["detail"] == "учебный план «11.03.02 Связь, 2023» уже есть"
+    body = {"code": "11.03.02", "name": "Связь", "plan_year": 2023}
+    updated = admin.put(f"/directions/{other['id']}", json=body)
+    assert updated.status_code == 409
+    assert "11.03.02 Связь, 2023" in updated.json()["detail"]
+
+
+def test_saving_plan_without_changes_is_fine(admin: TestClient):
+    plan = _plan(admin, plan_year=2023).json()
+    body = {"code": "11.03.02", "name": "Связь (новое)", "plan_year": 2023}
+    assert admin.put(f"/directions/{plan['id']}", json=body).status_code == 200
+
+
+def test_profile_key_ignores_punctuation():
+    assert profile_key("Управление (по отраслям).") == profile_key("управление по отраслям")

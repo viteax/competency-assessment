@@ -13,6 +13,17 @@ from app.errors import Conflict, DomainError
 from app.services.common import code_key, get_many_or_404, get_or_404, save
 
 
+def ensure_plan_is_free(
+    session: Session, data: schemas.DirectionIn, plan_id: int | None = None
+) -> None:
+    """Понятная ошибка вместо нарушения индекса: код, программа и год определяют план."""
+    key = models.profile_key(data.profile)
+    plans = session.scalars(select(models.Direction).where(models.Direction.code == data.code))
+    for plan in plans:
+        if plan.id != plan_id and plan.profile_key == key and plan.plan_year == data.plan_year:
+            raise Conflict(f"учебный план «{plan.label}» уже есть")
+
+
 def ensure_group_can_move(session: Session, group: models.Group, direction_id: int) -> None:
     """Назначения и попытки ссылаются на вопросы плана, поэтому группа с тестами остаётся в нём."""
     if group.direction_id == direction_id:

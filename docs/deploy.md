@@ -356,6 +356,8 @@ Required reviewers – добавить себя и сохранить. Созд
 docker compose -f docker-compose.prod.yml exec db     psql -U competency -d competency -c "DELETE FROM login_failure WHERE username = 'Иванов Иван Иванович';"
 ```
 
+- У преподавателя запись одна на все написания логина: нижний регистр, без точек и пробелов,
+  «ё» заменена на «е». Для «Семёнов И.И.» – `WHERE username = 'семеновии'`.
 - Потолок регистраций с одного IP (по ключу `регистрация <IP>`):
   `DELETE FROM login_failure WHERE username LIKE 'регистрация %';`
 - Снять все паузы сразу: `DELETE FROM login_failure;`

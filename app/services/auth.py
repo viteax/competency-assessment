@@ -12,7 +12,12 @@ from app.config import settings
 from app.demo import demo_credentials
 from app.errors import Conflict, DomainError, TooManyRequests, Unauthorized
 from app.security import hash_password, verify_password
-from app.services.accounts import generate_password, teacher_login, unique_teacher_login
+from app.services.accounts import (
+    generate_password,
+    login_key,
+    teacher_login,
+    unique_teacher_login,
+)
 from app.services.common import name_key
 from app.services.common_passwords import is_common_password
 
@@ -90,8 +95,11 @@ def authenticate(
     # Студент входит по ФИО в любом написании (find_user), поэтому и неудачи считаем по
     # нормализованному ключу – иначе «Иванов Иван» и «иванов  иван» были бы разными счётчиками.
     key = " ".join(username.casefold().replace("ё", "е").split())[:64]
-    throttle(session, key, ip, trusted_device)
     user = find_user(session, username)
+    # У преподавателя написаний логина ещё больше: счётчик по ключу самой учётки.
+    if user is not None and user.role == models.Role.TEACHER:
+        key = login_key(user.username)[:64]
+    throttle(session, key, ip, trusted_device)
     if not verify_password(password, user.password_hash if user else _DUMMY_HASH) or user is None:
         record_failure(session, key, ip)
         raise Unauthorized("неверный логин или пароль")
@@ -106,11 +114,6 @@ def record_failure(session: Session, username: str, ip: str) -> None:
     horizon = models.utcnow() - timedelta(minutes=settings.login_window_minutes)
     session.execute(delete(models.LoginFailure).where(models.LoginFailure.created_at < horizon))
     session.commit()
-
-
-def login_key(login: str) -> str:
-    """Логин преподавателя для сравнения: без регистра, «ё/е», пробелов и точек."""
-    return login.casefold().replace("ё", "е").replace(".", "").replace(" ", "")
 
 
 def find_user(session: Session, login: str) -> models.User | None:
@@ -130,7 +133,8 @@ def find_user(session: Session, login: str) -> models.User | None:
     # Преподаватели входят по фамилии и инициалам: точки и пробелы в них пишут по-разному.
     key = login_key(login)
     teachers = session.scalars(select(models.User).where(models.User.role == models.Role.TEACHER))
-    return next((u for u in teachers if login_key(u.username) == key), None)
+    matches = [u for u in teachers if login_key(u.username) == key]
+    return matches[0] if len(matches) == 1 else None  # из нескольких не угадываем
 
 
 def ensure_new_staff_name(session: Session, full_name: str) -> None:

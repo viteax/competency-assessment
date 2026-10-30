@@ -3,6 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.config import settings
 from app.services.accounts import teacher_login
 from tests.helpers import by_code, discipline_id
 
@@ -313,3 +314,52 @@ def test_login_without_space_stays_exact(admin: TestClient, client: TestClient):
     [created] = _bulk(admin, "Новиков Олег")["created"]
     data = {"username": "новиковО", "password": created["password"]}
     assert client.post("/auth/token", data=data).status_code == 401
+
+
+def test_slowdown_ignores_spelling_of_teacher_login(admin: TestClient, client: TestClient):
+    """Варианты написания логина – один счётчик неудач, перебором написаний паузу не обойти."""
+    [created] = _bulk(admin, "Ханкишиева Наиля Рамизовна")["created"]
+    spellings = [
+        "ханкишиева нр",
+        "Ханкишиева Н.Р.",
+        "ханкишиева н. р.",
+        "ХАНКИШИЕВА Н Р",
+        "ханкишиева н.р",
+    ]
+    assert len(spellings) >= settings.login_slowdown_after
+    for spelling in spellings[: settings.login_slowdown_after]:
+        data = {"username": spelling, "password": "неверный-пароль"}
+        assert client.post("/auth/token", data=data).status_code == 401
+    data = {"username": "ханкишиева нр", "password": created["password"]}
+    assert client.post("/auth/token", data=data).status_code == 429
+
+
+def test_login_similar_to_existing_key_gets_a_number(admin: TestClient):
+    body = {
+        "username": "Иванов ИИ",
+        "password": "Temp-pass-4821",
+        "role": "teacher",
+        "full_name": "Иванов Иван Иннокентьевич",
+    }
+    assert admin.post("/users", json=body).status_code == 201
+    [created] = _bulk(admin, "Иванов Илья Ильич")["created"]
+    assert created["username"] == "Иванов И.И.2"
+
+
+def test_ambiguous_loose_login_finds_nobody(admin: TestClient, client: TestClient):
+    """Два логина с одним ключом (завели вручную): угадывать нельзя, точный ввод работает."""
+    for username, name in (
+        ("Иванов ИИ", "Иванов Иван Ильич"),
+        ("Иванов И.И", "Иванов Игорь Ильич"),
+    ):
+        body = {
+            "username": username,
+            "password": "Temp-pass-4821",
+            "role": "teacher",
+            "full_name": name,
+        }
+        assert admin.post("/users", json=body).status_code == 201
+    loose = {"username": "иванов и и", "password": "Temp-pass-4821"}
+    assert client.post("/auth/token", data=loose).status_code == 401
+    exact = {"username": "Иванов И.И", "password": "Temp-pass-4821"}
+    assert client.post("/auth/token", data=exact).status_code == 200
