@@ -1,6 +1,6 @@
 [project]
 name = "competency-assessment"
-version = "3.1.0"
+version = "3.2.0"
 description = "Тестирование студентов по компетенциям ФГОС (УК/ОПК/ПК) с привязкой к профстандарту"
 requires-python = ">=3.12"
 dependencies = [
