@@ -1,7 +1,5 @@
 """Преподаватель: кабинет с квотами, составление вопроса, ФОМ; админ закрепляет дисциплины."""
 
-import re
-
 import pytest
 from playwright.sync_api import Page, expect
 
@@ -44,11 +42,14 @@ def test_teacher_composes_questions(new_page):
 def test_admin_adds_teacher_and_assigns_discipline(admin_page: Page, new_page):
     page = admin_page
     open_section(page, "Люди", "Преподаватели")
-    page.get_by_label("ФИО преподавателя").fill("Лебедев Олег Игоревич")
-    page.get_by_label("Логин преподавателя").fill("lebedev")
+    page.get_by_label("ФИО преподавателей, по одному на строку").fill(
+        "Лебедев Олег Игоревич\nСоколова Анна Петровна"
+    )
     page.click("form >> button:text-is('Добавить')")
-    expect(page.locator(".notice")).to_contain_text("временный пароль")
-    temp = re.search(r"временный пароль (\S+)", page.inner_text(".notice")).group(1)
+    row = page.locator(".notice tr", has=page.locator("td:text-is('Лебедев Олег Игоревич')"))
+    expect(row).to_contain_text("Лебедев О.И.")
+    temp = row.locator("code").nth(1).inner_text()
+    expect(page.locator(".notice")).to_contain_text("Соколова А.П.")
 
     open_section(page, "Подготовка", "Учебный план и преподаватели")
     row = page.locator("tr", has=page.locator("td:text-is('Математика')"))
@@ -63,7 +64,7 @@ def test_admin_adds_teacher_and_assigns_discipline(admin_page: Page, new_page):
     expect(row).to_contain_text("УК-1: 20, ОПК-1: 4")
 
     teacher = new_page()
-    login(teacher, "lebedev", temp)
+    login(teacher, "лебедев о.и.", temp)
     expect(teacher.locator("text=Задайте свой пароль")).to_be_visible()
     fields = teacher.locator("input[type=password]")
     fields.nth(0).fill(temp)

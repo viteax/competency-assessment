@@ -1,7 +1,7 @@
 // Универсальная таблица с формой и описания справочников. Группы, компетенции, дисциплины,
 // учебный план и ТФ ⇒ компетенции – по направлению (их функции получают его из шапки).
 
-import { api, byCode, byId, errorBox, fill, h, passwordNotice, temporaryPassword } from "../core.js";
+import { api, byCode, byId, errorBox, fill, h, passwordNotice } from "../core.js";
 import { DISCIPLINE_KINDS, kindBadge, refreshDirectionBar } from "./directions.js";
 
 // Поле формы → элемент ввода. Значение читается через readField.
@@ -186,14 +186,54 @@ const byPlanOrder = (a, b) =>
 
 const NO_COMPETENCIES = "Компетенций пока нет: загрузите их во вкладке «Загрузить документ» или добавьте во вкладке «Компетенции».";
 
+// Логины и пароли всех добавленных сразу: пароли больше нигде не показываются.
+function addedTeachers({ created, skipped }) {
+  const copied = h("span", { class: "muted small" });
+  const copy = async () => {
+    const lines = created.map((t) => [t.full_name, t.username, t.password].join("\t"));
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      copied.textContent = "Скопировано";
+    } catch {
+      copied.textContent = "Не удалось скопировать: выделите таблицу вручную";
+    }
+  };
+  return h("div", { class: "notice" },
+    created.length
+      ? [
+          h("p", { class: "mt-0" }, h("strong", {}, `Добавлено: ${created.length}.`), " Пароли показываются один раз; при первом входе нужно задать свой."),
+          h("div", { class: "table-wrap" }, h("table", {},
+            h("tr", {}, ["ФИО", "Логин", "Временный пароль"].map((x) => h("th", {}, x))),
+            created.map((t) => h("tr", {}, h("td", {}, t.full_name), h("td", {}, h("code", {}, t.username)), h("td", {}, h("code", {}, t.password)))),
+          )),
+          h("div", { class: "row mt-s" }, h("button", { type: "button", onclick: copy }, "Скопировать всё"), copied),
+        ]
+      : null,
+    skipped.length
+      ? [h("p", {}, h("strong", {}, `Пропущено: ${skipped.length}`)), h("ul", {}, skipped.map((s) => h("li", {}, `${s.full_name}: ${s.reason}`)))]
+      : null,
+  );
+}
+
 export const CATALOGS = {
-  async "Направления"() {
+  async "Учебные планы"() {
     return crudSection({
       load: () => api("/directions"),
-      label: (r) => `${r.code} ${r.name}`,
-      removeWarning: "Вместе с ним удалятся его компетенции, дисциплины и учебный план. Направление с группами или вопросами в банке удалить нельзя.",
-      columns: [["Код", (r) => r.code], ["Название", (r) => r.name]],
-      fields: [{ name: "code", label: "Код" }, { name: "name", label: "Название" }],
+      label: (r) => r.label,
+      removeWarning: "Вместе с ним удалятся его компетенции, дисциплины и семестры. План с группами или вопросами в банке удалить нельзя.",
+      columns: [
+        ["Код", (r) => r.code],
+        ["Название", (r) => r.name],
+        ["Программа", (r) => r.profile || "–"],
+        ["Год плана", (r) => r.plan_year ?? "–"],
+        ["Годы набора", (r) => r.intake_years.join(", ") || "–"],
+      ],
+      fields: [
+        { name: "code", label: "Код" },
+        { name: "name", label: "Название" },
+        { name: "profile", label: "Программа (необязательно)", required: false },
+        { name: "plan_year", label: "Год плана (необязательно)", type: "number", min: 1990, max: 2100, required: false, placeholder: "например, 2025" },
+      ],
       toForm: (r) => r,
       create: (d) => api("/directions", { method: "POST", body: d }).then(refreshDirectionBar),
       update: (r, d) => api(`/directions/${r.id}`, { method: "PUT", body: d }).then(refreshDirectionBar),
@@ -204,7 +244,7 @@ export const CATALOGS = {
   async "Группы"(direction) {
     const directions = await api("/directions");
     const dirs = byId(directions);
-    // Направление из шапки – первым в списке, чтобы новая группа создавалась в нём.
+    // План из шапки – первым в списке, чтобы новая группа создавалась в нём.
     const options = [direction, ...directions.filter((d) => d.id !== direction.id)];
     return crudSection({
       load: () => api(`/groups?direction_id=${direction.id}`),
@@ -212,13 +252,13 @@ export const CATALOGS = {
       hint: "По году набора система сама считает текущий семестр группы – от него зависит, какие дисциплины попадут в тест на остаточные знания.",
       columns: [
         ["Группа", (r) => r.name],
-        ["Направление", (r) => { const d = dirs.get(r.direction_id); return d ? `${d.code} ${d.name}` : "–"; }],
+        ["Учебный план", (r) => dirs.get(r.direction_id)?.label || "–"],
         ["Год набора", (r) => r.start_year ?? "–"],
         ["Семестр сейчас", (r) => r.current_semester ?? "–"],
       ],
       fields: [
         { name: "name", label: "Название" },
-        { name: "direction_id", label: "Направление", type: "select", options: options.map((d) => [d.id, `${d.code} ${d.name}`]) },
+        { name: "direction_id", label: "Учебный план", type: "select", options: options.map((d) => [d.id, d.label]) },
         { name: "start_year", label: "Год набора (необязательно)", type: "number", min: 2000, max: 2100, required: false, placeholder: "например, 2024" },
       ],
       toForm: (r) => r,
@@ -283,8 +323,7 @@ export const CATALOGS = {
     const notice = h("div");
     const err = errorBox();
     const list = h("div", { class: "table-wrap" });
-    const fullName = h("input", { type: "text", required: true, "aria-label": "ФИО преподавателя" });
-    const username = h("input", { type: "text", required: true, minlength: 3, pattern: "[A-Za-z0-9._\\-]+", title: "латиница, цифры, точка, дефис", "aria-label": "Логин преподавателя" });
+    const names = h("textarea", { required: true, rows: 6, "aria-label": "ФИО преподавателей, по одному на строку", placeholder: "Иванов Иван Иванович\nПетрова Анна Сергеевна" });
 
     async function draw() {
       const [users, curriculum, disciplines] = await Promise.all([api("/users"), api("/curriculum"), api("/disciplines")]);
@@ -338,20 +377,19 @@ export const CATALOGS = {
         onsubmit: async (event) => {
           event.preventDefault();
           err.clear();
-          const password = temporaryPassword();
           try {
-            await api("/users", { method: "POST", body: { username: username.value, password, role: "teacher", full_name: fullName.value.trim() } });
-            fill(notice, passwordNotice(fullName.value.trim(), username.value, password));
-            fullName.value = username.value = "";
+            const result = await api("/users/teachers", { method: "POST", body: { full_names: names.value.split("\n") } });
+            fill(notice, addedTeachers(result));
+            names.value = "";
             await draw();
           } catch (e) {
             err.show(e);
           }
         },
       },
-        h("h2", {}, "Добавить преподавателя"),
-        h("label", {}, "ФИО"), fullName,
-        h("label", {}, "Логин"), username,
+        h("h2", {}, "Добавить преподавателей"),
+        h("label", {}, "ФИО, по одному на строку"), names,
+        h("p", { class: "muted small" }, "Логин система составит сама из фамилии и инициалов, например «Иванов И.И.»."),
         h("div", { class: "mt-l" }, h("button", { class: "primary" }, "Добавить")),
       ),
     );

@@ -1,6 +1,6 @@
 """Схемы API: учебная часть."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.base import ORM
 
@@ -8,10 +8,19 @@ from app.schemas.base import ORM
 class DirectionIn(BaseModel):
     code: str = Field(examples=["09.03.04"])
     name: str = Field(examples=["Программная инженерия"])
+    profile: str | None = Field(default=None, max_length=255, examples=["Веб-разработка"])
+    plan_year: int | None = Field(default=None, ge=1990, le=2100, examples=[2025])
+
+    @field_validator("profile")
+    @classmethod
+    def blank_profile_is_none(cls, value: str | None) -> str | None:
+        return (value or "").strip() or None
 
 
 class DirectionOut(ORM, DirectionIn):
     id: int
+    label: str
+    intake_years: list[int]
 
 
 class GroupIn(BaseModel):

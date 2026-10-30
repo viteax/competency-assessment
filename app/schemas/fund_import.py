@@ -28,6 +28,7 @@ class FundDocumentPreview(BaseModel):
     filename: str
     direction: str  # из шапки документа
     direction_id: int | None  # куда загружается; None – не найдено (см. error)
+    target_label: str | None  # подпись этого учебного плана
     discipline: str | None
     discipline_exists: bool
     semester: int | None
@@ -47,4 +48,4 @@ class FundResult(BaseModel):
     errors: int = 0  # не разобраны – пропущены
     created_disciplines: int = 0
     created_competencies: int = 0
-    directions: list[str] = []  # коды направлений, куда добавлены вопросы
+    directions: list[str] = []  # подписи учебных планов, куда добавлены вопросы

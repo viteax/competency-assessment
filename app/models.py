@@ -13,6 +13,7 @@
 """
 
 import enum
+import re
 from datetime import UTC, datetime
 
 from sqlalchemy import (
@@ -21,6 +22,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     String,
     Table,
@@ -28,8 +30,9 @@ from sqlalchemy import (
     UniqueConstraint,
     false,
     func,
+    text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.db import Base
 from app.semesters import current_semester
@@ -101,16 +104,48 @@ labor_function_competency = Table(
 # --- Учебная часть ---------------------------------------------------------
 
 
+def profile_key(profile: str | None) -> str:
+    """Программа для сравнения: без регистра, знаков препинания, лишних пробелов и разницы «ё/е»."""
+    cleaned = re.sub(r"[^\w\s]", "", (profile or "").casefold().replace("ё", "е"))
+    return " ".join(cleaned.split())
+
+
 class Direction(Base):
-    """Направление подготовки, например 09.03.04 «Программная инженерия»."""
+    """Учебный план: код направления, например 09.03.04 «Программная инженерия», программа
+    и год плана. У одного кода планов может быть несколько; группа любого года набора
+    учится по одному из них."""
 
     __tablename__ = "direction"
+    # coalesce: в уникальном индексе NULL иначе считались бы разными значениями.
+    __table_args__ = (
+        Index(
+            "uq_direction_plan", "code", "profile_key", text("coalesce(plan_year, 0)"), unique=True
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    code: Mapped[str] = mapped_column(String(16), unique=True)
+    code: Mapped[str] = mapped_column(String(16))
     name: Mapped[str] = mapped_column(String(255))
+    profile: Mapped[str | None] = mapped_column(String(255))
+    plan_year: Mapped[int | None] = mapped_column(Integer)
+    profile_key: Mapped[str] = mapped_column(String(255), default="", server_default="")
 
     groups: Mapped[list["Group"]] = relationship(back_populates="direction")
+
+    @validates("profile")
+    def _set_profile_key(self, _: str, value: str | None) -> str | None:
+        self.profile_key = profile_key(value)
+        return value
+
+    @property
+    def label(self) -> str:
+        """Подпись плана: «15.04.06 Мехатроника, Управление разработками, 2023»."""
+        extra = [self.profile, str(self.plan_year) if self.plan_year else None]
+        return ", ".join([f"{self.code} {self.name}", *filter(None, extra)])
+
+    @property
+    def intake_years(self) -> list[int]:
+        return sorted({g.start_year for g in self.groups if g.start_year})
 
 
 class Group(Base):

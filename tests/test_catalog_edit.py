@@ -79,7 +79,10 @@ def test_duplicate_code_on_update(admin: TestClient):
         f"/competencies/{pk2['id']}", json={"code": "ПК-1", "kind": "ПК", "description": "x"}
     )
     assert response.status_code == 409
-    assert response.json()["detail"] == "в направлении 09.03.04 уже есть компетенция ПК-1"
+    assert (
+        response.json()["detail"]
+        == "в плане 09.03.04 Программная инженерия уже есть компетенция ПК-1"
+    )
 
 
 def test_discipline(admin: TestClient):
@@ -112,7 +115,10 @@ def test_discipline(admin: TestClient):
         f"/disciplines/{discipline['id']}", json={"name": "Математика", "competency_ids": []}
     )
     assert same.status_code == 409
-    assert same.json()["detail"] == "в направлении 09.03.04 уже есть дисциплина «Математика»"
+    assert (
+        same.json()["detail"]
+        == "в плане 09.03.04 Программная инженерия уже есть дисциплина «Математика»"
+    )
     assert admin.delete(f"/disciplines/{discipline['id']}").status_code == 204
     # Дисциплину с вопросами удалить нельзя.
     math = discipline_id(admin, "Математика")

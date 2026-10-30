@@ -49,6 +49,33 @@ def unique_username(session: Session, base: str, taken: set[str]) -> str:
     return candidate
 
 
+def teacher_login(full_name: str) -> str:
+    """Логин преподавателя – фамилия и инициалы: «Ханкишиева Н.Р.»."""
+    surname, *rest = full_name.split()
+    initials = "".join(f"{p[0].upper()}." for p in rest[:2])
+    return f"{surname} {initials}".strip()
+
+
+def login_key(login: str) -> str:
+    """Логин преподавателя для сравнения: без регистра, «ё/е», пробелов и точек."""
+    return login.casefold().replace("ё", "е").replace(".", "").replace(" ", "")
+
+
+def unique_teacher_login(session: Session, full_name: str, taken: set[str]) -> str:
+    """Свободный логин: «Иванов И.И.», «Иванов И.И.2»… Сравнение по login_key, чтобы при входе
+    логин находился однозначно. `taken` – ключи выданных в этой операции."""
+    base = teacher_login(full_name)
+    keys = taken | {
+        login_key(username) for username in session.scalars(select(models.User.username))
+    }
+    candidate, n = base, 1
+    while login_key(candidate) in keys:
+        n += 1
+        candidate = f"{base}{n}"
+    taken.add(login_key(candidate))
+    return candidate
+
+
 def create_student_account(
     session: Session, student: models.Student, base: str, taken: set[str]
 ) -> tuple[str, str]:

@@ -7,12 +7,17 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app import models
+from app import models, schemas
 from app.config import settings
 from app.demo import demo_credentials
 from app.errors import Conflict, DomainError, TooManyRequests, Unauthorized
 from app.security import hash_password, verify_password
-from app.services.accounts import generate_password
+from app.services.accounts import (
+    generate_password,
+    login_key,
+    teacher_login,
+    unique_teacher_login,
+)
 from app.services.common import name_key
 from app.services.common_passwords import is_common_password
 
@@ -90,8 +95,11 @@ def authenticate(
     # Студент входит по ФИО в любом написании (find_user), поэтому и неудачи считаем по
     # нормализованному ключу – иначе «Иванов Иван» и «иванов  иван» были бы разными счётчиками.
     key = " ".join(username.casefold().replace("ё", "е").split())[:64]
-    throttle(session, key, ip, trusted_device)
     user = find_user(session, username)
+    # У преподавателя написаний логина ещё больше: счётчик по ключу самой учётки.
+    if user is not None and user.role == models.Role.TEACHER:
+        key = login_key(user.username)[:64]
+    throttle(session, key, ip, trusted_device)
     if not verify_password(password, user.password_hash if user else _DUMMY_HASH) or user is None:
         record_failure(session, key, ip)
         raise Unauthorized("неверный логин или пароль")
@@ -116,10 +124,17 @@ def find_user(session: Session, login: str) -> models.User | None:
         return user
     key = " ".join(login.casefold().replace("ё", "е").split())
     candidates = session.scalars(select(models.User).where(models.User.role == models.Role.STUDENT))
-    return next(
+    student = next(
         (u for u in candidates if " ".join(u.username.casefold().replace("ё", "е").split()) == key),
         None,
     )
+    if student is not None:
+        return student
+    # Преподаватели входят по фамилии и инициалам: точки и пробелы в них пишут по-разному.
+    key = login_key(login)
+    teachers = session.scalars(select(models.User).where(models.User.role == models.Role.TEACHER))
+    matches = [u for u in teachers if login_key(u.username) == key]
+    return matches[0] if len(matches) == 1 else None  # из нескольких не угадываем
 
 
 def ensure_new_staff_name(session: Session, full_name: str) -> None:
@@ -134,6 +149,41 @@ def ensure_new_staff_name(session: Session, full_name: str) -> None:
     same = next((u for u in staff if name_key(u.full_name) == key), None)
     if same is not None:
         raise Conflict(f"учётная запись «{same.full_name}» уже есть (логин {same.username})")
+
+
+def create_teachers(session: Session, full_names: list[str]) -> schemas.TeachersResult:
+    """Учётки по списку ФИО; логин – из фамилии и инициалов. Пароль показывается один раз и
+    нужно сменить его при первом входе. Строка с ошибкой пропускается, остальные создаются."""
+    result = schemas.TeachersResult()
+    taken: set[str] = set()
+    for name in filter(None, (" ".join(n.split()) for n in full_names)):
+        if not 3 <= len(teacher_login(name)) <= 64 or len(name) > 255:
+            result.skipped.append(
+                schemas.TeacherSkipped(full_name=name, reason="слишком короткое или длинное ФИО")
+            )
+            continue
+        try:
+            ensure_new_staff_name(session, name)
+        except Conflict as e:
+            result.skipped.append(schemas.TeacherSkipped(full_name=name, reason=str(e)))
+            continue
+        username = unique_teacher_login(session, name, taken)
+        password = generate_password()
+        session.add(
+            models.User(
+                username=username,
+                full_name=name,
+                password_hash=hash_password(password),
+                role=models.Role.TEACHER,
+                must_change_password=True,
+            )
+        )
+        session.flush()  # следующая строка списка должна видеть эту учётку
+        result.created.append(
+            schemas.TeacherCreated(full_name=name, username=username, password=password)
+        )
+    session.commit()
+    return result
 
 
 def demo_passwords_in_use(session: Session) -> list[str]:

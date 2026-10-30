@@ -27,7 +27,7 @@ export function documentImportView() {
     }
     try {
       const direction = await activeDirection();
-      if (!direction) throw new Error("для документа ОПОП / РПД нужно направление: загрузите учебный план или добавьте направление в «Система → Направления»");
+      if (!direction) throw new Error("для документа ОПОП / РПД нужен учебный план: загрузите его или добавьте в «Система → Учебные планы»");
       await previewCompetencies(direction, file, previewSlot);
     } catch (e) {
       // Сервер, узнав в файле учебный план, отсылает на старую вкладку; тогда важнее ошибка разбора плана.

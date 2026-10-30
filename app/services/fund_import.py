@@ -531,6 +531,46 @@ class _Target:
     competencies: dict[str, models.Competency]
     existing: set[tuple[int, tuple]]  # (id компетенции, отпечаток вопроса) – уже в банке
     error: str | None = None
+    warning: str | None = None
+
+
+def _plan_of_document(
+    session: Session, doc: FundDocument, direction_id: int | None
+) -> tuple[models.Direction | None, str | None, str | None]:
+    """План, куда идут вопросы: (план, ошибка, предупреждение). Выбранный в шапке кабинета
+    важнее, пока код документа ему не противоречит."""
+    selected = get_or_404(session, models.Direction, direction_id) if direction_id else None
+    if not doc.direction_code or (selected and selected.code == doc.direction_code):
+        if selected:
+            return selected, None, None
+        return (
+            None,
+            "учебный план (в шапке нет кода) не найден – выберите его в шапке кабинета",
+            None,
+        )
+    plans = list(
+        session.scalars(select(models.Direction).where(models.Direction.code == doc.direction_code))
+    )
+    if not plans:
+        return (
+            None,
+            f"учебный план {doc.direction_code} не найден – загрузите его или добавьте "
+            "в «Учебных планах»",
+            None,
+        )
+    if len(plans) > 1:
+        return (
+            None,
+            f"у кода {doc.direction_code} несколько учебных планов – выберите план в шапке",
+            None,
+        )
+    warning = None
+    if selected:
+        warning = (
+            f"код документа не совпадает с выбранным планом «{selected.label}»: "
+            f"вопросы пойдут в «{plans[0].label}»"
+        )
+    return plans[0], None, warning
 
 
 def _target(
@@ -542,30 +582,16 @@ def _target(
 ) -> _Target:
     if doc.error:
         return _Target(None, None, {}, set(), doc.error)
+    warning = None
     if discipline_id is not None:
         discipline = get_or_404(session, models.Discipline, discipline_id)
         if user.role != models.Role.ADMIN:
             teaching.own_discipline(session, user, discipline.id)
         direction = discipline.direction
     else:
-        # Направление – по коду из шапки; direction_id – только если кода в шапке нет.
-        if doc.direction_code:
-            direction = session.scalar(
-                select(models.Direction).where(models.Direction.code == doc.direction_code)
-            )
-        elif direction_id is not None:
-            direction = get_or_404(session, models.Direction, direction_id)
-        else:
-            direction = None
+        direction, error, warning = _plan_of_document(session, doc, direction_id)
         if direction is None:
-            return _Target(
-                None,
-                None,
-                {},
-                set(),
-                f"направление {doc.direction_code or '(в шапке нет кода)'} не найдено – загрузите "
-                "его учебный план или добавьте направление в справочниках",
-            )
+            return _Target(None, None, {}, set(), error)
         if not doc.discipline:
             return _Target(direction, None, {}, set(), "в шапке документа не указана дисциплина")
         discipline = next(
@@ -594,7 +620,7 @@ def _target(
                 .options(selectinload(models.Question.options))
             )
         }
-    return _Target(direction, discipline, competencies, existing)
+    return _Target(direction, discipline, competencies, existing, warning=warning)
 
 
 # Отпечаток вопроса: текст, тип и ответ. Одинаковый общий текст («Соотнесите понятия с
@@ -689,6 +715,7 @@ def preview(
                 filename=doc.filename,
                 direction=doc.direction,
                 direction_id=target.direction.id if target.direction else None,
+                target_label=target.direction.label if target.direction else None,
                 discipline=target.discipline.name if target.discipline else doc.discipline,
                 discipline_exists=target.discipline is not None,
                 semester=doc.semester,
@@ -701,7 +728,7 @@ def preview(
                     )
                 ],
                 questions=questions,
-                warnings=doc.warnings,
+                warnings=[*doc.warnings, *filter(None, [target.warning])],
                 error=error,
             )
         )
@@ -767,7 +794,7 @@ def apply(
                 )
             )
             result.created_questions += 1
-            if target.direction.code not in result.directions:
-                result.directions.append(target.direction.code)
+            if target.direction.label not in result.directions:
+                result.directions.append(target.direction.label)
     session.commit()
     return result

@@ -45,14 +45,17 @@ def test_plan_import(admin_page: Page):
     open_section(page, "Подготовка", "Загрузить документ")
     upload(page, "09.03.01_2023.plx.xlsx", plan_xlsx(), "application/octet-stream")
     expect(page.locator("text=учебный план 09.03.01 Информатика")).to_be_visible()
-    expect(page.locator("text=Направления еще нет – оно будет создано.")).to_be_visible()
+    expect(page.locator("text=Будет создан новый учебный план.")).to_be_visible()
     page.click("button:text-is('Загрузить учебный план')")
     expect(page.locator("text=Учебный план загружен")).to_be_visible()
 
     # Дисциплины открываются по загруженному направлению, в порядке плана, со статусом.
     page.click("text=Открыть дисциплины")
-    chosen = page.get_by_label("Направление").locator("option:checked")
-    expect(chosen).to_have_text("09.03.01 Информатика и вычислительная техника")
+    chosen = page.locator("#direction").get_by_label("Учебный план").locator("option:checked")
+    expect(chosen).to_have_text(
+        "09.03.01 Информатика и вычислительная техника, "
+        "Программное обеспечение робототехнических систем, 2023"
+    )
     first = page.locator("tbody tr, table tr").nth(1)
     expect(first).to_contain_text("Б1.О.01.01")
     row = page.locator("tr", has=page.locator("td", has_text="Сети"))
@@ -95,3 +98,18 @@ def test_student_import_and_first_login(new_page):
     logout(page)
     login(page, "novikova", password)
     expect(page.locator("text=Задайте свой пароль")).to_be_visible()
+
+
+def test_plan_import_asks_about_plan_with_empty_fields(admin_page: Page):
+    page = admin_page
+    body = {"code": "09.03.01", "name": "ИВТ вручную"}
+    assert page.request.post("/directions", data=body, headers={"X-Requested-With": "fetch"}).ok
+    open_section(page, "Подготовка", "Загрузить документ")
+    upload(page, "plan.plx.xlsx", plan_xlsx(), "application/octet-stream")
+    save = page.locator("button:text-is('Загрузить учебный план')")
+    expect(save).to_be_disabled()
+    page.get_by_label("Создать новый учебный план").click()  # карточка перерисовывается
+    expect(save).to_be_enabled()
+    expect(page.get_by_label("Создать новый учебный план")).to_be_checked()
+    save.click()
+    expect(page.locator("text=Учебный план создан")).to_be_visible()

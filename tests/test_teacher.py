@@ -3,6 +3,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.config import settings
+from app.services.accounts import teacher_login
 from tests.helpers import by_code, discipline_id
 
 
@@ -189,3 +191,175 @@ def test_second_teacher_with_same_name_is_rejected(admin: TestClient):
     assert duplicate.status_code == 409
     assert "логин 666" in duplicate.json()["detail"]
     assert create("1000", "Ботаева Лариса Петровна").status_code == 201
+
+
+def test_teacher_sees_plan_year(admin: TestClient, login):
+    plan = admin.post(
+        "/directions", json={"code": "11.03.02", "name": "Связь", "plan_year": 2023}
+    ).json()
+    teacher = admin.post(
+        "/users",
+        json={
+            "username": "plan.teacher",
+            "password": "Temp-pass-4821",
+            "role": "teacher",
+            "full_name": "Планов Пётр Петрович",
+        },
+    ).json()
+    discipline = admin.post(
+        "/disciplines", json={"direction_id": plan["id"], "name": "Волокно"}
+    ).json()
+    entry = admin.post(
+        "/curriculum",
+        json={
+            "direction_id": plan["id"],
+            "discipline_id": discipline["id"],
+            "first_semester": 1,
+            "last_semester": 1,
+            "teacher_id": teacher["id"],
+        },
+    )
+    assert entry.status_code == 201, entry.text
+    client = login("plan.teacher", "Temp-pass-4821")
+    client.post(
+        "/me/password",
+        json={"current_password": "Temp-pass-4821", "new_password": "Long-new-pass-4821"},
+    )
+    client = login("plan.teacher", "Long-new-pass-4821")
+    [found] = client.get("/teacher/disciplines").json()
+    assert found["direction"] == "11.03.02 Связь, 2023"
+
+
+# --- добавление списком: логин из фамилии и инициалов ------------------------------------------
+
+
+def _bulk(admin: TestClient, *names: str) -> dict:
+    response = admin.post("/users/teachers", json={"full_names": list(names)})
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_teacher_login_is_surname_and_initials():
+    assert teacher_login("Ханкишиева Наиля Рамизовна") == "Ханкишиева Н.Р."
+    assert teacher_login("  Иванов   Иван ") == "Иванов И."
+    assert teacher_login("Иванов") == "Иванов"
+
+
+def test_bulk_creates_accounts_with_passwords(admin: TestClient):
+    result = _bulk(admin, "Сидоров Иван Иванович", "", "   ", "  Петров   Пётр ")
+    assert [t["username"] for t in result["created"]] == ["Сидоров И.И.", "Петров П."]
+    assert [t["full_name"] for t in result["created"]] == ["Сидоров Иван Иванович", "Петров Пётр"]
+    assert all(len(t["password"]) >= 8 for t in result["created"])
+    assert result["skipped"] == []
+
+
+def test_bulk_password_must_be_changed(admin: TestClient):
+    _bulk(admin, "Сидоров Иван Иванович")
+    users = {u["username"]: u for u in admin.get("/users").json()}
+    assert users["Сидоров И.И."]["must_change_password"] is True
+    assert users["Сидоров И.И."]["role"] == "teacher"
+
+
+def test_bulk_skips_duplicates_and_keeps_the_rest(admin: TestClient):
+    _bulk(admin, "Сидоров Иван Иванович")
+    result = _bulk(admin, "сидоров  иван ИВАНОВИЧ", "Новиков Олег", "Новиков Олег", "Лебедев Ян")
+    assert [t["username"] for t in result["created"]] == ["Новиков О.", "Лебедев Я."]
+    assert [s["full_name"] for s in result["skipped"]] == ["сидоров иван ИВАНОВИЧ", "Новиков Олег"]
+    assert all(s["reason"] for s in result["skipped"])
+
+
+def test_bulk_namesakes_get_a_number(admin: TestClient):
+    result = _bulk(admin, "Иванов Иван Ильич", "Иванов Игорь Ильич", "Иванов Илья Игоревич")
+    assert [t["username"] for t in result["created"]] == [
+        "Иванов И.И.",
+        "Иванов И.И.2",
+        "Иванов И.И.3",
+    ]
+
+
+def test_bulk_skips_too_short_name(admin: TestClient):
+    result = _bulk(admin, "Ян", "Новиков Олег")
+    assert [s["full_name"] for s in result["skipped"]] == ["Ян"]
+    assert [t["username"] for t in result["created"]] == ["Новиков О."]
+
+
+def test_bulk_requires_admin(student: TestClient):
+    response = student.post("/users/teachers", json={"full_names": ["Новиков Олег"]})
+    assert response.status_code == 403
+
+
+def test_bulk_limits_list_size(admin: TestClient):
+    names = [f"Фамилия{i} Имя" for i in range(201)]
+    assert admin.post("/users/teachers", json={"full_names": names}).status_code == 422
+
+
+@pytest.mark.parametrize(
+    "typed",
+    ["Ханкишиева Н.Р.", "ханкишиева н.р.", "Ханкишиева Н. Р.", "ханкишиева нр", " Ханкишиева  НР "],
+)
+def test_teacher_logs_in_with_any_spelling(admin: TestClient, client: TestClient, typed: str):
+    [created] = _bulk(admin, "Ханкишиева Наиля Рамизовна")["created"]
+    response = client.post("/auth/token", data={"username": typed, "password": created["password"]})
+    assert response.status_code == 200, response.text
+
+
+def test_yo_in_teacher_login(admin: TestClient, client: TestClient):
+    [created] = _bulk(admin, "Семёнов Пётр")["created"]
+    assert created["username"] == "Семёнов П."
+    data = {"username": "семенов п", "password": created["password"]}
+    assert client.post("/auth/token", data=data).status_code == 200
+
+
+def test_login_without_space_stays_exact(admin: TestClient, client: TestClient):
+    [created] = _bulk(admin, "Новиков Олег")["created"]
+    data = {"username": "новиковО", "password": created["password"]}
+    assert client.post("/auth/token", data=data).status_code == 401
+
+
+def test_slowdown_ignores_spelling_of_teacher_login(admin: TestClient, client: TestClient):
+    """Варианты написания логина – один счётчик неудач, перебором написаний паузу не обойти."""
+    [created] = _bulk(admin, "Ханкишиева Наиля Рамизовна")["created"]
+    spellings = [
+        "ханкишиева нр",
+        "Ханкишиева Н.Р.",
+        "ханкишиева н. р.",
+        "ХАНКИШИЕВА Н Р",
+        "ханкишиева н.р",
+    ]
+    assert len(spellings) >= settings.login_slowdown_after
+    for spelling in spellings[: settings.login_slowdown_after]:
+        data = {"username": spelling, "password": "неверный-пароль"}
+        assert client.post("/auth/token", data=data).status_code == 401
+    data = {"username": "ханкишиева нр", "password": created["password"]}
+    assert client.post("/auth/token", data=data).status_code == 429
+
+
+def test_login_similar_to_existing_key_gets_a_number(admin: TestClient):
+    body = {
+        "username": "Иванов ИИ",
+        "password": "Temp-pass-4821",
+        "role": "teacher",
+        "full_name": "Иванов Иван Иннокентьевич",
+    }
+    assert admin.post("/users", json=body).status_code == 201
+    [created] = _bulk(admin, "Иванов Илья Ильич")["created"]
+    assert created["username"] == "Иванов И.И.2"
+
+
+def test_ambiguous_loose_login_finds_nobody(admin: TestClient, client: TestClient):
+    """Два логина с одним ключом (завели вручную): угадывать нельзя, точный ввод работает."""
+    for username, name in (
+        ("Иванов ИИ", "Иванов Иван Ильич"),
+        ("Иванов И.И", "Иванов Игорь Ильич"),
+    ):
+        body = {
+            "username": username,
+            "password": "Temp-pass-4821",
+            "role": "teacher",
+            "full_name": name,
+        }
+        assert admin.post("/users", json=body).status_code == 201
+    loose = {"username": "иванов и и", "password": "Temp-pass-4821"}
+    assert client.post("/auth/token", data=loose).status_code == 401
+    exact = {"username": "Иванов И.И", "password": "Temp-pass-4821"}
+    assert client.post("/auth/token", data=exact).status_code == 200

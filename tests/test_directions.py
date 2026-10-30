@@ -4,6 +4,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.models import profile_key
 from tests.helpers import assign, by_code, demo_direction, discipline_id, student_id
 
 
@@ -59,7 +60,8 @@ def test_discipline_takes_only_its_direction_competencies(admin: TestClient, oth
     )
     assert response.status_code == 400
     assert response.json()["detail"] == (
-        "ПК-2 – компетенции другого направления, а нужны компетенции направления 15.04.06"
+        "ПК-2 – компетенции другого учебного плана, а нужны компетенции "
+        "плана 15.04.06 Мехатроника и робототехника"
     )
     quota = admin.post(
         "/curriculum",
@@ -170,3 +172,98 @@ def test_direction_is_deleted_with_its_catalogs_unless_used(admin: TestClient, o
     # Демо-направление не удалить: у него группы и вопросы.
     blocked = admin.delete(f"/directions/{demo_direction(admin)}")
     assert blocked.status_code == 409
+
+
+# --- учебные планы: один код, разные программы и годы ------------------------------------
+
+
+def _plan(admin: TestClient, **fields):
+    return admin.post("/directions", json={"code": "11.03.02", "name": "Связь", **fields})
+
+
+def test_two_plans_of_one_code(admin: TestClient):
+    first = _plan(admin, profile="Оптика", plan_year=2023)
+    second = _plan(admin, profile="Оптика", plan_year=2026)
+    assert first.status_code == second.status_code == 201
+    assert first.json()["label"] == "11.03.02 Связь, Оптика, 2023"
+    assert second.json()["id"] != first.json()["id"]
+
+
+def test_label_omits_empty_parts(admin: TestClient):
+    assert _plan(admin).json()["label"] == "11.03.02 Связь"
+    assert _plan(admin, plan_year=2024).json()["label"] == "11.03.02 Связь, 2024"
+
+
+def test_same_plan_conflicts_with_empty_fields_too(admin: TestClient):
+    assert _plan(admin).status_code == 201
+    assert _plan(admin).status_code == 409
+    assert _plan(admin, profile="Оптика").status_code == 201
+    assert _plan(admin, profile=" ОПТИКА ").status_code == 409
+
+
+def test_blank_profile_is_no_profile(admin: TestClient):
+    assert _plan(admin).status_code == 201
+    assert _plan(admin, profile="   ").status_code == 409
+
+
+def test_profile_key_ignores_spelling():
+    assert profile_key(" «Ёлки»  и Палки ") == profile_key('елки и "палки"')
+    assert profile_key(None) == ""
+
+
+def test_intake_years_come_from_groups(admin: TestClient):
+    plan = _plan(admin).json()
+    for name, year in (("А-1", 2025), ("А-2", 2024), ("А-3", 2025), ("А-4", None)):
+        body = {"name": name, "direction_id": plan["id"], "start_year": year}
+        assert admin.post("/groups", json=body).status_code == 201
+    found = next(d for d in admin.get("/directions").json() if d["id"] == plan["id"])
+    assert found["intake_years"] == [2024, 2025]
+
+
+# --- перевод группы на другой план ---------------------------------------------------------
+
+
+def test_move_group_without_assignments(admin: TestClient):
+    plan = _plan(admin).json()
+    group = next(g for g in admin.get("/groups").json() if g["name"] == "ПИ-21")
+    moved = admin.put(f"/groups/{group['id']}", json={**group, "direction_id": plan["id"]})
+    assert moved.status_code == 200, moved.text
+    assert moved.json()["direction_id"] == plan["id"]
+
+
+def test_move_group_with_assignment_is_refused(admin: TestClient):
+    group = assign(admin, ["ПК-1"])["group"]
+    plan = _plan(admin).json()
+    moved = admin.put(f"/groups/{group['id']}", json={**group, "direction_id": plan["id"]})
+    assert moved.status_code == 409
+    assert "назначены тесты" in moved.json()["detail"]
+    found = next(g for g in admin.get("/groups").json() if g["id"] == group["id"])
+    assert found["direction_id"] == group["direction_id"]
+
+
+def test_rename_group_with_assignment_still_works(admin: TestClient):
+    group = assign(admin, ["ПК-1"])["group"]
+    renamed = admin.put(f"/groups/{group['id']}", json={**group, "start_year": 2021})
+    assert renamed.status_code == 200, renamed.text
+
+
+def test_duplicate_plan_message_names_the_plan(admin: TestClient):
+    _plan(admin, plan_year=2023)
+    other = _plan(admin, plan_year=2026).json()
+    created = _plan(admin, plan_year=2023)
+    assert created.status_code == 409
+    assert created.json()["detail"] == "учебный план «11.03.02 Связь, 2023» уже есть"
+    body = {"code": "11.03.02", "name": "Связь", "plan_year": 2023}
+    updated = admin.put(f"/directions/{other['id']}", json=body)
+    assert updated.status_code == 409
+    assert "11.03.02 Связь, 2023" in updated.json()["detail"]
+
+
+def test_saving_plan_without_changes_is_fine(admin: TestClient):
+    plan = _plan(admin, plan_year=2023).json()
+    body = {"code": "11.03.02", "name": "Связь (новое)", "plan_year": 2023}
+    assert admin.put(f"/directions/{plan['id']}", json=body).status_code == 200
+
+
+def test_profile_key_ignores_punctuation():
+    assert profile_key("Управление (по отраслям).") == profile_key("управление по отраслям")

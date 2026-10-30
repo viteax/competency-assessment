@@ -338,6 +338,10 @@ def parse(data: bytes) -> ParsedPlan:
     standards = _standards(standards_rows) if standards_rows else []
     if standards_rows is None:
         warnings.append("лист с профстандартами (ОТФ, ТФ и компетенции) не найден")
+    if not profile:
+        warnings.append("на листе «Титул» не найдена программа – укажите её в «Учебных планах»")
+    if not year:
+        warnings.append("на листе «Титул» не найден год плана – укажите его в «Учебных планах»")
 
     known = set(competencies)
     used = [c for d in disciplines for c in d.competencies] + [
@@ -370,10 +374,56 @@ class _Existing:
     standards: dict[str, models.ProfStandard]
 
 
-def _existing(session: Session, plan: ParsedPlan) -> _Existing:
-    direction = session.scalar(
-        select(models.Direction).where(models.Direction.code == plan.direction_code)
+def _plans_of_code(session: Session, plan: ParsedPlan) -> list[models.Direction]:
+    return list(
+        session.scalars(
+            select(models.Direction)
+            .where(models.Direction.code == plan.direction_code)
+            .order_by(models.Direction.id)
+        )
     )
+
+
+def _same_plan(session: Session, plan: ParsedPlan) -> models.Direction | None:
+    """План с той же тройкой: код, программа (без учёта написания) и год."""
+    key = models.profile_key(plan.profile)
+    return next(
+        (
+            d
+            for d in _plans_of_code(session, plan)
+            if d.profile_key == key and d.plan_year == plan.year
+        ),
+        None,
+    )
+
+
+def _candidates(session: Session, plan: ParsedPlan) -> list[models.Direction]:
+    """Планы того же кода, которые можно дополнить этим файлом: заполненные у обеих сторон поля
+    совпадают. Разные программы или годы – всегда разные планы, само ничего не сливается."""
+    if _same_plan(session, plan) is not None:
+        return []
+    key = models.profile_key(plan.profile)
+    return [
+        d
+        for d in _plans_of_code(session, plan)
+        if (not key or not d.profile_key or d.profile_key == key)
+        and (not plan.year or not d.plan_year or d.plan_year == plan.year)
+    ]
+
+
+def _chosen_plan(
+    session: Session, plan: ParsedPlan, merge_into: int | None
+) -> models.Direction | None:
+    """Существующий план, который дополнит файл, или None, если план будет создан."""
+    if merge_into is None:
+        return _same_plan(session, plan)
+    chosen = next((d for d in _candidates(session, plan) if d.id == merge_into), None)
+    if chosen is None:
+        raise DomainError("этот учебный план нельзя дополнить файлом: другая программа или год")
+    return chosen
+
+
+def _existing(session: Session, plan: ParsedPlan, direction: models.Direction | None) -> _Existing:
     competencies, disciplines, entries = {}, {}, {}
     if direction is not None:
         competencies = {
@@ -449,8 +499,10 @@ def _discipline_changes(
     return changes
 
 
-def preview(session: Session, filename: str, plan: ParsedPlan) -> schemas.PlanPreview:
-    have = _existing(session, plan)
+def preview(
+    session: Session, filename: str, plan: ParsedPlan, merge_into: int | None = None
+) -> schemas.PlanPreview:
+    have = _existing(session, plan, _chosen_plan(session, plan, merge_into))
     competencies = []
     for pc in plan.competencies.values():
         current = have.competencies.get(pc.code)
@@ -538,6 +590,9 @@ def preview(session: Session, filename: str, plan: ParsedPlan) -> schemas.PlanPr
             year=plan.year,
             id=have.direction.id if have.direction else None,
         ),
+        candidates=[
+            schemas.PlanCandidate(id=d.id, label=d.label) for d in _candidates(session, plan)
+        ],
         competencies=competencies,
         disciplines=disciplines,
         standards=standards,
@@ -549,17 +604,38 @@ def preview(session: Session, filename: str, plan: ParsedPlan) -> schemas.PlanPr
 # --- сохранение ----------------------------------------------------------------------
 
 
-def apply(session: Session, plan: ParsedPlan, overwrite_descriptions: bool) -> schemas.PlanResult:
+def apply(
+    session: Session,
+    plan: ParsedPlan,
+    overwrite_descriptions: bool,
+    merge_into: int | None = None,
+    create_new: bool = False,
+) -> schemas.PlanResult:
     """Создает недостающее и дополняет существующее; ничего не удаляет. Формулировки
     существующих компетенций меняются только с overwrite_descriptions; названия
-    профстандартов, ОТФ и ТФ, преподаватели и квоты в учебном плане не трогаются."""
-    have = _existing(session, plan)
+    профстандартов, ОТФ и ТФ, преподаватели и квоты в учебном плане не трогаются.
+    Если файл можно отнести к существующему плану с незаполненными полями, решает человек:
+    merge_into – дополнить этот план, create_new – создать новый."""
+    if merge_into is None and not create_new and _candidates(session, plan):
+        raise DomainError(
+            "у этого кода уже есть подходящий учебный план: "
+            "выберите, дополнить его или создать новый"
+        )
+    direction = _chosen_plan(session, plan, merge_into)
+    have = _existing(session, plan, direction)
     result = schemas.PlanResult(direction_id=0)
-    direction = have.direction
     if direction is None:
-        direction = models.Direction(code=plan.direction_code, name=plan.direction_name)
+        direction = models.Direction(
+            code=plan.direction_code,
+            name=plan.direction_name,
+            profile=plan.profile,
+            plan_year=plan.year,
+        )
         session.add(direction)
         result.created_direction = True
+    else:
+        direction.profile = direction.profile or plan.profile
+        direction.plan_year = direction.plan_year or plan.year
 
     competencies: dict[str, models.Competency] = {}
     for pc in plan.competencies.values():

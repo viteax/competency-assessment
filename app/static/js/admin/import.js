@@ -174,7 +174,7 @@ export async function studentImportView() {
     const defaultGroup = h("select", {}, h("option", { value: "" }, "– не задана –"),
       groups.map((g) => h("option", { value: g.id }, g.name)));
     const direction = h("select", {}, h("option", { value: "" }, "– выберите –"),
-      directions.map((d) => h("option", { value: d.id }, `${d.code} ${d.name}`)));
+      directions.map((d) => h("option", { value: d.id }, d.label)));
     const createAccounts = h("input", { type: "checkbox", checked: true });
 
     const rows = p.rows.map((r) => ({
@@ -202,7 +202,7 @@ export async function studentImportView() {
         h("div", { class: "row mt-s" },
           h("div", {}, h("label", {}, "Группа для строк без группы"), defaultGroup),
           p.missing_groups.length
-            ? h("div", {}, h("label", {}, `Направление для новых групп: ${p.missing_groups.join(", ")}`), direction)
+            ? h("div", {}, h("label", {}, `Учебный план для новых групп: ${p.missing_groups.join(", ")}`), direction)
             : null,
         ),
         h("label", { class: "inline" }, createAccounts, "Создать учётные записи новым студентам (логины и пароли покажу один раз)"),

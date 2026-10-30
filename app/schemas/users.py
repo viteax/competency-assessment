@@ -29,6 +29,26 @@ class UserCreate(BaseModel):
         return self
 
 
+class TeachersIn(BaseModel):
+    full_names: list[str] = Field(max_length=200)
+
+
+class TeacherCreated(BaseModel):
+    full_name: str
+    username: str
+    password: str  # показывается один раз
+
+
+class TeacherSkipped(BaseModel):
+    full_name: str
+    reason: str
+
+
+class TeachersResult(BaseModel):
+    created: list[TeacherCreated] = []
+    skipped: list[TeacherSkipped] = []
+
+
 class UserOut(ORM):
     id: int
     username: str

@@ -156,3 +156,34 @@ def test_errors_and_access(admin: TestClient, student: TestClient):
     assert admin.get("/tests/999/document.docx").status_code == 404
     os_id = discipline_id(admin, "Операционные системы")
     assert student.get(f"/disciplines/{os_id}/fund.docx").status_code == 403
+
+
+def test_fund_header_shows_program_and_year(admin: TestClient):
+    plan = admin.post(
+        "/directions",
+        json={"code": "11.03.02", "name": "Связь", "profile": "Оптика", "plan_year": 2023},
+    ).json()
+    competency = admin.post(
+        "/competencies",
+        json={"direction_id": plan["id"], "code": "ПК-1", "kind": "ПК", "description": "к"},
+    ).json()
+    discipline = admin.post(
+        "/disciplines",
+        json={"direction_id": plan["id"], "name": "Волокно", "competency_ids": [competency["id"]]},
+    ).json()
+    created = admin.post(
+        "/questions",
+        json={
+            "competency_id": competency["id"],
+            "discipline_id": discipline["id"],
+            "text": "Столица России?",
+            "kind": "open",
+            "options": [{"text": "Москва", "is_correct": True}],
+        },
+    )
+    assert created.status_code == 201, created.text
+    response = admin.get(f"/disciplines/{discipline['id']}/fund.docx")
+    assert response.status_code == 200, response.text
+    document = Document(io.BytesIO(response.content))
+    cells = [c.text for t in document.tables for row in t.rows for c in row.cells]
+    assert "11.03.02 Связь, Оптика, 2023" in cells

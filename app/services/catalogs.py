@@ -13,6 +13,31 @@ from app.errors import Conflict, DomainError
 from app.services.common import code_key, get_many_or_404, get_or_404, save
 
 
+def ensure_plan_is_free(
+    session: Session, data: schemas.DirectionIn, plan_id: int | None = None
+) -> None:
+    """Понятная ошибка вместо нарушения индекса: код, программа и год определяют план."""
+    key = models.profile_key(data.profile)
+    plans = session.scalars(select(models.Direction).where(models.Direction.code == data.code))
+    for plan in plans:
+        if plan.id != plan_id and plan.profile_key == key and plan.plan_year == data.plan_year:
+            raise Conflict(f"учебный план «{plan.label}» уже есть")
+
+
+def ensure_group_can_move(session: Session, group: models.Group, direction_id: int) -> None:
+    """Назначения и попытки ссылаются на вопросы плана, поэтому группа с тестами остаётся в нём."""
+    if group.direction_id == direction_id:
+        return
+    assigned = session.scalar(
+        select(models.Assignment.id).where(models.Assignment.group_id == group.id).limit(1)
+    )
+    if assigned is not None:
+        raise Conflict(
+            f"группе {group.name} уже назначены тесты: они ссылаются на вопросы её учебного "
+            "плана. Перевести такую группу на другой план нельзя"
+        )
+
+
 def competencies_of(session: Session, direction_id: int, ids: list[int]) -> list[models.Competency]:
     """Компетенции по id; все должны относиться к направлению direction_id."""
     competencies = get_many_or_404(session, models.Competency, ids)
@@ -20,8 +45,8 @@ def competencies_of(session: Session, direction_id: int, ids: list[int]) -> list
     if foreign:
         direction = session.get(models.Direction, direction_id)
         raise DomainError(
-            f"{', '.join(foreign)} – компетенции другого направления, а нужны компетенции "
-            f"направления {direction.code}"
+            f"{', '.join(foreign)} – компетенции другого учебного плана, а нужны компетенции "
+            f"плана {direction.label}"
         )
     return competencies
 
@@ -45,7 +70,7 @@ def _check_code(session: Session, direction_id: int, code: str, own_id: int | No
     )
     if other is not None and other != own_id:
         direction = session.get(models.Direction, direction_id)
-        raise Conflict(f"в направлении {direction.code} уже есть компетенция {code}")
+        raise Conflict(f"в плане {direction.label} уже есть компетенция {code}")
 
 
 def create_competency(session: Session, data: schemas.CompetencyIn) -> models.Competency:
@@ -93,7 +118,7 @@ def _check_name(session: Session, direction_id: int, name: str, own_id: int | No
     )
     if other is not None and other != own_id:
         direction = session.get(models.Direction, direction_id)
-        raise Conflict(f"в направлении {direction.code} уже есть дисциплина «{name}»")
+        raise Conflict(f"в плане {direction.label} уже есть дисциплина «{name}»")
 
 
 def save_discipline(

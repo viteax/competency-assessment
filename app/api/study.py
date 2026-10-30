@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app import models, schemas
 from app.api.deps import SessionDep, require_admin
-from app.services import students
+from app.services import catalogs, students
 from app.services.common import delete_or_conflict, get_or_404, save, update_fields
 
 router = APIRouter(tags=["Учебная часть"], dependencies=[Depends(require_admin)])
@@ -13,24 +13,32 @@ router = APIRouter(tags=["Учебная часть"], dependencies=[Depends(req
 
 @router.post("/directions", response_model=schemas.DirectionOut, status_code=201)
 def create_direction(data: schemas.DirectionIn, session: SessionDep):
+    catalogs.ensure_plan_is_free(session, data)
     return save(session, models.Direction(**data.model_dump()))
 
 
 @router.get("/directions", response_model=list[schemas.DirectionOut])
 def list_directions(session: SessionDep):
-    return session.scalars(select(models.Direction).order_by(models.Direction.code)).all()
+    return session.scalars(
+        select(models.Direction).order_by(
+            models.Direction.code,
+            models.Direction.plan_year.desc().nulls_last(),
+            models.Direction.profile_key,
+        )
+    ).all()
 
 
 @router.put("/directions/{direction_id}", response_model=schemas.DirectionOut)
 def update_direction(direction_id: int, data: schemas.DirectionIn, session: SessionDep):
     direction = get_or_404(session, models.Direction, direction_id)
+    catalogs.ensure_plan_is_free(session, data, direction.id)
     return update_fields(session, direction, data)
 
 
 @router.delete("/directions/{direction_id}", status_code=204)
 def delete_direction(direction_id: int, session: SessionDep):
     direction = get_or_404(session, models.Direction, direction_id)
-    delete_or_conflict(session, direction, "у направления есть группы, вопросы или тесты")
+    delete_or_conflict(session, direction, "у учебного плана есть группы, вопросы или тесты")
 
 
 @router.post("/groups", response_model=schemas.GroupOut, status_code=201)
@@ -51,6 +59,7 @@ def list_groups(session: SessionDep, direction_id: int | None = None):
 def update_group(group_id: int, data: schemas.GroupIn, session: SessionDep):
     group = get_or_404(session, models.Group, group_id)
     get_or_404(session, models.Direction, data.direction_id)
+    catalogs.ensure_group_can_move(session, group, data.direction_id)
     return update_fields(session, group, data)
 
 
