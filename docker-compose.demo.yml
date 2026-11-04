@@ -44,13 +44,18 @@ services:
       demo-db:
         condition: service_healthy
     mem_limit: 512m
-    networks: [default, proxy]
+    networks:
+      default:
+      proxy:
+        # Уникальное имя для общей сети: в ней могут быть сервисы других проектов.
+        aliases: [competency-demo-api]
 
 volumes:
   pgdata:
 
 networks:
-  # Сеть прода (проект competency): через нее Caddy прода видит demo-api.
+  # Сеть, через которую Caddy видит demo-api: по умолчанию сеть прода (проект competency).
+  # За общим Caddy сервера – PROXY_NETWORK=edge в .env демо (docs/deploy.md, раздел 8).
   proxy:
     external: true
-    name: competency_default
+    name: ${PROXY_NETWORK:-competency_default}

@@ -1,0 +1,18 @@
+# Прод за общим Caddy сервера: порты 80/443 и сертификаты у него, этот Caddy – только HTTP
+# внутри docker-сети edge. Подключается к docker-compose.prod.yml, когда в .env есть EDGE=on
+# (так делает deploy/remote-deploy.sh). Вручную:
+#   docker compose -f docker-compose.prod.yml -f deploy/compose.edge.yml up -d
+# Подробно – docs/deploy.md, раздел 8.
+
+services:
+  caddy:
+    ports: !reset []
+    networks:
+      default:
+      edge:
+        # Уникальное имя: в сети edge – точки входа и других проектов сервера.
+        aliases: [competency-caddy]
+
+networks:
+  edge:
+    external: true

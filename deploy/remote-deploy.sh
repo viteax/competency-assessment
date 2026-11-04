@@ -64,6 +64,10 @@ prod)
     }
     cd "$PROD_DIR"
     compose="docker compose -f docker-compose.prod.yml"
+    # За общим Caddy сервера порты 80/443 у него (docs/deploy.md, раздел 8).
+    if grep -qx 'EDGE=on' .env; then
+        compose="$compose -f deploy/compose.edge.yml"
+    fi
 
     echo "→ версии из GitHub"
     # --force: теги на сервере – только копия тегов GitHub; тег, созданный здесь вручную,

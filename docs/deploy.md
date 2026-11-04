@@ -231,6 +231,33 @@ cd /opt/competency && docker compose -f docker-compose.prod.yml restart caddy
 > администратором. Реальные данные туда не загружайте. Сбросить демо к исходному состоянию:
 > `docker compose -f docker-compose.demo.yml down -v`, затем снова `remote-deploy.sh` (см. выше).
 
+### Общий Caddy сервера
+
+Если на сервере живут и другие сайты, порты 80/443 удобнее отдать отдельному Caddy – общему для
+всех проектов. Тогда обновление этого проекта не трогает чужие сайты, а сертификаты всех сайтов
+не лежат в томе competency. Caddy этого проекта остается: принимает HTTP из docker-сети `edge`
+и, как и раньше, ставит заголовки, лимит загрузки и id запроса.
+
+```
+браузер ─HTTPS─> общий Caddy (80/443) ─> competency-caddy:80 ─> api:8000
+                                     └─> competency-demo-api:8000
+```
+
+- Сеть `edge` создается один раз и не принадлежит ни одному проекту: `docker network create edge`.
+- `.env` прода: `SITE_ADDRESS=:80` и `EDGE=on`. С `EDGE=on` `deploy/remote-deploy.sh`
+  подключает `deploy/compose.edge.yml`: у Caddy прода нет портов наружу, он в сети `edge`
+  под именем `competency-caddy`. Вручную compose прода теперь запускается с обоими файлами:
+  `docker compose -f docker-compose.prod.yml -f deploy/compose.edge.yml up -d`. Без второго
+  файла Caddy прода попробует занять порты 80/443 и не запустится.
+- `.env` демо: `PROXY_NETWORK=edge` – демо в сети `edge` под именем `competency-demo-api`.
+- В общем Caddy: `сайт.ru { reverse_proxy competency-caddy:80 }`, для демо –
+  `reverse_proxy competency-demo-api:8000` и `request_body { max_size 12MB }`.
+  Заголовки `X-Forwarded-*` общему Caddy доверять не нужно: он первый принимает запросы из
+  интернета. Caddy прода доверяет им от адресов частной сети (`trusted_proxies` в
+  `deploy/Caddyfile`), поэтому вход и аудит видят настоящий IP пользователя.
+- Каталог `deploy/sites` при этом не нужен: адреса всех сайтов – в конфиге общего Caddy.
+- Откат на версию без `deploy/compose.edge.yml` – только вручную, сначала убрав `EDGE=on`.
+
 ## 9. Автоматическое обновление (CD)
 
 После настройки ниже GitHub Actions обновляет сервер сам:
