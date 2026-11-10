@@ -1,3 +1,5 @@
+# Задачи идут на своем раннере на сервере (пользователь gha, /opt/actions-runner, одна задача на сервер
+# за раз). Порты служебных контейнеров – только на 127.0.0.1: сервер смотрит в интернет.
 name: CI
 
 on:
@@ -12,7 +14,7 @@ on:
 # (например, установку браузера для e2e). Обновлять осознанно.
 jobs:
   test:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, vps]
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
@@ -26,7 +28,7 @@ jobs:
 
   e2e:
     # Браузерные сценарии: настоящий сервер и Chromium (tests/e2e).
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, vps]
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
@@ -48,7 +50,7 @@ jobs:
 
   frontend:
     # ESLint для веб-интерфейса (app/static); сборки нет, node нужен только для проверки.
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, vps]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -61,7 +63,7 @@ jobs:
 
   audit:
     # Известные уязвимости в зависимостях (база OSV/PyPI), по точным версиям из uv.lock.
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, vps]
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
@@ -72,7 +74,7 @@ jobs:
       - run: uvx pip-audit -r requirements.txt --disable-pip --require-hashes
 
   migrations:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, vps]
     services:
       postgres:
         image: postgres:16
@@ -80,7 +82,7 @@ jobs:
           POSTGRES_DB: competency
           POSTGRES_PASSWORD: postgres
         ports:
-          - 5432:5432
+          - 127.0.0.1:5432:5432
         options: >-
           --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 15
     env:
@@ -102,7 +104,7 @@ jobs:
     # Собирает образ на каждом пуше и проверяет, что он запускается. Публикует его в GitHub
     # Container Registry (ghcr.io/<владелец>/competency-assessment): на тегах v* – как версию
     # для прода, в main – как sha-<коммит> для демо-стенда.
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, vps]
     needs: [test, e2e, frontend, migrations]
     env:
       PUBLISH: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
@@ -111,7 +113,6 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
       - name: Simulate a Windows checkout (CRLF in scripts)
         # Образ должен запускаться, даже если скрипты пришли с концами строк Windows.
         # Опубликованный образ собирается из нетронутых файлов (шаг Restore ниже).
@@ -127,17 +128,18 @@ jobs:
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha
+      # Без setup-buildx и кэша type=gha: сборщик docker на сервере хранит слои сам, а выгрузка кэша
+      # в GitHub с сервера в России шла по несколько минут на слой и держала очередь задач.
       - name: Build
         uses: docker/build-push-action@v7
         with:
           context: .
           load: true
           tags: competency-assessment:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
       - name: Smoke test
         run: |
-          docker run -d --name app -p 8000:8000 --read-only --tmpfs /tmp \
+          docker rm -f app 2>/dev/null || true  # остался от прерванного запуска
+          docker run -d --name app -p 127.0.0.1:8000:8000 --read-only --tmpfs /tmp \
             -e ENVIRONMENT=prod -e SECRET_KEY="$(openssl rand -hex 32)" \
             -e DATABASE_URL=sqlite:////tmp/smoke.db competency-assessment:ci
           for i in $(seq 1 30); do
@@ -148,6 +150,9 @@ jobs:
           curl -fsS localhost:8000/ready
           curl -fsS localhost:8000/ui/ | grep -q "js/main.js"
           docker exec app id -u | grep -qx 10001  # не root
+      - name: Remove smoke container
+        if: always()
+        run: docker rm -f app 2>/dev/null || true
       - name: Restore scripts
         if: env.PUBLISH == 'true'
         run: git checkout -- scripts
@@ -164,7 +169,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
 
   # --- Доставка на сервер (docs/deploy.md, раздел «Автоматическое обновление») -------------
   # Включается переменной репозитория DEPLOY_HOST; без нее задачи пропускаются.
@@ -174,7 +178,7 @@ jobs:
     # Каждый зеленый пуш в main – на демо-стенд, образом sha-<коммит> из задачи docker.
     if: github.ref == 'refs/heads/main' && vars.DEPLOY_HOST != ''
     needs: [docker, audit]
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, vps]
     environment:
       name: demo
       url: ${{ vars.DEMO_URL }}
@@ -215,7 +219,7 @@ jobs:
     # (Settings → Environments → prod → Required reviewers).
     if: startsWith(github.ref, 'refs/tags/v') && vars.DEPLOY_HOST != ''
     needs: [docker, audit]
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, vps]
     environment:
       name: prod
       url: ${{ vars.PROD_URL }}
