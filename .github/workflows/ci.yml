@@ -172,7 +172,8 @@ jobs:
 
   deploy-demo:
     # Каждый зеленый пуш в main – на демо-стенд, образом sha-<коммит> из задачи docker.
-    if: github.ref == 'refs/heads/main' && vars.DEPLOY_HOST != ''
+    # DEMO_ENABLED=false (переменная репозитория) – демо-стенд выключен, задача пропускается.
+    if: github.ref == 'refs/heads/main' && vars.DEPLOY_HOST != '' && vars.DEMO_ENABLED != 'false'
     needs: [docker, audit]
     runs-on: ubuntu-24.04
     environment:
