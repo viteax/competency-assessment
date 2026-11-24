@@ -14,7 +14,7 @@ import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
-import httpx
+import httpx2
 import pytest
 from playwright.sync_api import Browser, Page, expect, sync_playwright
 
@@ -66,9 +66,9 @@ def server(seeded_db: Path, tmp_path: Path) -> Iterator[str]:
             if proc.poll() is not None:
                 break
             try:
-                if httpx.get(f"{url}/ready").status_code == 200:
+                if httpx2.get(f"{url}/ready").status_code == 200:
                     break
-            except httpx.TransportError:
+            except httpx2.TransportError:
                 pass
             time.sleep(0.1)
         else:
